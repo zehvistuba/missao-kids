@@ -65,15 +65,17 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 );
 
 // ─── Add Child Modal ───────────────────────────────────────
-const AddChildModal = ({ familyId, onAdd, onClose }) => {
+const AddChildModal = ({ onAdd, onClose }) => {
   const [name, setName]     = useState("");
   const [age, setAge]       = useState("");
   const [avatar, setAvatar] = useState("👦");
   const [loading, setLoading] = useState(false);
+  const [err, setErr]       = useState("");
   const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
 
   const handleAdd = async () => {
     if (!name || !age) return;
+    setErr("");
     setLoading(true);
     const { error } = await supabase.rpc("add_child", {
       p_display_name: name,
@@ -81,8 +83,8 @@ const AddChildModal = ({ familyId, onAdd, onClose }) => {
       p_avatar_emoji: avatar,
     });
     setLoading(false);
-    if (!error) onAdd();
-    else onClose();
+    if (error) { setErr(error.message || "Erro ao adicionar filho. Tente novamente."); return; }
+    onAdd();
   };
 
   return (
@@ -96,6 +98,7 @@ const AddChildModal = ({ familyId, onAdd, onClose }) => {
         </div>
         <Inp icon={avatar} placeholder="Nome do filho(a)" value={name} onChange={e => setName(e.target.value)} />
         <Inp icon="🎂" placeholder="Idade" type="number" value={age} onChange={e => setAge(e.target.value)} />
+        {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <Btn onClick={handleAdd} disabled={loading || !name || !age} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
             {loading ? "Salvando..." : "✅ Adicionar"}
@@ -230,61 +233,140 @@ const AuthScreen = () => {
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════
 const Onboarding = ({ user, onDone }) => {
-  const [step, setStep]             = useState(0);
+  // step: "choice" | "create" | "addchild" | "join"
+  const [step, setStep]             = useState("choice");
   const [familyName, setFamilyName] = useState("");
   const [childName, setChildName]   = useState("");
   const [childAge, setChildAge]     = useState("");
   const [avatar, setAvatar]         = useState("👦");
+  const [joinCode, setJoinCode]     = useState("");
   const [loading, setLoading]       = useState(false);
+  const [err, setErr]               = useState("");
   const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
 
   const createFamily = async () => {
     if (!familyName) return;
-    setLoading(true);
-    await supabase.rpc("create_family", { p_family_name: familyName });
+    setErr(""); setLoading(true);
+    const { error } = await supabase.rpc("create_family", { p_family_name: familyName });
     setLoading(false);
-    setStep(1);
+    if (error) { setErr(error.message); return; }
+    setStep("addchild");
   };
 
   const addChild = async () => {
     if (!childName || !childAge) return;
-    setLoading(true);
-    await supabase.rpc("add_child", { p_display_name: childName, p_age: parseInt(childAge), p_avatar_emoji: avatar });
+    setErr(""); setLoading(true);
+    const { error } = await supabase.rpc("add_child", { p_display_name: childName, p_age: parseInt(childAge), p_avatar_emoji: avatar });
     setLoading(false);
+    if (error) { setErr(error.message); return; }
     onDone();
   };
+
+  const joinFamily = async () => {
+    if (!joinCode.trim()) return;
+    setErr(""); setLoading(true);
+    const { error } = await supabase.rpc("join_family_by_code", { p_code: joinCode.trim() });
+    setLoading(false);
+    if (error) { setErr(error.message || "Código inválido ou expirado"); return; }
+    onDone();
+  };
+
+  const totalSteps = step === "join" ? 1 : 2;
+  const currentStep = step === "choice" ? 0 : step === "create" ? 0 : step === "join" ? 0 : 1;
 
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        {step === 0 && <>
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>🏠</div>
-            <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Vamos começar!</div>
-            <div style={{ color: T.textMuted, fontSize: 15 }}>Dê um nome para a sua família</div>
-          </div>
-          <Inp icon="🏠" placeholder="Ex: Família Silva" value={familyName} onChange={e => setFamilyName(e.target.value)} />
-          <Btn onClick={createFamily} disabled={loading || !familyName}>{loading ? "Criando..." : "Próximo →"}</Btn>
-        </>}
-        {step === 1 && <>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
-            <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Adicionar filho(a)</div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-            {avatars.map(a => (
-              <button key={a} onClick={() => setAvatar(a)} style={{ width: 48, height: 48, borderRadius: 14, fontSize: 24, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
-            ))}
-          </div>
-          <Inp icon={avatar} placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
-          <Inp icon="🎂" placeholder="Idade" type="number" value={childAge} onChange={e => setChildAge(e.target.value)} />
-          <Btn onClick={addChild} disabled={loading || !childName || !childAge} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
-          <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
-        </>}
+
+        {/* CHOICE */}
+        {step === "choice" && (
+          <>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>🚀</div>
+              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Bem-vindo!</div>
+              <div style={{ color: T.textMuted, fontSize: 15 }}>Como deseja começar?</div>
+            </div>
+            <button onClick={() => setStep("create")} style={{ width: "100%", padding: "20px 24px", borderRadius: 20, border: `2px solid ${T.primary}55`, background: `${T.primary}14`, color: T.text, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 14, textAlign: "left", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ fontSize: 36 }}>🏠</div>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 16, color: T.primary }}>Criar minha família</div>
+                <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3 }}>Comece do zero com sua família</div>
+              </div>
+            </button>
+            <button onClick={() => setStep("join")} style={{ width: "100%", padding: "20px 24px", borderRadius: 20, border: `2px solid ${T.accent}55`, background: `${T.accent}0E`, color: T.text, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ fontSize: 36 }}>🔗</div>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 16, color: T.accent }}>Entrar com convite</div>
+                <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3 }}>Tenho um código de outro responsável</div>
+              </div>
+            </button>
+          </>
+        )}
+
+        {/* CREATE FAMILY */}
+        {step === "create" && (
+          <>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>🏠</div>
+              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Criar família</div>
+              <div style={{ color: T.textMuted, fontSize: 15 }}>Dê um nome para a sua família</div>
+            </div>
+            <Inp icon="🏠" placeholder="Ex: Família Silva" value={familyName} onChange={e => setFamilyName(e.target.value)} />
+            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+            <Btn onClick={createFamily} disabled={loading || !familyName}>{loading ? "Criando..." : "Próximo →"}</Btn>
+            <button onClick={() => { setStep("choice"); setErr(""); }} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Voltar</button>
+          </>
+        )}
+
+        {/* ADD CHILD */}
+        {step === "addchild" && (
+          <>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
+              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Adicionar filho(a)</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+              {avatars.map(a => (
+                <button key={a} onClick={() => setAvatar(a)} style={{ width: 48, height: 48, borderRadius: 14, fontSize: 24, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
+              ))}
+            </div>
+            <Inp icon={avatar} placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
+            <Inp icon="🎂" placeholder="Idade" type="number" value={childAge} onChange={e => setChildAge(e.target.value)} />
+            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+            <Btn onClick={addChild} disabled={loading || !childName || !childAge} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
+            <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+          </>
+        )}
+
+        {/* JOIN WITH CODE */}
+        {step === "join" && (
+          <>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>🔗</div>
+              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Código de convite</div>
+              <div style={{ color: T.textMuted, fontSize: 15 }}>Digite o código de 6 letras que o outro responsável gerou</div>
+            </div>
+            <input
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="Ex: AB3X7F"
+              maxLength={6}
+              style={{ width: "100%", padding: "18px 24px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: `2px solid ${T.accent}55`, color: T.text, fontSize: 28, fontFamily: "'Nunito', sans-serif", fontWeight: 900, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 8, marginBottom: 16 }}
+            />
+            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+            <Btn onClick={joinFamily} disabled={loading || joinCode.length < 6} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Verificando..." : "🔗 Entrar na família"}</Btn>
+            <button onClick={() => { setStep("choice"); setErr(""); }} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Voltar</button>
+          </>
+        )}
       </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 8, paddingBottom: 40 }}>
-        {[0,1].map(i => <div key={i} style={{ width: i === step ? 28 : 8, height: 8, borderRadius: 999, background: i === step ? T.primary : "rgba(255,255,255,0.15)", transition: "all 0.3s" }} />)}
-      </div>
+
+      {step !== "choice" && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, paddingBottom: 40 }}>
+          {Array.from({length: totalSteps}).map((_, i) => (
+            <div key={i} style={{ width: i === currentStep ? 28 : 8, height: 8, borderRadius: 999, background: i === currentStep ? T.primary : "rgba(255,255,255,0.15)", transition: "all 0.3s" }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -789,11 +871,37 @@ const ParentDash = ({ profile, onSignOut }) => {
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
+  const [inviteCode, setInviteCode]     = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [codeCopied, setCodeCopied]     = useState(false);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
+  const loadInviteCode = async () => {
+    const { data } = await supabase.rpc("get_invite_code");
+    setInviteCode(data || null);
+  };
+
+  const generateCode = async () => {
+    setInviteLoading(true);
+    const { data, error } = await supabase.rpc("generate_invite_code");
+    setInviteLoading(false);
+    if (error) return notify("Erro ao gerar código: " + error.message, "error");
+    setInviteCode(data);
+    notify("✅ Código gerado! Compartilhe com o co-responsável.");
+  };
+
+  const copyCode = () => {
+    if (!inviteCode) return;
+    navigator.clipboard.writeText(inviteCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
+
   useEffect(() => {
     load();
+    loadInviteCode();
     // Realtime — nova missão pendente
     const channel = supabase
       .channel(`parent-${profile.id}`)
@@ -964,6 +1072,37 @@ const ParentDash = ({ profile, onSignOut }) => {
                     );
                   })
               }
+
+              {/* Convidar co-responsável */}
+              <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 20, border: `1px solid ${T.purple}33` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: 22 }}>🔗</div>
+                  <div>
+                    <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Convidar Co-responsável</div>
+                    <div style={{ color: T.textMuted, fontSize: 12 }}>Compartilhe o código com outro responsável</div>
+                  </div>
+                </div>
+                {inviteCode ? (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "12px 16px", border: `2px solid ${T.purple}44`, textAlign: "center" }}>
+                      <span style={{ color: T.purple, fontWeight: 900, fontSize: 24, letterSpacing: 6, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
+                    </div>
+                    <button onClick={copyCode} style={{ padding: "12px 16px", borderRadius: 14, border: "none", background: codeCopied ? `${T.accent}33` : `${T.purple}22`, color: codeCopied ? T.accent : T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                      {codeCopied ? "✅ Copiado" : "📋 Copiar"}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={generateCode} disabled={inviteLoading} style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: inviteLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                    {inviteLoading ? "Gerando..." : "✨ Gerar código de convite"}
+                  </button>
+                )}
+                {inviteCode && (
+                  <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: T.textMuted, fontSize: 11 }}>O código não expira automaticamente</span>
+                    <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
+                  </div>
+                )}
+              </div>
 
               {/* Pendentes */}
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
