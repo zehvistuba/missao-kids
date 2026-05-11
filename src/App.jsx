@@ -292,7 +292,7 @@ const Onboarding = ({ user, onDone }) => {
 // ═══════════════════════════════════════════════════════════
 // CHILD DASHBOARD
 // ═══════════════════════════════════════════════════════════
-const ChildDash = ({ profile, onSignOut }) => {
+const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [tab, setTab]         = useState("home");
   const [missions, setMissions] = useState([]);
   const [rewards, setRewards]   = useState([]);
@@ -304,6 +304,12 @@ const ChildDash = ({ profile, onSignOut }) => {
   const [surpriseMission, setSurpriseMission] = useState(null);
   const [surpriseLoading, setSurpriseLoading] = useState(false);
   const [celebration, setCelebration] = useState(null); // { msg, coins, xp }
+  // Profile editing
+  const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || "👦");
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [siblings, setSiblings] = useState([]);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -359,6 +365,37 @@ const ChildDash = ({ profile, onSignOut }) => {
       setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
     }
     setLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === "profile") loadProfileExtras();
+  }, [tab]);
+
+  const loadProfileExtras = async () => {
+    setHistoryLoading(true);
+    const [{ data: sibs }, { data: hist }] = await Promise.all([
+      supabase.from("profiles")
+        .select("id,display_name,avatar_emoji,xp,kidcoins,streak")
+        .eq("family_id", profile.family_id)
+        .eq("role", "child")
+        .order("xp", { ascending: false }),
+      supabase.from("mission_logs")
+        .select("id,coins_earned,due_date,mission_id,missions(title,emoji)")
+        .eq("child_id", profile.id)
+        .eq("status", "approved")
+        .order("due_date", { ascending: false })
+        .limit(20),
+    ]);
+    setSiblings(sibs || []);
+    setHistoryLogs(hist || []);
+    setHistoryLoading(false);
+  };
+
+  const saveAvatar = async (emoji) => {
+    setAvatarEmoji(emoji);
+    setEditingAvatar(false);
+    await supabase.from("profiles").update({ avatar_emoji: emoji }).eq("id", profile.id);
+    if (onRefresh) onRefresh();
   };
 
   const generateSurpriseMission = async () => {
@@ -572,20 +609,92 @@ const ChildDash = ({ profile, onSignOut }) => {
 
           {/* PROFILE */}
           {tab === "profile" && (
-            <div style={{ textAlign: "center" }}>
-              <div style={{ width: 100, height: 100, borderRadius: 30, margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>{profile.avatar_emoji || "👦"}</div>
-              <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
-              <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 24 }}>{profile.age ? `${profile.age} anos` : ""}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
-                {[{ label:"KidCoins", value:profile.kidcoins||0, icon:"🪙", color:T.secondary }, { label:"Nível", value:lvl.level, icon:lvl.emoji, color:lvl.color }, { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning }].map((s,i) => (
-                  <div key={i} style={{ background: T.card, borderRadius: 16, padding: 14, border: `1px solid ${s.color}22` }}>
-                    <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
-                    <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.value}</div>
-                    <div style={{ color: T.textMuted, fontSize: 10 }}>{s.label}</div>
+            <div>
+              {/* Avatar picker modal */}
+              {editingAvatar && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                  <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 430 }}>
+                    <div style={{ color: T.text, fontWeight: 900, fontSize: 17, textAlign: "center", marginBottom: 20 }}>✏️ Escolher avatar</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 20 }}>
+                      {["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🦋","🌟","🦅","🐉","🤖","👾"].map(e => (
+                        <button key={e} onClick={() => saveAvatar(e)} style={{ width: 54, height: 54, borderRadius: 16, fontSize: 26, border: `2px solid ${avatarEmoji === e ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatarEmoji === e ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer", transition: "all 0.15s" }}>{e}</button>
+                      ))}
+                    </div>
+                    <button onClick={() => setEditingAvatar(false)} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Avatar + nome */}
+              <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <div onClick={() => setEditingAvatar(true)} style={{ position: "relative", display: "inline-block", cursor: "pointer", marginBottom: 12 }}>
+                  <div style={{ width: 100, height: 100, borderRadius: 30, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>{avatarEmoji}</div>
+                  <div style={{ position: "absolute", bottom: -4, right: -4, width: 28, height: 28, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `2px solid ${T.darker}` }}>✏️</div>
+                </div>
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
+                <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{profile.age ? `${profile.age} anos · ` : ""}{lvl.name} {lvl.emoji}</div>
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {[
+                  { label:"KidCoins", value:profile.kidcoins||0, icon:"🪙", color:T.secondary },
+                  { label:"XP Total", value:profile.xp||0, icon:"⚡", color:T.accent },
+                  { label:"Nível", value:lvl.level, icon:lvl.emoji, color:lvl.color },
+                  { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning },
+                ].map((s,i) => (
+                  <div key={i} style={{ background: T.card, borderRadius: 14, padding: "12px 8px", border: `1px solid ${s.color}22`, textAlign: "center" }}>
+                    <div style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 14 }}>{s.value}</div>
+                    <div style={{ color: T.textMuted, fontSize: 9, marginTop: 2 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
-              <button onClick={onSignOut} style={{ padding: "12px 24px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+
+              {/* Ranking entre irmãos */}
+              {siblings.length > 1 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 12 }}>🏆 Ranking da Família</div>
+                  {siblings.map((s, i) => {
+                    const isMe = s.id === profile.id;
+                    const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}º`;
+                    return (
+                      <div key={s.id} style={{ background: isMe ? `${T.primary}18` : T.card, borderRadius: 16, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: `1px solid ${isMe ? T.primary+"44" : "rgba(255,255,255,0.06)"}` }}>
+                        <div style={{ fontSize: 20, width: 28, textAlign: "center" }}>{medal}</div>
+                        <div style={{ fontSize: 28 }}>{s.avatar_emoji || "👦"}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: isMe ? T.primary : T.text, fontWeight: isMe ? 800 : 600, fontSize: 14 }}>{s.display_name}{isMe ? " (você)" : ""}</div>
+                          <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>⚡ {s.xp||0} XP · 🪙 {s.kidcoins||0}</div>
+                        </div>
+                        <div style={{ color: T.warning, fontWeight: 800, fontSize: 13 }}>{s.streak||0}🔥</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Histórico de missões */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 12 }}>✅ Missões Concluídas</div>
+                {historyLoading ? (
+                  <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Carregando... ⏳</div>
+                ) : historyLogs.length === 0 ? (
+                  <div style={{ background: T.card, borderRadius: 16, padding: 20, textAlign: "center", color: T.textMuted, fontSize: 13 }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>Nenhuma missão concluída ainda!
+                  </div>
+                ) : historyLogs.map((log, i) => (
+                  <div key={log.id || i} style={{ background: T.card, borderRadius: 14, padding: "11px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 22 }}>{log.missions?.emoji || "✅"}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: T.text, fontWeight: 600, fontSize: 13 }}>{log.missions?.title || "Missão"}</div>
+                      <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{log.due_date}</div>
+                    </div>
+                    <div style={{ color: T.secondary, fontWeight: 800, fontSize: 13 }}>+🪙{log.coins_earned||0}</div>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={onSignOut} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
         </>}
@@ -1035,7 +1144,7 @@ export default function App() {
           {screen === "auth"       && <AuthScreen />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
           {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
-          {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} />}
+          {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
           {loading && screen !== "splash" && (
             <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div>
