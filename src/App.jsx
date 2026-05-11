@@ -310,6 +310,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [siblings, setSiblings] = useState([]);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [streakDays, setStreakDays] = useState([]); // last 7 days active?
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -330,16 +331,20 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         if (payload.new.status === "approved") {
           load();
           const mission = missions.find(m => m.id === payload.new.mission_id);
+          const xpGained = mission?.xp_reward || 0;
+          const oldLevel = getLvl(profile.xp || 0);
+          const newLevel = getLvl((profile.xp || 0) + xpGained);
+          const levelUp = newLevel.level > oldLevel.level ? newLevel : null;
           try {
             const msg = await callAI("motivational", {
               childName: profile.display_name,
               age: profile.age,
-              level: getLvl(profile.xp || 0).level,
+              level: newLevel.level,
               missionName: mission?.title || "essa missão",
               coins: payload.new.coins_earned,
-              xp: mission?.xp_reward || 0,
+              xp: xpGained,
             });
-            setCelebration({ msg, coins: payload.new.coins_earned, xp: mission?.xp_reward || 0 });
+            setCelebration({ msg, coins: payload.new.coins_earned, xp: xpGained, levelUp });
           } catch {
             notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
           }
@@ -352,13 +357,20 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const load = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
-    const [{ data: m }, { data: r }, { data: a }, { data: l }] = await Promise.all([
+    const last7 = Array.from({length: 7}, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      return d.toISOString().split("T")[0];
+    });
+    const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
       supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
       supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
       supabase.from("achievements").select("*").order("condition_val"),
       supabase.from("mission_logs").select("*").eq("child_id", profile.id).eq("due_date", today),
+      supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
     ]);
     setMissions(m || []); setRewards(r || []); setLogs(l || []);
+    const activeDaysSet = new Set((sd || []).map(x => x.due_date));
+    setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
     if (a) {
       const { data: earned } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
       const earnedSet = new Set((earned || []).map(e => e.achievement_id));
@@ -438,8 +450,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
       {/* Modal de celebração IA */}
       {celebration && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: `linear-gradient(135deg, ${T.purple}DD, ${T.pink}DD)`, borderRadius: 32, padding: "36px 28px", maxWidth: 360, width: "100%", textAlign: "center", border: "2px solid rgba(255,255,255,0.15)", backdropFilter: "blur(20px)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflow: "hidden" }}>
+          {/* Coins caindo */}
+          {[...Array(8)].map((_, i) => (
+            <div key={i} style={{ position: "absolute", top: "-10%", left: `${10 + i * 11}%`, fontSize: 24, animation: `coinFloat ${1.2 + i * 0.18}s ease-in ${i * 0.12}s infinite`, pointerEvents: "none", zIndex: 9901 }}>🪙</div>
+          ))}
+          <div style={{ background: `linear-gradient(135deg, ${T.purple}EE, ${T.pink}EE)`, borderRadius: 32, padding: "36px 28px", maxWidth: 360, width: "100%", textAlign: "center", border: "2px solid rgba(255,255,255,0.15)", backdropFilter: "blur(20px)", position: "relative", zIndex: 9902 }}>
             <div style={{ fontSize: 80, marginBottom: 16, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>🎉</div>
             <div style={{ color: "#fff", fontWeight: 900, fontSize: 22, marginBottom: 12 }}>Missão Aprovada!</div>
             <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 20 }}>
@@ -454,6 +470,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 </div>
               )}
             </div>
+            {/* Level Up section */}
+            {celebration.levelUp && (
+              <div style={{ background: `linear-gradient(135deg, ${celebration.levelUp.color}44, ${celebration.levelUp.color}22)`, borderRadius: 20, padding: "16px 20px", marginBottom: 20, border: `2px solid ${celebration.levelUp.color}88`, animation: "levelUpPop 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>{celebration.levelUp.emoji}</div>
+                <div style={{ color: celebration.levelUp.color, fontWeight: 900, fontSize: 18, letterSpacing: 0.5 }}>LEVEL UP!</div>
+                <div style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginTop: 4 }}>Agora você é {celebration.levelUp.name}!</div>
+              </div>
+            )}
             <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 16, fontWeight: 700, marginBottom: 28, lineHeight: 1.6 }}>{celebration.msg}</div>
             <button onClick={() => setCelebration(null)} style={{ width: "100%", padding: "15px", borderRadius: 18, border: "none", background: "rgba(255,255,255,0.22)", color: "#fff", fontWeight: 900, fontSize: 17, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Uhuuul! 🚀</button>
           </div>
@@ -538,6 +562,31 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 )}
               </div>
 
+              {/* Streak Calendar — 7 dias */}
+              {streakDays.length === 7 && (
+                <div style={{ background: T.card, borderRadius: 20, padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>ÚLTIMOS 7 DIAS</div>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
+                    {(() => {
+                      const dayLabels = ["D","S","T","Q","Q","S","S"];
+                      return streakDays.map((active, i) => {
+                        const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                        const label = dayLabels[d.getDay()];
+                        const isToday = i === 6;
+                        return (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            <div style={{ fontSize: 10, color: isToday ? T.primary : T.textMuted, fontWeight: isToday ? 800 : 600 }}>{label}</div>
+                            <div style={{ width: 32, height: 32, borderRadius: 10, background: active ? `linear-gradient(135deg, ${T.warning}, ${T.primary})` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, border: isToday && !active ? `2px solid ${T.primary}44` : "none", boxShadow: active ? `0 0 8px ${T.warning}55` : "none" }}>
+                              {active ? "🔥" : "⚪"}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões de Hoje</div>
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
@@ -563,6 +612,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                     );
                   })
               }
+              {/* Badge "Missão do Dia" completa */}
+              {missions.length > 0 && missions.every(m => getLog(m.id)?.status === "approved") && (
+                <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.blue}22)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `2px solid ${T.accent}55`, animation: "bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                  <div style={{ fontSize: 44, marginBottom: 8 }}>🌟</div>
+                  <div style={{ color: T.accent, fontWeight: 900, fontSize: 17, marginBottom: 4 }}>Missões do Dia Concluídas!</div>
+                  <div style={{ color: T.textMuted, fontSize: 13 }}>Você é incrível! Continue assim amanhã 🚀</div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1195,6 +1252,8 @@ const CSS = `
   @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes coinFloat { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
+  @keyframes levelUpPop { 0% { transform: scale(0.5) translateY(20px); opacity: 0; } 70% { transform: scale(1.08) translateY(-4px); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 `;
