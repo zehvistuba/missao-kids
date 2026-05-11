@@ -6,6 +6,15 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON
 );
 
+const callAI = async (action, context) => {
+  const { data, error } = await supabase.functions.invoke("ai-assistant", {
+    body: { action, context },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data.result;
+};
+
 const T = {
   primary: "#FF6B35", secondary: "#FFD23F", accent: "#06D6A0",
   purple: "#9B5DE5", blue: "#4CC9F0", pink: "#F72585",
@@ -292,6 +301,9 @@ const ChildDash = ({ profile, onSignOut }) => {
   const [notif, setNotif]       = useState(null);
   const [notifType, setNotifType] = useState("success");
   const [loading, setLoading]   = useState(true);
+  const [surpriseMission, setSurpriseMission] = useState(null);
+  const [surpriseLoading, setSurpriseLoading] = useState(false);
+  const [celebration, setCelebration] = useState(null); // { msg, coins, xp }
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -308,10 +320,23 @@ const ChildDash = ({ profile, onSignOut }) => {
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "mission_logs",
         filter: `child_id=eq.${profile.id}`,
-      }, (payload) => {
+      }, async (payload) => {
         if (payload.new.status === "approved") {
-          notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
           load();
+          const mission = missions.find(m => m.id === payload.new.mission_id);
+          try {
+            const msg = await callAI("motivational", {
+              childName: profile.display_name,
+              age: profile.age,
+              level: getLvl(profile.xp || 0).level,
+              missionName: mission?.title || "essa missão",
+              coins: payload.new.coins_earned,
+              xp: mission?.xp_reward || 0,
+            });
+            setCelebration({ msg, coins: payload.new.coins_earned, xp: mission?.xp_reward || 0 });
+          } catch {
+            notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
+          }
         }
       })
       .subscribe();
@@ -336,6 +361,23 @@ const ChildDash = ({ profile, onSignOut }) => {
     setLoading(false);
   };
 
+  const generateSurpriseMission = async () => {
+    setSurpriseLoading(true);
+    try {
+      const raw = await callAI("surprise_mission", {
+        childName: profile.display_name,
+        age: profile.age,
+        level: getLvl(profile.xp || 0).level,
+        levelName: getLvl(profile.xp || 0).name,
+        xp: profile.xp || 0,
+      });
+      setSurpriseMission(JSON.parse(raw));
+    } catch {
+      notify("Não consegui criar a missão surpresa 😅 Tente novamente!", "error");
+    }
+    setSurpriseLoading(false);
+  };
+
   const getLog = (mid) => logs.find(l => l.mission_id === mid);
 
   const submit = async (mid) => {
@@ -356,6 +398,30 @@ const ChildDash = ({ profile, onSignOut }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
+
+      {/* Modal de celebração IA */}
+      {celebration && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9900, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: `linear-gradient(135deg, ${T.purple}DD, ${T.pink}DD)`, borderRadius: 32, padding: "36px 28px", maxWidth: 360, width: "100%", textAlign: "center", border: "2px solid rgba(255,255,255,0.15)", backdropFilter: "blur(20px)" }}>
+            <div style={{ fontSize: 80, marginBottom: 16, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>🎉</div>
+            <div style={{ color: "#fff", fontWeight: 900, fontSize: 22, marginBottom: 12 }}>Missão Aprovada!</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 20 }}>
+              <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 14, padding: "10px 18px" }}>
+                <div style={{ color: T.secondary, fontWeight: 900, fontSize: 20 }}>🪙 +{celebration.coins}</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>KidCoins</div>
+              </div>
+              {celebration.xp > 0 && (
+                <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 14, padding: "10px 18px" }}>
+                  <div style={{ color: T.accent, fontWeight: 900, fontSize: 20 }}>⚡ +{celebration.xp}</div>
+                  <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 }}>XP</div>
+                </div>
+              )}
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 16, fontWeight: 700, marginBottom: 28, lineHeight: 1.6 }}>{celebration.msg}</div>
+            <button onClick={() => setCelebration(null)} style={{ width: "100%", padding: "15px", borderRadius: 18, border: "none", background: "rgba(255,255,255,0.22)", color: "#fff", fontWeight: 900, fontSize: 17, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Uhuuul! 🚀</button>
+          </div>
+        </div>
+      )}
 
       {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px 0" }}>
@@ -401,6 +467,40 @@ const ChildDash = ({ profile, onSignOut }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Missão Surpresa IA */}
+              <div style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, borderRadius: 22, padding: 20, marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -16, top: -16, fontSize: 72, opacity: 0.12, pointerEvents: "none" }}>🎲</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ color: "#fff", fontWeight: 900, fontSize: 15 }}>🎲 Missão Surpresa</div>
+                    <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 2 }}>Gerada por IA só pra você!</div>
+                  </div>
+                  {!surpriseMission ? (
+                    <button onClick={generateSurpriseMission} disabled={surpriseLoading} style={{ padding: "10px 16px", borderRadius: 14, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 900, fontSize: 13, cursor: surpriseLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                      {surpriseLoading ? "✨..." : "✨ Gerar"}
+                    </button>
+                  ) : (
+                    <button onClick={() => setSurpriseMission(null)} style={{ padding: "8px 14px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Nova 🔄</button>
+                  )}
+                </div>
+                {surpriseMission && (
+                  <div style={{ marginTop: 14, background: "rgba(0,0,0,0.22)", borderRadius: 16, padding: "14px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <div style={{ fontSize: 34, marginTop: 2 }}>{surpriseMission.emoji}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{surpriseMission.title}</div>
+                        <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>{surpriseMission.description}</div>
+                        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                          <span style={{ fontSize: 12, color: T.secondary, fontWeight: 700 }}>🪙 {surpriseMission.coins_reward}</span>
+                          <span style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>+{surpriseMission.xp_reward} XP</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>Bônus do dia!</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões de Hoje</div>
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
@@ -520,6 +620,9 @@ const ParentDash = ({ profile, onSignOut }) => {
   const [showAddChild, setShowAddChild] = useState(false);
   const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 });
   const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50 });
+  const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
+  const [aiMissions, setAiMissions] = useState([]);
+  const [aiReport, setAiReport] = useState(null);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
@@ -570,6 +673,59 @@ const ParentDash = ({ profile, onSignOut }) => {
     const { error } = await supabase.from("rewards").insert({ ...newR, family_id: profile.family_id, created_by: profile.id });
     if (error) return notify("Erro ao criar", "error");
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
+  };
+
+  const suggestMissions = async () => {
+    if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
+    setAiLoading("missions");
+    setAiReport(null);
+    try {
+      const raw = await callAI("suggest_missions", {
+        children: children.map(c => ({ name: c.display_name, age: c.age, xp: c.xp })),
+        existingMissions: missions.map(m => ({ title: m.title })),
+      });
+      setAiMissions(JSON.parse(raw));
+    } catch (e) {
+      notify("Erro ao gerar sugestões: " + (e.message || "Tente novamente"), "error");
+    }
+    setAiLoading(null);
+  };
+
+  const generateReport = async () => {
+    if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
+    setAiLoading("report");
+    setAiMissions([]);
+    try {
+      const report = await callAI("weekly_report", {
+        familyName: profile.display_name,
+        children: children.map(c => ({
+          name: c.display_name,
+          age: c.age,
+          xp: c.xp,
+          kidcoins: c.kidcoins,
+          streak: c.streak,
+        })),
+      });
+      setAiReport(report);
+    } catch (e) {
+      notify("Erro ao gerar relatório: " + (e.message || "Tente novamente"), "error");
+    }
+    setAiLoading(null);
+  };
+
+  const addAIMission = async (m) => {
+    const { error } = await supabase.from("missions").insert({
+      title: m.title,
+      emoji: m.emoji,
+      coins_reward: m.coins_reward,
+      xp_reward: m.xp_reward,
+      family_id: profile.family_id,
+      created_by: profile.id,
+    });
+    if (error) return notify("Erro ao criar missão", "error");
+    notify(`✅ "${m.title}" adicionada!`);
+    setAiMissions(prev => prev.filter(x => x.title !== m.title));
+    load();
   };
 
   const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"}];
@@ -751,7 +907,7 @@ const ParentDash = ({ profile, onSignOut }) => {
           {tab === "stats" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
                 {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.length, icon:"🎁", color:T.pink }].map((s,i) => (
                   <div key={i} style={{ background: T.card, borderRadius: 20, padding: 18, border: `1px solid ${s.color}22` }}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
@@ -760,6 +916,55 @@ const ParentDash = ({ profile, onSignOut }) => {
                   </div>
                 ))}
               </div>
+
+              {/* Assistente IA */}
+              <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 24, padding: 20, marginBottom: 20, border: `1px solid ${T.purple}44` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 12, background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🤖</div>
+                  <div>
+                    <div style={{ color: T.text, fontWeight: 900, fontSize: 15 }}>Assistente IA</div>
+                    <div style={{ color: T.textMuted, fontSize: 11 }}>Powered by Gemini</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 16, marginBottom: aiMissions.length > 0 || aiReport ? 16 : 0 }}>
+                  <button onClick={suggestMissions} disabled={!!aiLoading} style={{ flex: 1, padding: "13px 8px", borderRadius: 14, border: `1px solid ${T.purple}55`, background: aiLoading === "missions" ? `${T.purple}33` : `${T.purple}18`, color: T.purple, fontWeight: 800, fontSize: 13, cursor: aiLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
+                    {aiLoading === "missions" ? "Gerando... ✨" : "🤖 Sugerir missões"}
+                  </button>
+                  <button onClick={generateReport} disabled={!!aiLoading} style={{ flex: 1, padding: "13px 8px", borderRadius: 14, border: `1px solid ${T.blue}55`, background: aiLoading === "report" ? `${T.blue}33` : `${T.blue}18`, color: T.blue, fontWeight: 800, fontSize: 13, cursor: aiLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
+                    {aiLoading === "report" ? "Gerando... 📊" : "📊 Relatório semanal"}
+                  </button>
+                </div>
+
+                {/* Missões sugeridas pela IA */}
+                {aiMissions.length > 0 && (
+                  <div>
+                    <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>SUGESTÕES — TOQUE PARA ADICIONAR</div>
+                    {aiMissions.map((m, i) => (
+                      <div key={i} style={{ background: T.darker, borderRadius: 14, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: `${T.purple}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{m.emoji}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: T.text, fontWeight: 700, fontSize: 13 }}>{m.title}</div>
+                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                            <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
+                          </div>
+                        </div>
+                        <button onClick={() => addAIMission(m)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>+ Add</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Relatório semanal */}
+                {aiReport && (
+                  <div style={{ background: T.darker, borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>RELATÓRIO SEMANAL</div>
+                    <div style={{ color: T.text, fontSize: 14, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{aiReport}</div>
+                    <button onClick={() => setAiReport(null)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕ Fechar</button>
+                  </div>
+                )}
+              </div>
+
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
@@ -801,10 +1006,17 @@ export default function App() {
 
   const loadProfile = async (uid) => {
     setLoading(true);
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-    if (data) {
-      setProfile(data);
-      setScreen(!data.family_id && data.role === "parent" ? "onboarding" : data.role === "parent" ? "parent" : "child");
+    try {
+      const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+      if (data) {
+        setProfile(data);
+        setScreen(!data.family_id && data.role === "parent" ? "onboarding" : data.role === "parent" ? "parent" : "child");
+      } else {
+        // Perfil não encontrado: trigger falhou anteriormente. Desloga para o usuário se recadastrar.
+        await supabase.auth.signOut();
+      }
+    } catch {
+      await supabase.auth.signOut();
     }
     setLoading(false);
   };
@@ -816,7 +1028,10 @@ export default function App() {
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
         <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
-          {screen === "splash" && <Splash onDone={() => { if (!loading) setScreen(user ? (profile?.role === "parent" ? "parent" : "child") : "auth"); else setScreen("auth"); }} />}
+          {screen === "splash" && <Splash onDone={() => {
+            if (!loading && user && profile) setScreen(profile.role === "parent" ? "parent" : "child");
+            else setScreen("auth");
+          }} />}
           {screen === "auth"       && <AuthScreen />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
           {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
