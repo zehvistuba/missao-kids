@@ -1100,6 +1100,22 @@ export default function App() {
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall, setShowInstall]     = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === "accepted") setShowInstall(false);
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1149,6 +1165,21 @@ export default function App() {
             <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div>
               <div style={{ color: T.textMuted, fontSize: 14 }}>Carregando...</div>
+            </div>
+          )}
+
+          {/* Banner instalar PWA */}
+          {showInstall && (
+            <div style={{ position: "fixed", bottom: 90, left: 12, right: 12, zIndex: 8500, background: T.card, borderRadius: 20, padding: "14px 16px", border: `1px solid ${T.primary}55`, display: "flex", alignItems: "center", gap: 14, boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${T.primary}22`, animation: "slideDown 0.3s ease" }}>
+              <div style={{ fontSize: 36 }}>📲</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Instalar Missão Kids</div>
+                <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>Acesse direto da tela inicial!</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={installApp} style={{ padding: "9px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Instalar</button>
+                <button onClick={() => setShowInstall(false)} style={{ padding: "9px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
+              </div>
             </div>
           )}
         </div>

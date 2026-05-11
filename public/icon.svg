@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#0F0F1A"/>
+  <defs>
+    <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="100%" stop-color="#F72585"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFD23F"/>
+      <stop offset="100%" stop-color="#FF6B35"/>
+    </linearGradient>
+  </defs>
+  <!-- Rocket body -->
+  <ellipse cx="256" cy="218" rx="72" ry="108" fill="url(#rg)"/>
+  <!-- Nosecone -->
+  <path d="M256 96 C256 96 324 148 324 218 L188 218 C188 148 256 96 256 96Z" fill="#FF6B35"/>
+  <!-- Window -->
+  <circle cx="256" cy="206" r="34" fill="white" opacity="0.92"/>
+  <circle cx="256" cy="206" r="24" fill="#4CC9F0"/>
+  <circle cx="244" cy="196" r="8" fill="white" opacity="0.5"/>
+  <!-- Left fin -->
+  <path d="M188 295 L148 355 L205 322Z" fill="url(#fg)"/>
+  <!-- Right fin -->
+  <path d="M324 295 L364 355 L307 322Z" fill="url(#fg)"/>
+  <!-- Flame outer -->
+  <ellipse cx="256" cy="338" rx="38" ry="26" fill="#FFD23F" opacity="0.85"/>
+  <!-- Flame inner -->
+  <ellipse cx="256" cy="350" rx="22" ry="17" fill="white" opacity="0.65"/>
+  <!-- Stars -->
+  <circle cx="108" cy="130" r="9" fill="#9B5DE5"/>
+  <circle cx="392" cy="155" r="7" fill="#4CC9F0"/>
+  <circle cx="120" cy="310" r="6" fill="#06D6A0"/>
+  <circle cx="378" cy="305" r="8" fill="#FFD23F"/>
+  <circle cx="350" cy="105" r="5" fill="#F72585"/>
+  <circle cx="148" cy="390" r="5" fill="#9B5DE5"/>
+</svg>
