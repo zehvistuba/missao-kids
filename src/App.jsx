@@ -24,6 +24,10 @@ const LEVELS = [
 
 const getLvl  = (xp) => LEVELS.filter(l => xp >= l.xpNeeded).pop();
 const getNext = (xp) => LEVELS.find(l => l.xpNeeded > xp) || LEVELS[LEVELS.length - 1];
+const getSaudacao = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+};
 
 // ─── UI Components ────────────────────────────────────────
 const XPBar = ({ current, max, color = T.accent }) => (
@@ -51,6 +55,49 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
   <button onClick={onClick} disabled={disabled} style={{ width: small ? "auto" : "100%", padding: small ? "10px 20px" : "15px 24px", borderRadius: 16, border: outline ? "1px solid rgba(255,255,255,0.15)" : "none", background: disabled ? "rgba(255,255,255,0.08)" : outline ? "rgba(255,255,255,0.04)" : gradient || `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: disabled ? T.textMuted : T.text, fontWeight: 800, fontSize: small ? 13 : 15, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", letterSpacing: 0.3 }}>{children}</button>
 );
 
+// ─── Add Child Modal ───────────────────────────────────────
+const AddChildModal = ({ familyId, onAdd, onClose }) => {
+  const [name, setName]     = useState("");
+  const [age, setAge]       = useState("");
+  const [avatar, setAvatar] = useState("👦");
+  const [loading, setLoading] = useState(false);
+  const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
+
+  const handleAdd = async () => {
+    if (!name || !age) return;
+    setLoading(true);
+    const { error } = await supabase.rpc("add_child", {
+      p_display_name: name,
+      p_age: parseInt(age),
+      p_avatar_emoji: avatar,
+    });
+    setLoading(false);
+    if (!error) onAdd();
+    else onClose();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>👶 Adicionar Filho(a)</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+          {avatars.map(a => (
+            <button key={a} onClick={() => setAvatar(a)} style={{ width: 46, height: 46, borderRadius: 12, fontSize: 22, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
+          ))}
+        </div>
+        <Inp icon={avatar} placeholder="Nome do filho(a)" value={name} onChange={e => setName(e.target.value)} />
+        <Inp icon="🎂" placeholder="Idade" type="number" value={age} onChange={e => setAge(e.target.value)} />
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <Btn onClick={handleAdd} disabled={loading || !name || !age} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+            {loading ? "Salvando..." : "✅ Adicionar"}
+          </Btn>
+          <Btn onClick={onClose} outline small>Cancelar</Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════
 // SPLASH
 // ═══════════════════════════════════════════════════════════
@@ -73,14 +120,14 @@ const Splash = ({ onDone }) => {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
-const AuthScreen = ({ onAuth }) => {
-  const [mode, setMode]       = useState("login");
+const AuthScreen = () => {
+  const [mode, setMode]         = useState("login");
   const [userType, setUserType] = useState("parent");
-  const [email, setEmail]     = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName]       = useState("");
-  const [loading, setLoading] = useState(false);
-  const [notif, setNotif]     = useState(null);
+  const [name, setName]         = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [notif, setNotif]       = useState(null);
   const [notifType, setNotifType] = useState("success");
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
@@ -94,7 +141,10 @@ const AuthScreen = ({ onAuth }) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name, role: userType } } });
+        const { error } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { display_name: name, role: userType } }
+        });
         if (error) throw error;
         notify("✅ Conta criada! Verifique seu email.");
         setTimeout(() => setMode("login"), 2500);
@@ -171,12 +221,12 @@ const AuthScreen = ({ onAuth }) => {
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════
 const Onboarding = ({ user, onDone }) => {
-  const [step, setStep]           = useState(0);
+  const [step, setStep]             = useState(0);
   const [familyName, setFamilyName] = useState("");
-  const [childName, setChildName] = useState("");
-  const [childAge, setChildAge]   = useState("");
-  const [avatar, setAvatar]       = useState("👦");
-  const [loading, setLoading]     = useState(false);
+  const [childName, setChildName]   = useState("");
+  const [childAge, setChildAge]     = useState("");
+  const [avatar, setAvatar]         = useState("👦");
+  const [loading, setLoading]       = useState(false);
   const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
 
   const createFamily = async () => {
@@ -207,7 +257,6 @@ const Onboarding = ({ user, onDone }) => {
           <Inp icon="🏠" placeholder="Ex: Família Silva" value={familyName} onChange={e => setFamilyName(e.target.value)} />
           <Btn onClick={createFamily} disabled={loading || !familyName}>{loading ? "Criando..." : "Próximo →"}</Btn>
         </>}
-
         {step === 1 && <>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
@@ -235,7 +284,7 @@ const Onboarding = ({ user, onDone }) => {
 // CHILD DASHBOARD
 // ═══════════════════════════════════════════════════════════
 const ChildDash = ({ profile, onSignOut }) => {
-  const [tab, setTab]       = useState("home");
+  const [tab, setTab]         = useState("home");
   const [missions, setMissions] = useState([]);
   const [rewards, setRewards]   = useState([]);
   const [achievements, setAch]  = useState([]);
@@ -246,12 +295,28 @@ const ChildDash = ({ profile, onSignOut }) => {
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
-  const xpIn = (profile.xp || 0) - lvl.xpNeeded;
+  const xpIn  = (profile.xp || 0) - lvl.xpNeeded;
   const xpFor = next.xpNeeded - lvl.xpNeeded;
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Realtime — escuta aprovação de missão
+    const channel = supabase
+      .channel(`approved-${profile.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "mission_logs",
+        filter: `child_id=eq.${profile.id}`,
+      }, (payload) => {
+        if (payload.new.status === "approved") {
+          notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
+          load();
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -283,7 +348,7 @@ const ChildDash = ({ profile, onSignOut }) => {
     if ((profile.kidcoins || 0) < cost) return notify("KidCoins insuficientes! 😢", "error");
     const { error } = await supabase.rpc("redeem_reward", { p_reward_id: rid });
     if (error) return notify(error.message || "Erro", "error");
-    notify("🎁 Recompensa resgatada!"); load();
+    notify("🎁 Recompensa resgatada! Aguarde a entrega."); load();
   };
 
   const navTabs = [{ key:"home",icon:"🏠",label:"Início"},{key:"store",icon:"🏪",label:"Loja"},{key:"achievements",icon:"🏆",label:"Conquistas"},{key:"profile",icon:"👤",label:"Perfil"}];
@@ -291,19 +356,23 @@ const ChildDash = ({ profile, onSignOut }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
+
+      {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{profile.avatar_emoji || "👦"}</div>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{profile.avatar_emoji || "👦"}</div>
             <div>
-              <div style={{ color: T.textMuted, fontSize: 10, letterSpacing: 1 }}>BEM-VINDO,</div>
-              <div style={{ color: T.text, fontSize: 16, fontWeight: 800 }}>{profile.display_name} ⚡</div>
+              <div style={{ color: T.textMuted, fontSize: 11 }}>{getSaudacao()},</div>
+              <div style={{ color: T.text, fontSize: 17, fontWeight: 900 }}>👋 {profile.display_name}!</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, borderRadius: 14, padding: "8px 14px", border: `1px solid ${T.secondary}33` }}>
             <span>🪙</span><span style={{ color: T.secondary, fontWeight: 900, fontSize: 16 }}>{profile.kidcoins || 0}</span>
           </div>
         </div>
+
+        {/* Level card */}
         <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 20, padding: "16px 20px", border: `1px solid ${lvl.color}33`, marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -328,34 +397,39 @@ const ChildDash = ({ profile, onSignOut }) => {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 90px" }}>
         {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+
+          {/* HOME */}
           {tab === "home" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões de Hoje</div>
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
                 : missions.map(m => {
-                  const log = getLog(m.id);
-                  const done = log?.status === "approved";
-                  const pending = log?.status === "pending";
-                  return (
-                    <div key={m.id} style={{ background: done ? `${T.accent}11` : pending ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pending ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.7 : 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✅" : m.emoji}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
-                          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                            <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                            <span style={{ fontSize: 12, color: T.accent }}>+{m.xp_reward} XP</span>
+                    const log = getLog(m.id);
+                    const done = log?.status === "approved";
+                    const pending = log?.status === "pending";
+                    return (
+                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pending ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pending ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.7 : 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                          <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✅" : m.emoji}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                              <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                              <span style={{ fontSize: 12, color: T.accent }}>+{m.xp_reward} XP</span>
+                            </div>
                           </div>
+                          {!done && !pending && <button onClick={() => submit(m.id)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Feito!</button>}
+                          {pending && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700 }}>⏳ Aguardando</span>}
                         </div>
-                        {!done && !pending && <button onClick={() => submit(m.id)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Feito!</button>}
-                        {pending && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700 }}>⏳ Aguardando</span>}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+              }
             </div>
           )}
+
+          {/* STORE */}
           {tab === "store" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
@@ -378,6 +452,8 @@ const ChildDash = ({ profile, onSignOut }) => {
               }
             </div>
           )}
+
+          {/* ACHIEVEMENTS */}
           {tab === "achievements" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
@@ -393,13 +469,15 @@ const ChildDash = ({ profile, onSignOut }) => {
               ))}
             </div>
           )}
+
+          {/* PROFILE */}
           {tab === "profile" && (
             <div style={{ textAlign: "center" }}>
               <div style={{ width: 100, height: 100, borderRadius: 30, margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>{profile.avatar_emoji || "👦"}</div>
               <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
               <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 24 }}>{profile.age ? `${profile.age} anos` : ""}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
-                {[{ label: "KidCoins", value: profile.kidcoins||0, icon:"🪙", color: T.secondary }, { label:"Nível", value: lvl.level, icon: lvl.emoji, color: lvl.color }, { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning }].map((s,i) => (
+                {[{ label:"KidCoins", value:profile.kidcoins||0, icon:"🪙", color:T.secondary }, { label:"Nível", value:lvl.level, icon:lvl.emoji, color:lvl.color }, { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning }].map((s,i) => (
                   <div key={i} style={{ background: T.card, borderRadius: 16, padding: 14, border: `1px solid ${s.color}22` }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
                     <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.value}</div>
@@ -429,22 +507,37 @@ const ChildDash = ({ profile, onSignOut }) => {
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
 const ParentDash = ({ profile, onSignOut }) => {
-  const [tab, setTab]           = useState("home");
-  const [children, setChildren] = useState([]);
-  const [missions, setMissions] = useState([]);
-  const [pending, setPending]   = useState([]);
-  const [rewards, setRewards]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [notif, setNotif]       = useState(null);
+  const [tab, setTab]             = useState("home");
+  const [children, setChildren]   = useState([]);
+  const [missions, setMissions]   = useState([]);
+  const [pending, setPending]     = useState([]);
+  const [rewards, setRewards]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [notif, setNotif]         = useState(null);
   const [notifType, setNotifType] = useState("success");
-  const [showMission, setShowMission] = useState(false);
-  const [showReward, setShowReward]   = useState(false);
+  const [showMission, setShowMission]   = useState(false);
+  const [showReward, setShowReward]     = useState(false);
+  const [showAddChild, setShowAddChild] = useState(false);
   const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 });
   const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50 });
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Realtime — nova missão pendente
+    const channel = supabase
+      .channel(`parent-${profile.id}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "mission_logs",
+        filter: `family_id=eq.${profile.family_id}`,
+      }, () => {
+        notify("⏳ Nova missão aguardando sua aprovação!");
+        load();
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -484,23 +577,51 @@ const ParentDash = ({ profile, onSignOut }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
+
+      {/* Modal adicionar filho */}
+      {showAddChild && (
+        <AddChildModal
+          familyId={profile.family_id}
+          onAdd={() => { setShowAddChild(false); load(); notify("👶 Filho(a) adicionado com sucesso!"); }}
+          onClose={() => setShowAddChild(false)}
+        />
+      )}
+
+      {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px", background: `linear-gradient(135deg, ${T.primary}18, ${T.pink}0A)`, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 10, color: T.textMuted, letterSpacing: 1 }}>PAINEL DO RESPONSÁVEL</div>
-            <div style={{ color: T.text, fontSize: 18, fontWeight: 800 }}>👨‍👩‍👧 {profile.display_name}</div>
+            <div style={{ fontSize: 12, color: T.textMuted }}>{getSaudacao()},</div>
+            <div style={{ color: T.text, fontSize: 20, fontWeight: 900 }}>👋 {profile.display_name}!</div>
           </div>
-          {pending.length > 0 && <div style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 12px", fontWeight: 900, fontSize: 13 }}>{pending.length} pendente{pending.length>1?"s":""}</div>}
+          {pending.length > 0 && (
+            <div style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite" }}>
+              {pending.length} pendente{pending.length>1?"s":""}
+            </div>
+          )}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 100px" }}>
         {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+
+          {/* HOME */}
           {tab === "home" && (
             <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>👶 Meus Filhos</div>
+              {/* Filhos */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>👶 Meus Filhos</div>
+                <button onClick={() => setShowAddChild(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar</button>
+              </div>
+
               {children.length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}><div style={{ fontSize: 40, marginBottom: 8 }}>👶</div>Nenhum filho cadastrado ainda!</div>
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>👶</div>
+                    Nenhum filho cadastrado ainda!
+                    <div style={{ marginTop: 16 }}>
+                      <button onClick={() => setShowAddChild(true)} style={{ padding: "10px 20px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar filho(a)</button>
+                    </div>
+                  </div>
                 : children.map(child => {
                     const l = getLvl(child.xp||0); const n = getNext(child.xp||0);
                     return (
@@ -509,7 +630,11 @@ const ParentDash = ({ profile, onSignOut }) => {
                           <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 30, background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.avatar_emoji||"👦"}</div>
                           <div style={{ flex: 1 }}>
                             <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
-                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}</div>
+                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0} · {child.age ? `${child.age} anos` : ""}</div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ color: T.textMuted, fontSize: 10 }}>Streak</div>
+                            <div style={{ color: T.warning, fontWeight: 900 }}>{child.streak||0}🔥</div>
                           </div>
                         </div>
                         <XPBar current={(child.xp||0)-l.xpNeeded} max={n.xpNeeded-l.xpNeeded} color={l.color} />
@@ -517,20 +642,22 @@ const ParentDash = ({ profile, onSignOut }) => {
                     );
                   })
               }
+
+              {/* Pendentes */}
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
               {pending.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>Tudo em dia!</div>
                 : pending.map(p => (
                     <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28 }}>{p.mission_emoji}</span>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: `${T.warning}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{p.mission_emoji}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
-                          <div style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward}</div>
+                          <div style={{ fontSize: 12, color: T.textMuted }}>{p.child_avatar} {p.child_name} · 🪙 {p.coins_reward} KidCoins</div>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => review(p.log_id, true)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
-                          <button onClick={() => review(p.log_id, false)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
+                          <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+                          <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
                         </div>
                       </div>
                     </div>
@@ -538,6 +665,8 @@ const ParentDash = ({ profile, onSignOut }) => {
               }
             </div>
           )}
+
+          {/* MISSIONS */}
           {tab === "missions" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -563,22 +692,27 @@ const ParentDash = ({ profile, onSignOut }) => {
                   </div>
                 </div>
               )}
-              {missions.map(m => (
-                <div key={m.id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 28 }}>{m.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                        <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                        <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
+              {missions.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>Nenhuma missão ainda!</div>
+                : missions.map(m => (
+                    <div key={m.id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontSize: 28 }}>{m.emoji}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                            <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                            <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))
+              }
             </div>
           )}
+
+          {/* REWARDS */}
           {tab === "rewards" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -598,17 +732,22 @@ const ParentDash = ({ profile, onSignOut }) => {
                   </div>
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {rewards.map(r => (
-                  <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ fontSize: 36, marginBottom: 8 }}>{r.emoji}</div>
-                    <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
-                    <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
+              {rewards.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
+                : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {rewards.map(r => (
+                      <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div style={{ fontSize: 36, marginBottom: 8 }}>{r.emoji}</div>
+                        <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
+                        <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+              }
             </div>
           )}
+
+          {/* STATS */}
           {tab === "stats" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
@@ -672,29 +811,22 @@ export default function App() {
 
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  if (screen === "splash") {
-    return (
-      <>
-        <style>{CSS}</style>
-        <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
-          <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
-            <Splash onDone={() => { if (!loading) setScreen(user ? (profile?.role === "parent" ? "parent" : "child") : "auth"); }} />
-          </div>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
         <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
-          {loading && <div style={{ minHeight: "100vh", background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}><div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div><div style={{ color: T.textMuted, fontSize: 14 }}>Carregando...</div></div>}
-          {!loading && screen === "auth"       && <AuthScreen onAuth={() => {}} />}
-          {!loading && screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
-          {!loading && screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
-          {!loading && screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} />}
+          {screen === "splash" && <Splash onDone={() => { if (!loading) setScreen(user ? (profile?.role === "parent" ? "parent" : "child") : "auth"); else setScreen("auth"); }} />}
+          {screen === "auth"       && <AuthScreen />}
+          {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
+          {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
+          {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} />}
+          {loading && screen !== "splash" && (
+            <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div>
+              <div style={{ color: T.textMuted, fontSize: 14 }}>Carregando...</div>
+            </div>
+          )}
         </div>
       </div>
     </>
