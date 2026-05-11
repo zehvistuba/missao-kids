@@ -1,613 +1,423 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-// ============================================================
-// THEME & CONSTANTS
-// ============================================================
-const THEME = {
-  primary: "#FF6B35",
-  secondary: "#FFD23F",
-  accent: "#06D6A0",
-  purple: "#9B5DE5",
-  blue: "#4CC9F0",
-  pink: "#F72585",
-  dark: "#1A1A2E",
-  darker: "#0F0F1A",
-  card: "#252540",
-  cardLight: "#2E2E50",
-  text: "#F0F0FF",
-  textMuted: "#9090B0",
-  success: "#06D6A0",
-  warning: "#FFD23F",
-  danger: "#F72585",
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON
+);
+
+const T = {
+  primary: "#FF6B35", secondary: "#FFD23F", accent: "#06D6A0",
+  purple: "#9B5DE5", blue: "#4CC9F0", pink: "#F72585",
+  darker: "#0F0F1A", card: "#252540", cardLight: "#2E2E50",
+  text: "#F0F0FF", textMuted: "#9090B0", warning: "#FFD23F",
 };
 
 const LEVELS = [
-  { level: 1, name: "Recruta", xpNeeded: 0, color: "#9090B0", emoji: "🌱" },
-  { level: 2, name: "Explorador", xpNeeded: 100, color: "#4CC9F0", emoji: "⭐" },
-  { level: 3, name: "Aventureiro", xpNeeded: 300, color: "#06D6A0", emoji: "🚀" },
-  { level: 4, name: "Herói", xpNeeded: 600, color: "#FFD23F", emoji: "🦸" },
-  { level: 5, name: "Lendário", xpNeeded: 1000, color: "#FF6B35", emoji: "👑" },
-  { level: 6, name: "Supremo", xpNeeded: 1500, color: "#F72585", emoji: "💎" },
+  { level: 1, name: "Recruta",     xpNeeded: 0,    color: "#9090B0", emoji: "🌱" },
+  { level: 2, name: "Explorador",  xpNeeded: 100,  color: "#4CC9F0", emoji: "⭐" },
+  { level: 3, name: "Aventureiro", xpNeeded: 300,  color: "#06D6A0", emoji: "🚀" },
+  { level: 4, name: "Herói",       xpNeeded: 600,  color: "#FFD23F", emoji: "🦸" },
+  { level: 5, name: "Lendário",    xpNeeded: 1000, color: "#FF6B35", emoji: "👑" },
+  { level: 6, name: "Supremo",     xpNeeded: 1500, color: "#F72585", emoji: "💎" },
 ];
 
-const SAMPLE_MISSIONS = [
-  { id: 1, name: "Arrumar a cama", emoji: "🛏️", coins: 20, xp: 15, category: "Casa", difficulty: "Fácil", done: false, pending: false, days: ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"] },
-  { id: 2, name: "Escovar os dentes", emoji: "🦷", coins: 15, xp: 10, category: "Higiene", difficulty: "Fácil", done: true, pending: false, days: ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"] },
-  { id: 3, name: "Fazer lição de casa", emoji: "📚", coins: 50, xp: 40, category: "Estudos", difficulty: "Médio", done: false, pending: true, days: ["Seg","Ter","Qua","Qui","Sex"] },
-  { id: 4, name: "Organizar o quarto", emoji: "🧹", coins: 35, xp: 25, category: "Casa", difficulty: "Médio", done: false, pending: false, days: ["Sáb","Dom"] },
-  { id: 5, name: "Ler por 20 minutos", emoji: "📖", coins: 30, xp: 25, category: "Estudos", difficulty: "Médio", done: false, pending: false, days: ["Seg","Ter","Qua","Qui","Sex"] },
-  { id: 6, name: "Lavar a louça", emoji: "🍽️", coins: 40, xp: 30, category: "Casa", difficulty: "Médio", done: false, pending: false, days: ["Seg","Qua","Sex"] },
-];
+const getLvl  = (xp) => LEVELS.filter(l => xp >= l.xpNeeded).pop();
+const getNext = (xp) => LEVELS.find(l => l.xpNeeded > xp) || LEVELS[LEVELS.length - 1];
 
-const REWARDS = [
-  { id: 1, name: "1h de Videogame", emoji: "🎮", cost: 100, category: "Entretenimento" },
-  { id: 2, name: "Sorvete", emoji: "🍦", cost: 60, category: "Guloseimas" },
-  { id: 3, name: "Pacote de Figurinhas", emoji: "🃏", cost: 80, category: "Coleção" },
-  { id: 4, name: "Passeio no Parque", emoji: "🌳", cost: 200, category: "Passeios" },
-  { id: 5, name: "Netflix por 2h", emoji: "📺", cost: 120, category: "Entretenimento" },
-  { id: 6, name: "Doces à escolha", emoji: "🍬", cost: 50, category: "Guloseimas" },
-];
-
-const ACHIEVEMENTS = [
-  { id: 1, name: "Primeiros Passos", desc: "Complete sua primeira missão", emoji: "👣", earned: true },
-  { id: 2, name: "7 dias seguidos", desc: "Mantenha o streak por 7 dias", emoji: "🔥", earned: true },
-  { id: 3, name: "Mestre da Organização", desc: "Complete 10 missões de Casa", emoji: "🏆", earned: false },
-  { id: 4, name: "Super Estudante", desc: "Complete 5 tarefas de estudos", emoji: "🎓", earned: false },
-  { id: 5, name: "Colecionador", desc: "Resgate 3 recompensas", emoji: "⭐", earned: false },
-];
-
-const CHILDREN = [
-  { id: 1, name: "Sofia", avatar: "👧", age: 9, coins: 340, xp: 420, streak: 7, level: 3, pendingApprovals: 1 },
-  { id: 2, name: "Mateus", avatar: "👦", age: 12, coins: 180, xp: 280, streak: 3, level: 2, pendingApprovals: 0 },
-];
-
-// ============================================================
-// UTILITY COMPONENTS
-// ============================================================
-
-const KidCoinIcon = ({ size = 16 }) => (
-  <span style={{ fontSize: size, display: "inline-flex", alignItems: "center" }}>🪙</span>
+// ─── UI Components ────────────────────────────────────────
+const XPBar = ({ current, max, color = T.accent }) => (
+  <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, height: 8, overflow: "hidden" }}>
+    <div style={{ width: `${Math.min(100, (current / max) * 100)}%`, height: "100%", background: `linear-gradient(90deg, ${color}, ${color}CC)`, borderRadius: 999, transition: "width 0.8s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: `0 0 8px ${color}88` }} />
+  </div>
 );
 
-const XPBar = ({ current, max, color = THEME.accent }) => {
-  const pct = Math.min(100, (current / max) * 100);
-  return (
-    <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, height: 8, overflow: "hidden", width: "100%" }}>
-      <div style={{
-        width: `${pct}%`, height: "100%", borderRadius: 999,
-        background: `linear-gradient(90deg, ${color}, ${color}CC)`,
-        transition: "width 0.8s cubic-bezier(0.34,1.56,0.64,1)",
-        boxShadow: `0 0 8px ${color}88`,
-      }} />
-    </div>
-  );
-};
+const Notif = ({ msg, type }) => msg ? (
+  <div style={{ position: "fixed", top: 20, left: 16, right: 16, zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", maxWidth: 430, margin: "0 auto" }}>{msg}</div>
+) : null;
 
-const Badge = ({ children, color = THEME.primary }) => (
-  <span style={{
-    background: `${color}22`, color, border: `1px solid ${color}44`,
-    borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700,
-    letterSpacing: 0.5,
-  }}>{children}</span>
+const Inp = ({ placeholder, type = "text", value, onChange, icon }) => (
+  <div style={{ position: "relative", marginBottom: 14 }}>
+    {icon && <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 16, zIndex: 1 }}>{icon}</span>}
+    <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+      style={{ width: "100%", padding: icon ? "14px 18px 14px 46px" : "14px 18px", borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 15, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box" }}
+      onFocus={e => e.target.style.borderColor = T.primary}
+      onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+    />
+  </div>
 );
 
-const CoinBurst = ({ show }) => {
-  if (!show) return null;
-  return (
-    <div style={{
-      position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9999,
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      {[...Array(8)].map((_, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          fontSize: 24,
-          animation: `coinBurst${i} 0.8s ease-out forwards`,
-          transform: `rotate(${i * 45}deg)`,
-        }}>🪙</div>
-      ))}
-      <div style={{
-        fontSize: 28, fontWeight: 900, color: THEME.secondary,
-        textShadow: `0 0 20px ${THEME.secondary}`,
-        animation: "fadeUp 0.8s ease-out forwards",
-      }}>+KidCoins!</div>
-    </div>
-  );
-};
+const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
+  <button onClick={onClick} disabled={disabled} style={{ width: small ? "auto" : "100%", padding: small ? "10px 20px" : "15px 24px", borderRadius: 16, border: outline ? "1px solid rgba(255,255,255,0.15)" : "none", background: disabled ? "rgba(255,255,255,0.08)" : outline ? "rgba(255,255,255,0.04)" : gradient || `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: disabled ? T.textMuted : T.text, fontWeight: 800, fontSize: small ? 13 : 15, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", letterSpacing: 0.3 }}>{children}</button>
+);
 
-// ============================================================
-// SCREENS
-// ============================================================
-
-// ─── SPLASH ───
-const SplashScreen = ({ onDone }) => {
+// ═══════════════════════════════════════════════════════════
+// SPLASH
+// ═══════════════════════════════════════════════════════════
+const Splash = ({ onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
   return (
-    <div style={{
-      ...styles.screen,
-      background: `radial-gradient(ellipse at 30% 20%, ${THEME.purple}44 0%, transparent 60%),
-                   radial-gradient(ellipse at 80% 80%, ${THEME.primary}44 0%, transparent 60%),
-                   ${THEME.darker}`,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    }}>
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", textAlign: "center" }}>
-        <div style={{ fontSize: 80, marginBottom: 12, filter: "drop-shadow(0 0 20px rgba(255,107,53,0.6))" }}>🚀</div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: THEME.text, letterSpacing: -1 }}>
-          Missão<span style={{ color: THEME.primary }}> Kids</span>
-        </div>
-        <div style={{ color: THEME.textMuted, fontSize: 14, marginTop: 8, letterSpacing: 2 }}>
-          TRANSFORME A ROTINA EM AVENTURA
-        </div>
+        <div style={{ fontSize: 80, marginBottom: 16, filter: `drop-shadow(0 0 20px ${T.primary}88)` }}>🚀</div>
+        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ color: T.textMuted, fontSize: 13, marginTop: 8, letterSpacing: 2 }}>TRANSFORME A ROTINA EM AVENTURA</div>
       </div>
       <div style={{ marginTop: 60, display: "flex", gap: 8 }}>
-        {[0,1,2].map(i => (
-          <div key={i} style={{
-            width: i === 0 ? 24 : 8, height: 8, borderRadius: 999,
-            background: i === 0 ? THEME.primary : "rgba(255,255,255,0.2)",
-            animation: `pulse 1s ease-in-out ${i * 0.2}s infinite`,
-          }} />
-        ))}
+        {[0,1,2].map(i => <div key={i} style={{ width: i === 0 ? 28 : 8, height: 8, borderRadius: 999, background: i === 0 ? T.primary : "rgba(255,255,255,0.2)", animation: `pulse 1s ease-in-out ${i*0.2}s infinite` }} />)}
       </div>
     </div>
   );
 };
 
-// ─── ONBOARDING ───
-const OnboardingScreen = ({ onDone }) => {
-  const [step, setStep] = useState(0);
-  const steps = [
-    { emoji: "🎯", title: "Missões Diárias", desc: "Crie tarefas divertidas e ajude seus filhos a desenvolver bons hábitos de forma natural.", color: THEME.primary },
-    { emoji: "🪙", title: "Ganhe KidCoins", desc: "Cada missão concluída rende KidCoins. Complete e suba de nível!", color: THEME.secondary },
-    { emoji: "🏆", title: "Recompensas Reais", desc: "Troque KidCoins por recompensas que você mesmo define para sua família.", color: THEME.accent },
-  ];
-  const s = steps[step];
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+const AuthScreen = ({ onAuth }) => {
+  const [mode, setMode]       = useState("login");
+  const [userType, setUserType] = useState("parent");
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName]       = useState("");
+  const [loading, setLoading] = useState(false);
+  const [notif, setNotif]     = useState(null);
+  const [notifType, setNotifType] = useState("success");
+
+  const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
+
+  const handleEmail = async () => {
+    if (mode !== "login" && !name) return notify("Digite seu nome!", "error");
+    if (!email || !password) return notify("Preencha email e senha!", "error");
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name, role: userType } } });
+        if (error) throw error;
+        notify("✅ Conta criada! Verifique seu email.");
+        setTimeout(() => setMode("login"), 2500);
+      }
+    } catch (err) {
+      notify(err.message || "Erro ao autenticar", "error");
+    }
+    setLoading(false);
+  };
+
+  const handleGoogle = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) { notify(error.message, "error"); setLoading(false); }
+  };
 
   return (
-    <div style={{ ...styles.screen, background: THEME.darker, display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
-        <div style={{
-          width: 160, height: 160, borderRadius: 40,
-          background: `radial-gradient(circle, ${s.color}33, ${s.color}11)`,
-          border: `2px solid ${s.color}44`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 80, marginBottom: 40,
-          boxShadow: `0 0 40px ${s.color}33`,
-          animation: "floatY 2s ease-in-out infinite",
-        }}>{s.emoji}</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: THEME.text, textAlign: "center", marginBottom: 16 }}>{s.title}</div>
-        <div style={{ fontSize: 16, color: THEME.textMuted, textAlign: "center", lineHeight: 1.6 }}>{s.desc}</div>
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
+      <Notif msg={notif} type={notifType} />
+      <div style={{ textAlign: "center", paddingTop: 60, marginBottom: 36 }}>
+        <div style={{ fontSize: 52, marginBottom: 8 }}>🚀</div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: T.text }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
       </div>
 
-      <div style={{ padding: "32px 24px 48px" }}>
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 32 }}>
-          {steps.map((_, i) => (
-            <div key={i} style={{
-              height: 8, width: i === step ? 32 : 8, borderRadius: 999,
-              background: i === step ? s.color : "rgba(255,255,255,0.15)",
-              transition: "all 0.3s ease",
-            }} />
+      {mode === "signup" && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+          {[{ key: "parent", label: "Responsável", emoji: "👨‍👩‍👧", color: T.primary }, { key: "child", label: "Criança", emoji: "👦", color: T.accent }].map(opt => (
+            <button key={opt.key} onClick={() => setUserType(opt.key)} style={{ flex: 1, padding: "16px 12px", borderRadius: 18, border: `2px solid ${userType === opt.key ? opt.color : "rgba(255,255,255,0.08)"}`, background: userType === opt.key ? `${opt.color}18` : "rgba(255,255,255,0.03)", color: userType === opt.key ? opt.color : T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 28 }}>{opt.emoji}</span>
+              <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
+            </button>
           ))}
         </div>
-        <button
-          onClick={() => step < steps.length - 1 ? setStep(step + 1) : onDone()}
-          style={{ ...styles.btn, background: `linear-gradient(135deg, ${s.color}, ${s.color}BB)` }}
-        >
-          {step < steps.length - 1 ? "Próximo →" : "Vamos lá! 🚀"}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ─── LOGIN ───
-const LoginScreen = ({ onLogin }) => {
-  const [mode, setMode] = useState("child"); // child | parent
-  const [name, setName] = useState("");
-
-  return (
-    <div style={{
-      ...styles.screen, background: THEME.darker,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "0 24px",
-    }}>
-      <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{ fontSize: 56, marginBottom: 8 }}>🚀</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: THEME.text }}>
-          Missão<span style={{ color: THEME.primary }}> Kids</span>
-        </div>
-        <div style={{ color: THEME.textMuted, fontSize: 13, marginTop: 4 }}>Escolha como quer entrar</div>
-      </div>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 32, width: "100%" }}>
-        {[
-          { key: "child", label: "Sou Criança", emoji: "👦", color: THEME.accent },
-          { key: "parent", label: "Sou Responsável", emoji: "👨‍👩‍👧", color: THEME.primary },
-        ].map(opt => (
-          <button key={opt.key} onClick={() => setMode(opt.key)} style={{
-            flex: 1, padding: "20px 12px", borderRadius: 20,
-            border: `2px solid ${mode === opt.key ? opt.color : "rgba(255,255,255,0.1)"}`,
-            background: mode === opt.key ? `${opt.color}22` : "rgba(255,255,255,0.04)",
-            color: mode === opt.key ? opt.color : THEME.textMuted,
-            cursor: "pointer", transition: "all 0.2s",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-          }}>
-            <span style={{ fontSize: 32 }}>{opt.emoji}</span>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{opt.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div style={{ width: "100%", marginBottom: 24 }}>
-        <input
-          value={name} onChange={e => setName(e.target.value)}
-          placeholder={mode === "child" ? "Qual é o seu nome?" : "Nome do responsável"}
-          style={styles.input}
-        />
-      </div>
-
-      <button
-        onClick={() => name && onLogin(mode, name)}
-        style={{
-          ...styles.btn,
-          background: mode === "child"
-            ? `linear-gradient(135deg, ${THEME.accent}, ${THEME.blue})`
-            : `linear-gradient(135deg, ${THEME.primary}, ${THEME.pink})`,
-          opacity: name ? 1 : 0.5,
-        }}
-      >
-        Entrar na Aventura 🎮
-      </button>
-
-      <div style={{ color: THEME.textMuted, fontSize: 13, marginTop: 20, textAlign: "center" }}>
-        Novo por aqui?{" "}
-        <span style={{ color: THEME.primary, cursor: "pointer", fontWeight: 700 }}>Criar conta gratuita</span>
-      </div>
-    </div>
-  );
-};
-
-// ─── CHILD DASHBOARD ───
-const ChildDashboard = ({ childName, onBack }) => {
-  const [tab, setTab] = useState("home");
-  const [missions, setMissions] = useState(SAMPLE_MISSIONS);
-  const [coins, setCoins] = useState(340);
-  const [xp, setXp] = useState(420);
-  const [streak, setStreak] = useState(7);
-  const [showBurst, setShowBurst] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const currentLevel = LEVELS.filter(l => xp >= l.xpNeeded).pop();
-  const nextLevel = LEVELS.find(l => l.xpNeeded > xp) || LEVELS[LEVELS.length - 1];
-  const xpInLevel = xp - currentLevel.xpNeeded;
-  const xpForNext = nextLevel.xpNeeded - currentLevel.xpNeeded;
-
-  const completeMission = (id) => {
-    setMissions(prev => prev.map(m => m.id === id ? { ...m, pending: true } : m));
-    setNotification("✅ Missão enviada para aprovação!");
-    setTimeout(() => setNotification(null), 2500);
-  };
-
-  const approveDemo = (id) => {
-    const m = missions.find(m => m.id === id);
-    if (!m) return;
-    setMissions(prev => prev.map(m => m.id === id ? { ...m, done: true, pending: false } : m));
-    setCoins(c => c + m.coins);
-    setXp(x => x + m.xp);
-    setShowBurst(true);
-    setNotification(`🎉 +${m.coins} KidCoins ganhos!`);
-    setTimeout(() => { setShowBurst(false); setNotification(null); }, 2500);
-  };
-
-  const todayMissions = missions;
-  const doneMissions = todayMissions.filter(m => m.done).length;
-  const totalMissions = todayMissions.length;
-
-  return (
-    <div style={{ ...styles.screen, background: THEME.darker, display: "flex", flexDirection: "column" }}>
-      <CoinBurst show={showBurst} />
-
-      {notification && (
-        <div style={{
-          position: "fixed", top: 20, left: 16, right: 16, zIndex: 9998,
-          background: THEME.card, borderRadius: 16, padding: "14px 20px",
-          border: `1px solid ${THEME.accent}44`, color: THEME.text,
-          fontWeight: 700, fontSize: 14, textAlign: "center",
-          boxShadow: `0 8px 32px rgba(0,0,0,0.4)`,
-          animation: "slideDown 0.3s ease",
-        }}>{notification}</div>
       )}
 
-      {/* Header */}
-      <div style={{
-        padding: "16px 20px 0",
-        background: `linear-gradient(180deg, ${THEME.darker} 0%, transparent 100%)`,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 14,
-              background: `linear-gradient(135deg, ${THEME.purple}, ${THEME.blue})`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22, border: `2px solid ${THEME.purple}44`,
-            }}>👧</div>
-            <div>
-              <div style={{ color: THEME.textMuted, fontSize: 11, letterSpacing: 1 }}>BEM-VINDA,</div>
-              <div style={{ color: THEME.text, fontSize: 16, fontWeight: 800 }}>Sofia ⚡</div>
-            </div>
-          </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            background: THEME.card, borderRadius: 14, padding: "8px 14px",
-            border: `1px solid ${THEME.secondary}33`,
-          }}>
-            <KidCoinIcon size={18} />
-            <span style={{ color: THEME.secondary, fontWeight: 900, fontSize: 16 }}>{coins}</span>
-          </div>
+      <div style={{ flex: 1 }}>
+        {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} />}
+        <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+        <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+        <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+          <span style={{ color: T.textMuted, fontSize: 12 }}>ou continue com</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
         </div>
 
-        {/* Level Card */}
-        <div style={{
-          background: `linear-gradient(135deg, ${THEME.card}, ${THEME.cardLight})`,
-          borderRadius: 20, padding: "16px 20px", marginBottom: 4,
-          border: `1px solid ${currentLevel.color}33`,
-          boxShadow: `0 4px 24px ${currentLevel.color}22`,
-        }}>
+        <button onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "14px 24px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Entrar com Google
+        </button>
+      </div>
+
+      <div style={{ textAlign: "center", padding: "24px 0 40px", color: T.textMuted, fontSize: 14 }}>
+        {mode === "login"
+          ? <> Novo por aqui? <span onClick={() => setMode("signup")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Criar conta grátis</span></>
+          : <> Já tem conta? <span onClick={() => setMode("login")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Fazer login</span></>
+        }
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// ONBOARDING
+// ═══════════════════════════════════════════════════════════
+const Onboarding = ({ user, onDone }) => {
+  const [step, setStep]           = useState(0);
+  const [familyName, setFamilyName] = useState("");
+  const [childName, setChildName] = useState("");
+  const [childAge, setChildAge]   = useState("");
+  const [avatar, setAvatar]       = useState("👦");
+  const [loading, setLoading]     = useState(false);
+  const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
+
+  const createFamily = async () => {
+    if (!familyName) return;
+    setLoading(true);
+    await supabase.rpc("create_family", { p_family_name: familyName });
+    setLoading(false);
+    setStep(1);
+  };
+
+  const addChild = async () => {
+    if (!childName || !childAge) return;
+    setLoading(true);
+    await supabase.rpc("add_child", { p_display_name: childName, p_age: parseInt(childAge), p_avatar_emoji: avatar });
+    setLoading(false);
+    onDone();
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        {step === 0 && <>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>🏠</div>
+            <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Vamos começar!</div>
+            <div style={{ color: T.textMuted, fontSize: 15 }}>Dê um nome para a sua família</div>
+          </div>
+          <Inp icon="🏠" placeholder="Ex: Família Silva" value={familyName} onChange={e => setFamilyName(e.target.value)} />
+          <Btn onClick={createFamily} disabled={loading || !familyName}>{loading ? "Criando..." : "Próximo →"}</Btn>
+        </>}
+
+        {step === 1 && <>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
+            <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Adicionar filho(a)</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+            {avatars.map(a => (
+              <button key={a} onClick={() => setAvatar(a)} style={{ width: 48, height: 48, borderRadius: 14, fontSize: 24, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
+            ))}
+          </div>
+          <Inp icon={avatar} placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
+          <Inp icon="🎂" placeholder="Idade" type="number" value={childAge} onChange={e => setChildAge(e.target.value)} />
+          <Btn onClick={addChild} disabled={loading || !childName || !childAge} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
+          <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+        </>}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 8, paddingBottom: 40 }}>
+        {[0,1].map(i => <div key={i} style={{ width: i === step ? 28 : 8, height: 8, borderRadius: 999, background: i === step ? T.primary : "rgba(255,255,255,0.15)", transition: "all 0.3s" }} />)}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// CHILD DASHBOARD
+// ═══════════════════════════════════════════════════════════
+const ChildDash = ({ profile, onSignOut }) => {
+  const [tab, setTab]       = useState("home");
+  const [missions, setMissions] = useState([]);
+  const [rewards, setRewards]   = useState([]);
+  const [achievements, setAch]  = useState([]);
+  const [logs, setLogs]         = useState([]);
+  const [notif, setNotif]       = useState(null);
+  const [notifType, setNotifType] = useState("success");
+  const [loading, setLoading]   = useState(true);
+
+  const lvl  = getLvl(profile.xp || 0);
+  const next = getNext(profile.xp || 0);
+  const xpIn = (profile.xp || 0) - lvl.xpNeeded;
+  const xpFor = next.xpNeeded - lvl.xpNeeded;
+
+  const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+
+  useEffect(() => { load(); }, []);
+
+  const load = async () => {
+    setLoading(true);
+    const today = new Date().toISOString().split("T")[0];
+    const [{ data: m }, { data: r }, { data: a }, { data: l }] = await Promise.all([
+      supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
+      supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
+      supabase.from("achievements").select("*").order("condition_val"),
+      supabase.from("mission_logs").select("*").eq("child_id", profile.id).eq("due_date", today),
+    ]);
+    setMissions(m || []); setRewards(r || []); setLogs(l || []);
+    if (a) {
+      const { data: earned } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
+      const earnedSet = new Set((earned || []).map(e => e.achievement_id));
+      setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
+    }
+    setLoading(false);
+  };
+
+  const getLog = (mid) => logs.find(l => l.mission_id === mid);
+
+  const submit = async (mid) => {
+    const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid });
+    if (error) return notify("Erro ao enviar missão", "error");
+    notify("✅ Missão enviada para aprovação!"); load();
+  };
+
+  const redeem = async (rid, cost) => {
+    if ((profile.kidcoins || 0) < cost) return notify("KidCoins insuficientes! 😢", "error");
+    const { error } = await supabase.rpc("redeem_reward", { p_reward_id: rid });
+    if (error) return notify(error.message || "Erro", "error");
+    notify("🎁 Recompensa resgatada!"); load();
+  };
+
+  const navTabs = [{ key:"home",icon:"🏠",label:"Início"},{key:"store",icon:"🏪",label:"Loja"},{key:"achievements",icon:"🏆",label:"Conquistas"},{key:"profile",icon:"👤",label:"Perfil"}];
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
+      <Notif msg={notif} type={notifType} />
+      <div style={{ padding: "16px 20px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{profile.avatar_emoji || "👦"}</div>
+            <div>
+              <div style={{ color: T.textMuted, fontSize: 10, letterSpacing: 1 }}>BEM-VINDO,</div>
+              <div style={{ color: T.text, fontSize: 16, fontWeight: 800 }}>{profile.display_name} ⚡</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, borderRadius: 14, padding: "8px 14px", border: `1px solid ${T.secondary}33` }}>
+            <span>🪙</span><span style={{ color: T.secondary, fontWeight: 900, fontSize: 16 }}>{profile.kidcoins || 0}</span>
+          </div>
+        </div>
+        <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 20, padding: "16px 20px", border: `1px solid ${lvl.color}33`, marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 28 }}>{currentLevel.emoji}</span>
+              <span style={{ fontSize: 28 }}>{lvl.emoji}</span>
               <div>
-                <div style={{ color: currentLevel.color, fontWeight: 900, fontSize: 13, letterSpacing: 1 }}>
-                  NÍVEL {currentLevel.level}
-                </div>
-                <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16 }}>{currentLevel.name}</div>
+                <div style={{ color: lvl.color, fontWeight: 900, fontSize: 11, letterSpacing: 1 }}>NÍVEL {lvl.level}</div>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>{lvl.name}</div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ color: THEME.textMuted, fontSize: 11 }}>Streak</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 16 }}>🔥</span>
-                <span style={{ color: THEME.warning, fontWeight: 900, fontSize: 18 }}>{streak}</span>
-              </div>
+              <div style={{ color: T.textMuted, fontSize: 10 }}>Streak</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span>🔥</span><span style={{ color: T.warning, fontWeight: 900, fontSize: 18 }}>{profile.streak || 0}</span></div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: THEME.textMuted }}>XP: {xpInLevel} / {xpForNext}</span>
-            <span style={{ fontSize: 12, color: currentLevel.color }}>→ {nextLevel.name}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: T.textMuted }}>XP: {xpIn}/{xpFor}</span>
+            <span style={{ fontSize: 11, color: lvl.color }}>→ {next.name}</span>
           </div>
-          <XPBar current={xpInLevel} max={xpForNext} color={currentLevel.color} />
-        </div>
-
-        {/* Today Progress */}
-        <div style={{
-          background: THEME.card, borderRadius: 16, padding: "12px 16px",
-          marginTop: 12, marginBottom: 4,
-          border: `1px solid rgba(255,255,255,0.06)`,
-          display: "flex", alignItems: "center", gap: 16,
-        }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>
-              Missões de hoje: {doneMissions}/{totalMissions}
-            </div>
-            <XPBar current={doneMissions} max={totalMissions} color={THEME.accent} />
-          </div>
-          <div style={{
-            width: 48, height: 48, borderRadius: 14,
-            background: `conic-gradient(${THEME.accent} ${doneMissions / totalMissions * 360}deg, rgba(255,255,255,0.1) 0deg)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, background: THEME.card,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 900, color: THEME.accent,
-            }}>{Math.round(doneMissions / totalMissions * 100)}%</div>
-          </div>
+          <XPBar current={xpIn} max={xpFor} color={lvl.color} />
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 80px" }}>
-        {tab === "home" && (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões de Hoje</div>
-              <Badge color={THEME.primary}>{totalMissions - doneMissions} pendentes</Badge>
-            </div>
-
-            {todayMissions.map(m => (
-              <div key={m.id} style={{
-                background: m.done ? `${THEME.accent}11` : m.pending ? `${THEME.warning}11` : THEME.card,
-                borderRadius: 18, padding: "16px", marginBottom: 12,
-                border: `1px solid ${m.done ? THEME.accent + "44" : m.pending ? THEME.warning + "44" : "rgba(255,255,255,0.06)"}`,
-                opacity: m.done ? 0.7 : 1,
-                transition: "all 0.3s",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{
-                    width: 52, height: 52, borderRadius: 16,
-                    background: m.done ? `${THEME.accent}22` : `rgba(255,255,255,0.06)`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 26,
-                  }}>{m.done ? "✅" : m.emoji}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      color: m.done ? THEME.textMuted : THEME.text,
-                      fontWeight: 700, fontSize: 15,
-                      textDecoration: m.done ? "line-through" : "none",
-                    }}>{m.name}</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                      <span style={{ fontSize: 12, color: THEME.secondary, display: "flex", alignItems: "center", gap: 3 }}>
-                        <KidCoinIcon size={12} /> {m.coins}
-                      </span>
-                      <span style={{ fontSize: 12, color: THEME.accent }}>+{m.xp} XP</span>
-                      <Badge color={m.difficulty === "Fácil" ? THEME.accent : THEME.warning}>{m.difficulty}</Badge>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 90px" }}>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+          {tab === "home" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões de Hoje</div>
+              {missions.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
+                : missions.map(m => {
+                  const log = getLog(m.id);
+                  const done = log?.status === "approved";
+                  const pending = log?.status === "pending";
+                  return (
+                    <div key={m.id} style={{ background: done ? `${T.accent}11` : pending ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pending ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.7 : 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                        <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✅" : m.emoji}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                            <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                            <span style={{ fontSize: 12, color: T.accent }}>+{m.xp_reward} XP</span>
+                          </div>
+                        </div>
+                        {!done && !pending && <button onClick={() => submit(m.id)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Feito!</button>}
+                        {pending && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700 }}>⏳ Aguardando</span>}
+                      </div>
                     </div>
+                  );
+                })}
+            </div>
+          )}
+          {tab === "store" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
+              <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {profile.kidcoins || 0}</span></div>
+              {rewards.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
+                : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {rewards.map(r => {
+                      const can = (profile.kidcoins || 0) >= r.coin_cost;
+                      return (
+                        <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: `1px solid ${can ? T.accent+"33" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.6 }}>
+                          <div style={{ fontSize: 40, marginBottom: 8 }}>{r.emoji}</div>
+                          <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{r.title}</div>
+                          <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14, marginBottom: 10 }}>🪙 {r.coin_cost}</div>
+                          <button onClick={() => redeem(r.id, r.coin_cost)} style={{ width: "100%", padding: "8px 0", borderRadius: 12, border: "none", background: can ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: can ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 12, cursor: can ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif" }}>{can ? "Resgatar" : "Sem saldo"}</button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {!m.done && !m.pending && (
-                    <button onClick={() => completeMission(m.id)} style={{
-                      padding: "8px 14px", borderRadius: 12,
-                      background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.pink})`,
-                      border: "none", color: "#fff", fontWeight: 800, fontSize: 12,
-                      cursor: "pointer",
-                    }}>Feito!</button>
-                  )}
-                  {m.pending && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                      <span style={{ fontSize: 11, color: THEME.warning, fontWeight: 700 }}>⏳ Aprovação</span>
-                      <button onClick={() => approveDemo(m.id)} style={{
-                        padding: "6px 10px", borderRadius: 10, fontSize: 10,
-                        background: `${THEME.accent}22`, border: `1px solid ${THEME.accent}44`,
-                        color: THEME.accent, fontWeight: 700, cursor: "pointer",
-                      }}>Demo: Aprovar</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === "store" && (
-          <div>
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja de Recompensas</div>
-            <div style={{ color: THEME.textMuted, fontSize: 13, marginBottom: 20 }}>
-              Seu saldo: <span style={{ color: THEME.secondary, fontWeight: 800 }}><KidCoinIcon /> {coins}</span>
+              }
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {REWARDS.map(r => {
-                const canAfford = coins >= r.cost;
-                return (
-                  <div key={r.id} style={{
-                    background: THEME.card, borderRadius: 20, padding: 16,
-                    border: `1px solid ${canAfford ? THEME.accent + "33" : "rgba(255,255,255,0.06)"}`,
-                    textAlign: "center", opacity: canAfford ? 1 : 0.6,
-                  }}>
-                    <div style={{ fontSize: 40, marginBottom: 8 }}>{r.emoji}</div>
-                    <div style={{ color: THEME.text, fontWeight: 700, fontSize: 13, marginBottom: 8, lineHeight: 1.3 }}>{r.name}</div>
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-                      color: THEME.secondary, fontWeight: 900, fontSize: 14, marginBottom: 10,
-                    }}>
-                      <KidCoinIcon size={14} /> {r.cost}
-                    </div>
-                    <button style={{
-                      width: "100%", padding: "8px 0", borderRadius: 12, border: "none",
-                      background: canAfford
-                        ? `linear-gradient(135deg, ${THEME.accent}, ${THEME.blue})`
-                        : "rgba(255,255,255,0.06)",
-                      color: canAfford ? "#fff" : THEME.textMuted,
-                      fontWeight: 800, fontSize: 12, cursor: canAfford ? "pointer" : "not-allowed",
-                    }}>{canAfford ? "Resgatar" : "Sem saldo"}</button>
+          )}
+          {tab === "achievements" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
+              {achievements.map(a => (
+                <div key={a.id} style={{ background: a.earned ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${a.earned ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", gap: 16, opacity: a.earned ? 1 : 0.5 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 28, background: a.earned ? `${T.secondary}22` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", filter: a.earned ? "none" : "grayscale(100%)" }}>{a.emoji}</div>
+                  <div>
+                    <div style={{ color: a.earned ? T.text : T.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
+                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 3 }}>{a.description}</div>
+                    {a.earned && <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>✨ Desbloqueado</span>}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {tab === "achievements" && (
-          <div>
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 20 }}>🏆 Conquistas</div>
-            {ACHIEVEMENTS.map(a => (
-              <div key={a.id} style={{
-                background: a.earned ? `${THEME.secondary}11` : THEME.card,
-                borderRadius: 18, padding: "16px", marginBottom: 10,
-                border: `1px solid ${a.earned ? THEME.secondary + "44" : "rgba(255,255,255,0.06)"}`,
-                display: "flex", alignItems: "center", gap: 16,
-                opacity: a.earned ? 1 : 0.5,
-              }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: 16, fontSize: 28,
-                  background: a.earned ? `${THEME.secondary}22` : "rgba(255,255,255,0.06)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  filter: a.earned ? "none" : "grayscale(100%)",
-                }}>{a.emoji}</div>
-                <div>
-                  <div style={{ color: a.earned ? THEME.text : THEME.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
-                  <div style={{ color: THEME.textMuted, fontSize: 12, marginTop: 3 }}>{a.desc}</div>
-                  {a.earned && <Badge color={THEME.secondary}>✨ Desbloqueado</Badge>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === "profile" && (
-          <div style={{ textAlign: "center" }}>
-            <div style={{
-              width: 100, height: 100, borderRadius: 30, margin: "0 auto 16px",
-              background: `linear-gradient(135deg, ${THEME.purple}, ${THEME.blue})`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 56, border: `3px solid ${THEME.purple}`,
-              boxShadow: `0 0 30px ${THEME.purple}44`,
-            }}>👧</div>
-            <div style={{ color: THEME.text, fontWeight: 900, fontSize: 22, marginBottom: 4 }}>Sofia</div>
-            <div style={{ color: THEME.textMuted, fontSize: 14, marginBottom: 24 }}>9 anos</div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
-              {[
-                { label: "KidCoins", value: coins, icon: "🪙", color: THEME.secondary },
-                { label: "Nível", value: currentLevel.level, icon: currentLevel.emoji, color: currentLevel.color },
-                { label: "Streak", value: `${streak}🔥`, icon: "", color: THEME.warning },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: THEME.card, borderRadius: 18, padding: 16,
-                  border: `1px solid ${s.color}33`, textAlign: "center",
-                }}>
-                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                  <div style={{ color: s.color, fontWeight: 900, fontSize: 18 }}>{s.value}</div>
-                  <div style={{ color: THEME.textMuted, fontSize: 11 }}>{s.label}</div>
                 </div>
               ))}
             </div>
-
-            <div style={{ background: THEME.card, borderRadius: 20, padding: 20, textAlign: "left" }}>
-              <div style={{ color: THEME.text, fontWeight: 700, marginBottom: 12 }}>Histórico Semanal</div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
-                  <div key={d} style={{ textAlign: "center", flex: 1 }}>
-                    <div style={{
-                      height: 40, borderRadius: 8, marginBottom: 6,
-                      background: i < 5 ? `linear-gradient(180deg, ${THEME.accent}, ${THEME.blue})` :
-                                  i === 5 ? `linear-gradient(180deg, ${THEME.warning}, ${THEME.primary})` :
-                                  "rgba(255,255,255,0.06)",
-                    }} />
-                    <div style={{ fontSize: 9, color: THEME.textMuted }}>{d}</div>
+          )}
+          {tab === "profile" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: 100, height: 100, borderRadius: 30, margin: "0 auto 16px", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>{profile.avatar_emoji || "👦"}</div>
+              <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
+              <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 24 }}>{profile.age ? `${profile.age} anos` : ""}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+                {[{ label: "KidCoins", value: profile.kidcoins||0, icon:"🪙", color: T.secondary }, { label:"Nível", value: lvl.level, icon: lvl.emoji, color: lvl.color }, { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning }].map((s,i) => (
+                  <div key={i} style={{ background: T.card, borderRadius: 16, padding: 14, border: `1px solid ${s.color}22` }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.value}</div>
+                    <div style={{ color: T.textMuted, fontSize: 10 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
+              <button onClick={onSignOut} style={{ padding: "12px 24px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
-          </div>
-        )}
+          )}
+        </>}
       </div>
 
-      {/* Bottom Nav */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        maxWidth: 430, margin: "0 auto",
-        background: `${THEME.darker}EE`, backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", padding: "12px 0 24px",
-      }}>
-        {[
-          { key: "home", icon: "🏠", label: "Início" },
-          { key: "store", icon: "🏪", label: "Loja" },
-          { key: "achievements", icon: "🏆", label: "Conquistas" },
-          { key: "profile", icon: "👧", label: "Perfil" },
-        ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-            background: "none", border: "none", cursor: "pointer",
-          }}>
-            <div style={{
-              fontSize: 24,
-              filter: tab === t.key ? "none" : "grayscale(80%)",
-              transform: tab === t.key ? "scale(1.2)" : "scale(1)",
-              transition: "all 0.2s",
-            }}>{t.icon}</div>
-            <span style={{
-              fontSize: 10, fontWeight: 700,
-              color: tab === t.key ? THEME.primary : THEME.textMuted,
-              letterSpacing: 0.5,
-            }}>{t.label}</span>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 430, margin: "0 auto", background: `${T.darker}EE`, backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", padding: "12px 0 24px" }}>
+        {navTabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer" }}>
+            <div style={{ fontSize: 22, filter: tab===t.key?"none":"grayscale(80%)", transform: tab===t.key?"scale(1.2)":"scale(1)", transition: "all 0.2s" }}>{t.icon}</div>
+            <span style={{ fontSize: 10, fontWeight: 700, color: tab===t.key?T.primary:T.textMuted }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -615,326 +425,213 @@ const ChildDashboard = ({ childName, onBack }) => {
   );
 };
 
-// ─── PARENT DASHBOARD ───
-const ParentDashboard = ({ parentName, onBack }) => {
-  const [tab, setTab] = useState("home");
-  const [children] = useState(CHILDREN);
-  const [missions, setMissions] = useState(SAMPLE_MISSIONS);
-  const [showNewMission, setShowNewMission] = useState(false);
-  const [newMission, setNewMission] = useState({ name: "", emoji: "⭐", coins: 20, xp: 15, difficulty: "Fácil", category: "Casa" });
+// ═══════════════════════════════════════════════════════════
+// PARENT DASHBOARD
+// ═══════════════════════════════════════════════════════════
+const ParentDash = ({ profile, onSignOut }) => {
+  const [tab, setTab]           = useState("home");
+  const [children, setChildren] = useState([]);
+  const [missions, setMissions] = useState([]);
+  const [pending, setPending]   = useState([]);
+  const [rewards, setRewards]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [notif, setNotif]       = useState(null);
+  const [notifType, setNotifType] = useState("success");
+  const [showMission, setShowMission] = useState(false);
+  const [showReward, setShowReward]   = useState(false);
+  const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 });
+  const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50 });
 
-  const addMission = () => {
-    if (!newMission.name) return;
-    setMissions(prev => [...prev, { ...newMission, id: Date.now(), done: false, pending: false, days: ["Seg","Ter","Qua","Qui","Sex"] }]);
-    setNewMission({ name: "", emoji: "⭐", coins: 20, xp: 15, difficulty: "Fácil", category: "Casa" });
-    setShowNewMission(false);
+  const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+
+  useEffect(() => { load(); }, []);
+
+  const load = async () => {
+    setLoading(true);
+    const [{ data: ch }, { data: m }, { data: p }, { data: r }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
+      supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
+      supabase.from("pending_approvals").select("*"),
+      supabase.from("rewards").select("*").eq("family_id", profile.family_id),
+    ]);
+    setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]);
+    setLoading(false);
   };
 
+  const review = async (logId, approve) => {
+    const { error } = await supabase.rpc("review_mission", { p_log_id: logId, p_approve: approve, p_note: approve ? "Ótimo trabalho! 🎉" : "Tente novamente!" });
+    if (error) return notify("Erro ao revisar", "error");
+    notify(approve ? "✅ Aprovado! KidCoins liberados!" : "❌ Missão rejeitada");
+    load();
+  };
+
+  const createMission = async () => {
+    if (!newM.title) return notify("Digite o nome da missão", "error");
+    const { error } = await supabase.from("missions").insert({ ...newM, family_id: profile.family_id, created_by: profile.id });
+    if (error) return notify("Erro ao criar", "error");
+    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 }); load();
+  };
+
+  const createReward = async () => {
+    if (!newR.title) return notify("Digite o nome da recompensa", "error");
+    const { error } = await supabase.from("rewards").insert({ ...newR, family_id: profile.family_id, created_by: profile.id });
+    if (error) return notify("Erro ao criar", "error");
+    notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
+  };
+
+  const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"}];
+
   return (
-    <div style={{ ...styles.screen, background: THEME.darker, display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <div style={{
-        padding: "16px 20px",
-        background: `linear-gradient(135deg, ${THEME.primary}22, ${THEME.pink}11)`,
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-      }}>
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
+      <Notif msg={notif} type={notifType} />
+      <div style={{ padding: "16px 20px", background: `linear-gradient(135deg, ${T.primary}18, ${T.pink}0A)`, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 11, color: THEME.textMuted, letterSpacing: 1 }}>PAINEL DO RESPONSÁVEL</div>
-            <div style={{ color: THEME.text, fontSize: 18, fontWeight: 800 }}>👨‍👩‍👧 {parentName}</div>
+            <div style={{ fontSize: 10, color: T.textMuted, letterSpacing: 1 }}>PAINEL DO RESPONSÁVEL</div>
+            <div style={{ color: T.text, fontSize: 18, fontWeight: 800 }}>👨‍👩‍👧 {profile.display_name}</div>
           </div>
-          <div style={{
-            background: `${THEME.primary}22`, border: `1px solid ${THEME.primary}44`,
-            borderRadius: 12, padding: "6px 12px",
-            color: THEME.primary, fontSize: 12, fontWeight: 700,
-          }}>
-            {children.reduce((a, c) => a + c.pendingApprovals, 0)} aprovações
-          </div>
+          {pending.length > 0 && <div style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 12px", fontWeight: 900, fontSize: 13 }}>{pending.length} pendente{pending.length>1?"s":""}</div>}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 100px" }}>
-        {tab === "home" && (
-          <div>
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>👶 Meus Filhos</div>
-
-            {children.map(child => (
-              <div key={child.id} style={{
-                background: THEME.card, borderRadius: 24, padding: 20, marginBottom: 16,
-                border: "1px solid rgba(255,255,255,0.08)",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                  <div style={{
-                    width: 60, height: 60, borderRadius: 20, fontSize: 32,
-                    background: `linear-gradient(135deg, ${THEME.purple}44, ${THEME.blue}44)`,
-                    border: `2px solid ${THEME.purple}44`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>{child.avatar}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: THEME.text, fontWeight: 800, fontSize: 18 }}>{child.name}</div>
-                    <div style={{ color: THEME.textMuted, fontSize: 13 }}>{child.age} anos · {LEVELS.filter(l => child.xp >= l.xpNeeded).pop().name}</div>
-                  </div>
-                  {child.pendingApprovals > 0 && (
-                    <div style={{
-                      background: THEME.warning, color: THEME.darker,
-                      borderRadius: 10, width: 24, height: 24,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 900,
-                    }}>{child.pendingApprovals}</div>
-                  )}
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-                  {[
-                    { label: "KidCoins", value: child.coins, icon: "🪙", color: THEME.secondary },
-                    { label: "XP", value: child.xp, icon: "⚡", color: THEME.accent },
-                    { label: "Streak", value: `${child.streak}🔥`, icon: "", color: THEME.warning },
-                  ].map((s, i) => (
-                    <div key={i} style={{
-                      background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "10px 8px", textAlign: "center",
-                    }}>
-                      <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.icon} {s.value}</div>
-                      <div style={{ color: THEME.textMuted, fontSize: 10, marginTop: 2 }}>{s.label}</div>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+          {tab === "home" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>👶 Meus Filhos</div>
+              {children.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}><div style={{ fontSize: 40, marginBottom: 8 }}>👶</div>Nenhum filho cadastrado ainda!</div>
+                : children.map(child => {
+                    const l = getLvl(child.xp||0); const n = getNext(child.xp||0);
+                    return (
+                      <div key={child.id} style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 30, background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.avatar_emoji||"👦"}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
+                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}</div>
+                          </div>
+                        </div>
+                        <XPBar current={(child.xp||0)-l.xpNeeded} max={n.xpNeeded-l.xpNeeded} color={l.color} />
+                      </div>
+                    );
+                  })
+              }
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
+              {pending.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>Tudo em dia!</div>
+                : pending.map(p => (
+                    <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontSize: 28 }}>{p.mission_emoji}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
+                          <div style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => review(p.log_id, true)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+                          <button onClick={() => review(p.log_id, false)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                <XPBar
-                  current={child.xp - LEVELS.filter(l => child.xp >= l.xpNeeded).pop().xpNeeded}
-                  max={
-                    (LEVELS.find(l => l.xpNeeded > child.xp) || LEVELS[LEVELS.length - 1]).xpNeeded -
-                    LEVELS.filter(l => child.xp >= l.xpNeeded).pop().xpNeeded
-                  }
-                  color={LEVELS.filter(l => child.xp >= l.xpNeeded).pop().color}
-                />
-
-                {child.pendingApprovals > 0 && (
-                  <button style={{
-                    ...styles.btn, marginTop: 16,
-                    background: `linear-gradient(135deg, ${THEME.accent}, ${THEME.blue})`,
-                    padding: "12px 0",
-                  }}>⚡ Revisar {child.pendingApprovals} tarefa(s)</button>
-                )}
-              </div>
-            ))}
-
-            {/* Pending Approval Section */}
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>
-              ⏳ Aguardando Aprovação
+                  ))
+              }
             </div>
-            {missions.filter(m => m.pending).length === 0 ? (
-              <div style={{
-                background: THEME.card, borderRadius: 20, padding: 24, textAlign: "center",
-                border: "1px solid rgba(255,255,255,0.06)", color: THEME.textMuted,
-              }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>
-                <div>Nada pendente! Tudo em dia.</div>
+          )}
+          {tab === "missions" && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões</div>
+                <button onClick={() => setShowMission(!showMission)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
-            ) : (
-              missions.filter(m => m.pending).map(m => (
-                <div key={m.id} style={{
-                  background: THEME.card, borderRadius: 18, padding: 16, marginBottom: 10,
-                  border: `1px solid ${THEME.warning}33`,
-                }}>
+              {showMission && (
+                <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
+                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon="🎯" />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KIDCOINS</div>
+                      <input type="number" value={newM.coins_reward} onChange={e => setNewM(p=>({...p,coins_reward:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
+                      <input type="number" value={newM.xp_reward} onChange={e => setNewM(p=>({...p,xp_reward:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <Btn onClick={createMission} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`} small>Criar</Btn>
+                    <Btn onClick={() => setShowMission(false)} outline small>Cancelar</Btn>
+                  </div>
+                </div>
+              )}
+              {missions.map(m => (
+                <div key={m.id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 28, flex: "none" }}>{m.emoji}</div>
+                    <span style={{ fontSize: 28 }}>{m.emoji}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: THEME.text, fontWeight: 700 }}>{m.name}</div>
-                      <div style={{ fontSize: 12, color: THEME.textMuted }}>Sofia · {m.coins} KidCoins</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button style={{
-                        padding: "8px 12px", borderRadius: 10, border: "none",
-                        background: `${THEME.accent}22`, color: THEME.accent,
-                        fontWeight: 800, fontSize: 12, cursor: "pointer",
-                      }}>✓</button>
-                      <button style={{
-                        padding: "8px 12px", borderRadius: 10, border: "none",
-                        background: `${THEME.pink}22`, color: THEME.pink,
-                        fontWeight: 800, fontSize: 12, cursor: "pointer",
-                      }}>✗</button>
+                      <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                        <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {tab === "missions" && (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões Cadastradas</div>
-              <button onClick={() => setShowNewMission(true)} style={{
-                padding: "8px 16px", borderRadius: 12,
-                background: `linear-gradient(135deg, ${THEME.primary}, ${THEME.pink})`,
-                border: "none", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer",
-              }}>+ Nova</button>
-            </div>
-
-            {showNewMission && (
-              <div style={{
-                background: THEME.card, borderRadius: 24, padding: 20, marginBottom: 16,
-                border: `1px solid ${THEME.primary}44`,
-              }}>
-                <div style={{ color: THEME.text, fontWeight: 800, marginBottom: 16 }}>✨ Nova Missão</div>
-                <input
-                  value={newMission.name}
-                  onChange={e => setNewMission(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Nome da missão..."
-                  style={{ ...styles.input, marginBottom: 12 }}
-                />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <div style={{ color: THEME.textMuted, fontSize: 11, marginBottom: 6 }}>KIDCOINS</div>
-                    <input
-                      type="number" value={newMission.coins}
-                      onChange={e => setNewMission(p => ({ ...p, coins: +e.target.value }))}
-                      style={{ ...styles.input, padding: "10px 14px" }}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ color: THEME.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
-                    <input
-                      type="number" value={newMission.xp}
-                      onChange={e => setNewMission(p => ({ ...p, xp: +e.target.value }))}
-                      style={{ ...styles.input, padding: "10px 14px" }}
-                    />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                  <button onClick={addMission} style={{
-                    ...styles.btn, flex: 1,
-                    background: `linear-gradient(135deg, ${THEME.accent}, ${THEME.blue})`,
-                    padding: "12px 0",
-                  }}>Criar Missão</button>
-                  <button onClick={() => setShowNewMission(false)} style={{
-                    padding: "12px 20px", borderRadius: 14, border: `1px solid rgba(255,255,255,0.1)`,
-                    background: "none", color: THEME.textMuted, cursor: "pointer", fontWeight: 700,
-                  }}>Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {missions.map(m => (
-              <div key={m.id} style={{
-                background: THEME.card, borderRadius: 18, padding: 16, marginBottom: 10,
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 28 }}>{m.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: THEME.text, fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                      <span style={{ fontSize: 12, color: THEME.secondary }}>🪙 {m.coins}</span>
-                      <span style={{ fontSize: 12, color: THEME.accent }}>⚡ {m.xp} XP</span>
-                      <Badge color={m.difficulty === "Fácil" ? THEME.accent : THEME.warning}>{m.difficulty}</Badge>
-                    </div>
-                  </div>
-                  <div style={{ color: THEME.textMuted, fontSize: 20, cursor: "pointer" }}>⋮</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === "rewards" && (
-          <div>
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎁 Recompensas da Loja</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {REWARDS.map(r => (
-                <div key={r.id} style={{
-                  background: THEME.card, borderRadius: 20, padding: 16, textAlign: "center",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>{r.emoji}</div>
-                  <div style={{ color: THEME.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.name}</div>
-                  <div style={{ color: THEME.secondary, fontWeight: 900, fontSize: 14, marginBottom: 10 }}>
-                    🪙 {r.cost}
-                  </div>
-                  <Badge color={THEME.primary}>{r.category}</Badge>
                 </div>
               ))}
             </div>
-            <button style={{
-              ...styles.btn, marginTop: 16,
-              background: `linear-gradient(135deg, ${THEME.secondary}, ${THEME.primary})`,
-            }}>+ Adicionar Recompensa</button>
-          </div>
-        )}
-
-        {tab === "stats" && (
-          <div>
-            <div style={{ color: THEME.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas da Família</div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-              {[
-                { label: "Missões essa semana", value: "23", icon: "🎯", color: THEME.primary },
-                { label: "KidCoins distribuídos", value: "860", icon: "🪙", color: THEME.secondary },
-                { label: "Melhor streak", value: "7🔥", icon: "", color: THEME.warning },
-                { label: "Conquistas desbloqueadas", value: "4", icon: "🏆", color: THEME.accent },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: THEME.card, borderRadius: 20, padding: 18,
-                  border: `1px solid ${s.color}22`,
-                }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-                  <div style={{ color: s.color, fontWeight: 900, fontSize: 22 }}>{s.value}</div>
-                  <div style={{ color: THEME.textMuted, fontSize: 11, marginTop: 4 }}>{s.label}</div>
+          )}
+          {tab === "rewards" && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎁 Recompensas</div>
+                <button onClick={() => setShowReward(!showReward)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
+              </div>
+              {showReward && (
+                <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
+                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon="🎁" />
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>CUSTO EM KIDCOINS</div>
+                    <input type="number" value={newR.coin_cost} onChange={e => setNewR(p=>({...p,coin_cost:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <Btn onClick={createReward} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`} small>Criar</Btn>
+                    <Btn onClick={() => setShowReward(false)} outline small>Cancelar</Btn>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div style={{ background: THEME.card, borderRadius: 24, padding: 20, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ color: THEME.text, fontWeight: 700, marginBottom: 16 }}>Progresso Semanal</div>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", height: 100 }}>
-                {[60, 85, 45, 90, 70, 30, 20].map((h, i) => (
-                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <div style={{
-                      width: "100%", height: `${h}%`, borderRadius: "8px 8px 0 0",
-                      background: i < 5
-                        ? `linear-gradient(180deg, ${THEME.primary}, ${THEME.pink})`
-                        : "rgba(255,255,255,0.08)",
-                    }} />
-                    <span style={{ fontSize: 9, color: THEME.textMuted }}>
-                      {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"][i]}
-                    </span>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {rewards.map(r => (
+                  <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>{r.emoji}</div>
+                    <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
+                    <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        )}
+          )}
+          {tab === "stats" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+                {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.length, icon:"🎁", color:T.pink }].map((s,i) => (
+                  <div key={i} style={{ background: T.card, borderRadius: 20, padding: 18, border: `1px solid ${s.color}22` }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26 }}>{s.value}</div>
+                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+            </div>
+          )}
+        </>}
       </div>
 
-      {/* Bottom Nav */}
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 430, margin: "0 auto",
-        background: `${THEME.darker}EE`, backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", padding: "12px 0 24px",
-      }}>
-        {[
-          { key: "home", icon: "🏠", label: "Início" },
-          { key: "missions", icon: "🎯", label: "Missões" },
-          { key: "rewards", icon: "🎁", label: "Recompensas" },
-          { key: "stats", icon: "📊", label: "Stats" },
-        ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-            background: "none", border: "none", cursor: "pointer",
-          }}>
-            <div style={{
-              fontSize: 22,
-              filter: tab === t.key ? "none" : "grayscale(80%)",
-              transform: tab === t.key ? "scale(1.2)" : "scale(1)",
-              transition: "all 0.2s",
-            }}>{t.icon}</div>
-            <span style={{
-              fontSize: 10, fontWeight: 700,
-              color: tab === t.key ? THEME.primary : THEME.textMuted,
-            }}>{t.label}</span>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 430, margin: "0 auto", background: `${T.darker}EE`, backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", padding: "12px 0 24px" }}>
+        {navTabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer" }}>
+            <div style={{ fontSize: 22, filter: tab===t.key?"none":"grayscale(80%)", transform: tab===t.key?"scale(1.2)":"scale(1)", transition: "all 0.2s" }}>{t.icon}</div>
+            <span style={{ fontSize: 10, fontWeight: 700, color: tab===t.key?T.primary:T.textMuted }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -942,100 +639,75 @@ const ParentDashboard = ({ parentName, onBack }) => {
   );
 };
 
-// ============================================================
-// MAIN APP
-// ============================================================
-export default function MissaoKids() {
-  const [screen, setScreen] = useState("splash");
-  const [userMode, setUserMode] = useState(null);
-  const [userName, setUserName] = useState("");
+// ═══════════════════════════════════════════════════════════
+// APP ROOT
+// ═══════════════════════════════════════════════════════════
+export default function App() {
+  const [screen, setScreen]   = useState("splash");
+  const [user, setUser]       = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = (mode, name) => {
-    setUserMode(mode);
-    setUserName(name);
-    setScreen(mode === "child" ? "childDash" : "parentDash");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) { setUser(session.user); loadProfile(session.user.id); }
+      else setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.user) { setUser(session.user); loadProfile(session.user.id); }
+      else { setUser(null); setProfile(null); setScreen("auth"); setLoading(false); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadProfile = async (uid) => {
+    setLoading(true);
+    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    if (data) {
+      setProfile(data);
+      setScreen(!data.family_id && data.role === "parent" ? "onboarding" : data.role === "parent" ? "parent" : "child");
+    }
+    setLoading(false);
   };
+
+  const signOut = async () => { await supabase.auth.signOut(); };
+
+  if (screen === "splash") {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
+          <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
+            <Splash onDone={() => { if (!loading) setScreen(user ? (profile?.role === "parent" ? "parent" : "child") : "auth"); }} />
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
-
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Nunito', sans-serif; background: #0F0F1A; }
-
-        @keyframes bounceIn {
-          0% { transform: scale(0.3); opacity: 0; }
-          60% { transform: scale(1.1); }
-          80% { transform: scale(0.95); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes floatY {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @keyframes slideDown {
-          from { transform: translateY(-20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeUp {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes coinBurst0 { to { transform: rotate(0deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst1 { to { transform: rotate(45deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst2 { to { transform: rotate(90deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst3 { to { transform: rotate(135deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst4 { to { transform: rotate(180deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst5 { to { transform: rotate(225deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst6 { to { transform: rotate(270deg) translateY(-80px); opacity: 0; } }
-        @keyframes coinBurst7 { to { transform: rotate(315deg) translateY(-80px); opacity: 0; } }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-      `}</style>
-
-      <div style={{
-        display: "flex", justifyContent: "center", minHeight: "100vh",
-        background: "#080810",
-      }}>
-        <div style={{ width: "100%", maxWidth: 430, position: "relative", overflow: "hidden", minHeight: "100vh" }}>
-          {screen === "splash" && <SplashScreen onDone={() => setScreen("onboarding")} />}
-          {screen === "onboarding" && <OnboardingScreen onDone={() => setScreen("login")} />}
-          {screen === "login" && <LoginScreen onLogin={handleLogin} />}
-          {screen === "childDash" && <ChildDashboard childName={userName} onBack={() => setScreen("login")} />}
-          {screen === "parentDash" && <ParentDashboard parentName={userName} onBack={() => setScreen("login")} />}
+      <style>{CSS}</style>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
+        <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
+          {loading && <div style={{ minHeight: "100vh", background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}><div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div><div style={{ color: T.textMuted, fontSize: 14 }}>Carregando...</div></div>}
+          {!loading && screen === "auth"       && <AuthScreen onAuth={() => {}} />}
+          {!loading && screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
+          {!loading && screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
+          {!loading && screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} />}
         </div>
       </div>
     </>
   );
 }
 
-// ============================================================
-// STYLES
-// ============================================================
-const styles = {
-  screen: {
-    minHeight: "100vh",
-    width: "100%",
-    fontFamily: "'Nunito', sans-serif",
-  },
-  btn: {
-    width: "100%", padding: "16px 24px", borderRadius: 18,
-    border: "none", color: "#fff", fontWeight: 900,
-    fontSize: 16, cursor: "pointer", letterSpacing: 0.3,
-    boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-    transition: "transform 0.1s, opacity 0.2s",
-  },
-  input: {
-    width: "100%", padding: "14px 18px", borderRadius: 16,
-    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-    color: "#F0F0FF", fontSize: 15, fontFamily: "'Nunito', sans-serif",
-    outline: "none",
-  },
-};
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Nunito', sans-serif; background: #080810; }
+  @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+`;
