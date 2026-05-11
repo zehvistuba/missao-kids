@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { AISuggestMissions, AIWeeklyReport, AIMotivationalFeedback, AIDailySurprise } from './components/AIAssistant';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -285,6 +286,7 @@ const Onboarding = ({ user, onDone }) => {
 // ═══════════════════════════════════════════════════════════
 const ChildDash = ({ profile, onSignOut }) => {
   const [tab, setTab]         = useState("home");
+  const [motivModal, setMotivModal] = useState(null);
   const [missions, setMissions] = useState([]);
   const [rewards, setRewards]   = useState([]);
   const [achievements, setAch]  = useState([]);
@@ -311,6 +313,7 @@ const ChildDash = ({ profile, onSignOut }) => {
       }, (payload) => {
         if (payload.new.status === "approved") {
           notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
+          setMotivModal({ missionTitle: payload.new.mission_title || "Missão", points: payload.new.coins_earned || 10 });
           load();
         }
       })
@@ -356,6 +359,17 @@ const ChildDash = ({ profile, onSignOut }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
+
+      {/* AI Motivational Modal */}
+      {motivModal && (
+        <AIMotivationalFeedback
+          childName={profile.display_name}
+          missionTitle={motivModal.missionTitle}
+          points={motivModal.points}
+          totalPoints={profile.kidcoins || 0}
+          onClose={() => setMotivModal(null)}
+        />
+      )}
 
       {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px 0" }}>
@@ -428,6 +442,14 @@ const ChildDash = ({ profile, onSignOut }) => {
               }
             </div>
           )}
+
+                    {/* AI Daily Surprise */}
+          <div style={{ marginTop: 20 }}>
+            <AIDailySurprise
+              child={profile}
+              onAddMission={(m) => notify('Missao sugerida pela IA!')}
+            />
+          </div>
 
           {/* STORE */}
           {tab === "store" && (
@@ -761,6 +783,14 @@ const ParentDash = ({ profile, onSignOut }) => {
                 ))}
               </div>
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+          {/* AI Components */}
+          <div style={{ marginTop: 24 }}>
+            <AISuggestMissions child={children[0] || { name: profile.display_name, birth_date: null }} 
+              onAddMission={(mission) => { setNewM({ title: mission.title, emoji: '🤖', coins_reward: mission.points, xp_reward: Math.floor(mission.points * 0.75) }); setShowMission(true); setTab('missions'); notify('✨ Missão de IA pronta para criar!'); }} />
+            <div style={{ marginTop: 16 }}>
+              {children.length > 0 && <AIWeeklyReport child={children[0]} missions={[]} />}
+            </div>
+          </div>
             </div>
           )}
         </>}
