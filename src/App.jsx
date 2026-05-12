@@ -1075,6 +1075,66 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   );
 };
 
+// ─── Upgrade Modal ────────────────────────────────────────
+const UpgradeModal = ({ onClose }) => {
+  const FREE_ITEMS  = ["1 filho cadastrado", "Missões e recompensas ilimitadas", "IA: missão surpresa", "Gamificação completa (XP, níveis, streak)", "PWA — acesso pelo celular"];
+  const PREM_ITEMS  = ["✅ Filhos ilimitados", "✅ IA: sugestão de missões", "✅ IA: relatório semanal", "✅ Co-responsável (convite)", "✅ Histórico completo", "✅ Suporte prioritário"];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: T.card, borderRadius: "28px 28px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 430, maxHeight: "92vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 52, marginBottom: 12 }}>👑</div>
+          <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 6 }}>Missão Kids Premium</div>
+          <div style={{ color: T.textMuted, fontSize: 14 }}>Desbloqueie todo o potencial da família</div>
+        </div>
+
+        {/* Comparativo */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+          {/* Free */}
+          <div style={{ background: T.darker, borderRadius: 20, padding: "16px 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>GRÁTIS</div>
+            {FREE_ITEMS.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
+                <span style={{ color: T.textMuted, fontSize: 12, marginTop: 1, flexShrink: 0 }}>◦</span>
+                <span style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.4 }}>{item}</span>
+              </div>
+            ))}
+          </div>
+          {/* Premium */}
+          <div style={{ background: `linear-gradient(160deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "16px 14px", border: `2px solid ${T.purple}55` }}>
+            <div style={{ color: T.purple, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>PREMIUM 👑</div>
+            {PREM_ITEMS.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
+                <span style={{ color: T.accent, fontSize: 12, marginTop: 1, flexShrink: 0 }}>✓</span>
+                <span style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>{item.replace("✅ ", "")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Preço */}
+        <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `1px solid ${T.purple}44`, marginBottom: 20 }}>
+          <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 4 }}>Apenas</div>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
+            <span style={{ color: T.text, fontWeight: 900, fontSize: 36, color: T.purple }}>R$ 19</span>
+            <span style={{ color: T.textMuted, fontSize: 15 }}>,90/mês</span>
+          </div>
+          <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>Cancele quando quiser</div>
+        </div>
+
+        <a href="https://wa.me/5551999999999?text=Quero%20assinar%20o%20Miss%C3%A3o%20Kids%20Premium!" target="_blank" rel="noopener noreferrer" style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
+          👑 Quero o Premium
+        </a>
+        <button onClick={onClose} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+          Continuar no plano gratuito
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Mission Modal ────────────────────────────────────────
 const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
   const [title, setTitle]   = useState(mission.title || "");
@@ -1197,12 +1257,20 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [savingName, setSavingName]       = useState(false);
   const [editingMission, setEditingMission] = useState(null);
   const [editingReward, setEditingReward]   = useState(null);
+  const [familyPlan, setFamilyPlan]         = useState("free");
+  const [showUpgrade, setShowUpgrade]       = useState(false);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+  const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
 
   const loadInviteCode = async () => {
     const { data } = await supabase.rpc("get_invite_code");
     setInviteCode(data || null);
+  };
+
+  const loadFamilyPlan = async () => {
+    const { data } = await supabase.rpc("get_family_plan");
+    setFamilyPlan(data || "free");
   };
 
   const generateCode = async () => {
@@ -1236,6 +1304,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   useEffect(() => {
     load();
     loadInviteCode();
+    loadFamilyPlan();
     // Realtime — nova missão pendente
     const channel = supabase
       .channel(`parent-${profile.id}`)
@@ -1342,6 +1411,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
 
+      {/* Modal upgrade */}
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+
       {/* Modal adicionar filho */}
       {showAddChild && (
         <AddChildModal
@@ -1417,6 +1489,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             </div>
           )}
         </div>
+        {/* Banner upgrade — aparece para free com 1+ filho */}
+        {familyPlan === "free" && children.length >= 1 && (
+          <button onClick={() => setShowUpgrade(true)} style={{ marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 14, border: `1px solid ${T.purple}55`, background: `linear-gradient(135deg, ${T.purple}18, ${T.pink}12)`, color: T.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 18 }}>👑</span>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontWeight: 800, color: T.purple }}>Upgrade para Premium</div>
+              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>Filhos ilimitados + IA completa por R$ 19,90/mês</div>
+            </div>
+            <span style={{ color: T.purple, fontWeight: 900 }}>→</span>
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 100px" }}>
@@ -1427,8 +1510,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <div>
               {/* Filhos */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>👶 Meus Filhos</div>
-                <button onClick={() => setShowAddChild(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>👶 Meus Filhos</div>
+                  {familyPlan === "premium" && <span style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "2px 8px", letterSpacing: 0.5 }}>PREMIUM</span>}
+                </div>
+                <button onClick={tryAddChild} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar</button>
               </div>
 
               {children.length === 0
@@ -1436,7 +1522,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     <div style={{ fontSize: 40, marginBottom: 8 }}>👶</div>
                     Nenhum filho cadastrado ainda!
                     <div style={{ marginTop: 16 }}>
-                      <button onClick={() => setShowAddChild(true)} style={{ padding: "10px 20px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar filho(a)</button>
+                      <button onClick={tryAddChild} style={{ padding: "10px 20px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar filho(a)</button>
                     </div>
                   </div>
                 : children.map(child => {
