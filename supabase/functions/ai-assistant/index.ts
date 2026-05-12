@@ -89,14 +89,18 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
     }
 
     const geminiUrl =
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const geminiRes = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.85, maxOutputTokens: 1024 },
+        generationConfig: {
+          temperature: 0.85,
+          maxOutputTokens: 1024,
+          ...(isJson ? { responseMimeType: "application/json" } : {}),
+        },
       }),
     });
 
