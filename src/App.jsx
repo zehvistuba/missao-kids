@@ -38,6 +38,26 @@ const getSaudacao = () => {
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 };
 
+const calcAge = (birthDate) => {
+  if (!birthDate) return null;
+  const today = new Date();
+  const b = new Date(birthDate);
+  let age = today.getFullYear() - b.getFullYear();
+  if (today.getMonth() - b.getMonth() < 0 || (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
+  return age;
+};
+
+const DateInp = ({ value, onChange }) => (
+  <div style={{ position: "relative", marginBottom: 14 }}>
+    <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 16, zIndex: 1, pointerEvents: "none" }}>🎂</span>
+    <input type="date" value={value} onChange={onChange}
+      max={new Date().toISOString().split("T")[0]}
+      min={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+      style={{ width: "100%", padding: "14px 18px 14px 46px", borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 15, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box", colorScheme: "dark" }}
+    />
+  </div>
+);
+
 // ─── UI Components ────────────────────────────────────────
 const XPBar = ({ current, max, color = T.accent }) => (
   <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, height: 8, overflow: "hidden" }}>
@@ -64,23 +84,26 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
   <button onClick={onClick} disabled={disabled} style={{ width: small ? "auto" : "100%", padding: small ? "10px 20px" : "15px 24px", borderRadius: 16, border: outline ? "1px solid rgba(255,255,255,0.15)" : "none", background: disabled ? "rgba(255,255,255,0.08)" : outline ? "rgba(255,255,255,0.04)" : gradient || `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: disabled ? T.textMuted : T.text, fontWeight: 800, fontSize: small ? 13 : 15, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", letterSpacing: 0.3 }}>{children}</button>
 );
 
+const AVATARS = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🦋","🌟","🦅","🐉","🤖","👾"];
+
 // ─── Add Child Modal ───────────────────────────────────────
 const AddChildModal = ({ onAdd, onClose }) => {
-  const [name, setName]     = useState("");
-  const [age, setAge]       = useState("");
-  const [avatar, setAvatar] = useState("👦");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr]       = useState("");
-  const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
+  const [name, setName]         = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [avatar, setAvatar]     = useState("👦");
+  const [loading, setLoading]   = useState(false);
+  const [err, setErr]           = useState("");
+
+  const age = birthDate ? calcAge(birthDate) : null;
 
   const handleAdd = async () => {
-    if (!name || !age) return;
+    if (!name || !birthDate) return;
     setErr("");
     setLoading(true);
     const { error } = await supabase.rpc("add_child", {
       p_display_name: name,
-      p_age: parseInt(age),
       p_avatar_emoji: avatar,
+      p_birth_date: birthDate,
     });
     setLoading(false);
     if (error) { setErr(error.message || "Erro ao adicionar filho. Tente novamente."); return; }
@@ -92,19 +115,83 @@ const AddChildModal = ({ onAdd, onClose }) => {
       <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>👶 Adicionar Filho(a)</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-          {avatars.map(a => (
+          {AVATARS.slice(0,10).map(a => (
             <button key={a} onClick={() => setAvatar(a)} style={{ width: 46, height: 46, borderRadius: 12, fontSize: 22, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
           ))}
         </div>
         <Inp icon={avatar} placeholder="Nome do filho(a)" value={name} onChange={e => setName(e.target.value)} />
-        <Inp icon="🎂" placeholder="Idade" type="number" value={age} onChange={e => setAge(e.target.value)} />
+        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
         {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-          <Btn onClick={handleAdd} disabled={loading || !name || !age} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+          <Btn onClick={handleAdd} disabled={loading || !name || !birthDate} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
             {loading ? "Salvando..." : "✅ Adicionar"}
           </Btn>
           <Btn onClick={onClose} outline small>Cancelar</Btn>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Edit Child Modal ──────────────────────────────────────
+const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
+  const [name, setName]           = useState(child.display_name || "");
+  const [birthDate, setBirthDate] = useState(child.birth_date || "");
+  const [avatar, setAvatar]       = useState(child.avatar_emoji || "👦");
+  const [loading, setLoading]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [err, setErr]             = useState("");
+
+  const age = birthDate ? calcAge(birthDate) : child.age;
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setErr(""); setLoading(true);
+    const { error } = await supabase.rpc("update_child", {
+      p_child_id: child.id,
+      p_display_name: name.trim(),
+      p_birth_date: birthDate || null,
+      p_avatar_emoji: avatar,
+    });
+    setLoading(false);
+    if (error) { setErr(error.message); return; }
+    onSave();
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDel) { setConfirmDel(true); return; }
+    setDeleting(true);
+    const { error } = await supabase.rpc("delete_child", { p_child_id: child.id });
+    setDeleting(false);
+    if (error) { setErr(error.message); return; }
+    onDelete();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar {child.display_name}</div>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+          {AVATARS.map(a => (
+            <button key={a} onClick={() => setAvatar(a)} style={{ width: 42, height: 42, borderRadius: 11, fontSize: 20, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
+          ))}
+        </div>
+        <Inp icon={avatar} placeholder="Nome da criança" value={name} onChange={e => setName(e.target.value)} />
+        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
+        {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <Btn onClick={handleSave} disabled={loading || !name.trim()} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+            {loading ? "Salvando..." : "✅ Salvar"}
+          </Btn>
+          <Btn onClick={onClose} outline small>Cancelar</Btn>
+        </div>
+        <button onClick={handleDelete} disabled={deleting} style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${confirmDel ? T.pink : "rgba(255,255,255,0.1)"}`, background: confirmDel ? `${T.pink}22` : "transparent", color: confirmDel ? T.pink : T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
+          {deleting ? "Excluindo..." : confirmDel ? "⚠️ Toque para confirmar exclusão" : "🗑️ Excluir criança"}
+        </button>
+        {confirmDel && <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 6 }}>Esta ação é irreversível e remove todos os dados da criança.</div>}
       </div>
     </div>
   );
@@ -854,7 +941,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 // ═══════════════════════════════════════════════════════════
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
-const ParentDash = ({ profile, onSignOut }) => {
+const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [tab, setTab]             = useState("home");
   const [children, setChildren]   = useState([]);
   const [missions, setMissions]   = useState([]);
@@ -871,9 +958,13 @@ const ParentDash = ({ profile, onSignOut }) => {
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
-  const [inviteCode, setInviteCode]     = useState(null);
+  const [inviteCode, setInviteCode]       = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [codeCopied, setCodeCopied]     = useState(false);
+  const [codeCopied, setCodeCopied]       = useState(false);
+  const [editingChild, setEditingChild]   = useState(null);
+  const [editingName, setEditingName]     = useState(false);
+  const [newName, setNewName]             = useState("");
+  const [savingName, setSavingName]       = useState(false);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
@@ -897,6 +988,17 @@ const ParentDash = ({ profile, onSignOut }) => {
       setCodeCopied(true);
       setTimeout(() => setCodeCopied(false), 2000);
     });
+  };
+
+  const saveParentName = async () => {
+    if (!newName.trim()) return;
+    setSavingName(true);
+    const { error } = await supabase.rpc("update_display_name", { p_display_name: newName.trim() });
+    setSavingName(false);
+    if (error) return notify("Erro ao salvar nome: " + error.message, "error");
+    setEditingName(false);
+    notify("✅ Nome atualizado!");
+    if (onRefresh) onRefresh();
   };
 
   useEffect(() => {
@@ -1011,9 +1113,18 @@ const ParentDash = ({ profile, onSignOut }) => {
       {/* Modal adicionar filho */}
       {showAddChild && (
         <AddChildModal
-          familyId={profile.family_id}
           onAdd={() => { setShowAddChild(false); load(); notify("👶 Filho(a) adicionado com sucesso!"); }}
           onClose={() => setShowAddChild(false)}
+        />
+      )}
+
+      {/* Modal editar filho */}
+      {editingChild && (
+        <EditChildModal
+          child={editingChild}
+          onSave={() => { setEditingChild(null); load(); notify("✅ Dados salvos!"); }}
+          onDelete={() => { setEditingChild(null); load(); notify("🗑️ Criança removida."); }}
+          onClose={() => setEditingChild(null)}
         />
       )}
 
@@ -1054,17 +1165,18 @@ const ParentDash = ({ profile, onSignOut }) => {
                   </div>
                 : children.map(child => {
                     const l = getLvl(child.xp||0); const n = getNext(child.xp||0);
+                    const age = child.birth_date ? calcAge(child.birth_date) : child.age;
                     return (
                       <div key={child.id} style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                           <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 30, background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.avatar_emoji||"👦"}</div>
                           <div style={{ flex: 1 }}>
                             <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
-                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0} · {child.age ? `${child.age} anos` : ""}</div>
+                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
                           </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ color: T.textMuted, fontSize: 10 }}>Streak</div>
-                            <div style={{ color: T.warning, fontWeight: 900 }}>{child.streak||0}🔥</div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                            <button onClick={() => setEditingChild(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                            <div style={{ color: T.warning, fontWeight: 900, fontSize: 13 }}>{child.streak||0}🔥</div>
                           </div>
                         </div>
                         <XPBar current={(child.xp||0)-l.xpNeeded} max={n.xpNeeded-l.xpNeeded} color={l.color} />
@@ -1270,6 +1382,30 @@ const ParentDash = ({ profile, onSignOut }) => {
                 )}
               </div>
 
+              {/* Editar nome do responsável */}
+              <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>SEU PERFIL</div>
+                {editingName ? (
+                  <>
+                    <Inp icon="👤" placeholder="Seu nome" value={newName} onChange={e => setNewName(e.target.value)} />
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <Btn onClick={saveParentName} disabled={savingName || !newName.trim()} gradient={`linear-gradient(135deg, ${T.primary}, ${T.pink})`} small>
+                        {savingName ? "Salvando..." : "✅ Salvar"}
+                      </Btn>
+                      <Btn onClick={() => setEditingName(false)} outline small>Cancelar</Btn>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ color: T.text, fontWeight: 700, fontSize: 15 }}>{profile.display_name}</div>
+                      <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>Responsável</div>
+                    </div>
+                    <button onClick={() => { setNewName(profile.display_name); setEditingName(true); }} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                  </div>
+                )}
+              </div>
+
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
@@ -1355,7 +1491,7 @@ export default function App() {
           }} />}
           {screen === "auth"       && <AuthScreen />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
-          {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} />}
+          {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
           {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
           {loading && screen !== "splash" && (
             <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
