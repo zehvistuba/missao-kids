@@ -257,6 +257,97 @@ const Splash = ({ onDone }) => {
 };
 
 // ═══════════════════════════════════════════════════════════
+// LANDING PAGE
+// ═══════════════════════════════════════════════════════════
+const LandingPage = ({ onSignup, onLogin }) => {
+  const features = [
+    { emoji: "🎯", title: "Missões Diárias", desc: "Transforme tarefas em aventuras épicas que as crianças adoram completar" },
+    { emoji: "🪙", title: "KidCoins & Recompensas", desc: "Ganhe moedas e troque por recompensas escolhidas pela família" },
+    { emoji: "🤖", title: "IA Personalizada", desc: "Sugestões inteligentes de missões e relatórios semanais automáticos" },
+    { emoji: "👨‍👩‍👧", title: "Toda a Família", desc: "Responsáveis aprovam, crianças evoluem, todos acompanham juntos" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.darker, overflowY: "auto" }}>
+      {/* Hero */}
+      <div style={{ background: `linear-gradient(160deg, ${T.darker} 0%, #1A0A2E 100%)`, padding: "60px 28px 50px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${T.primary}22, transparent)`, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}22, transparent)`, pointerEvents: "none" }} />
+        <div style={{ fontSize: 72, marginBottom: 20, filter: `drop-shadow(0 0 24px ${T.primary}66)`, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>🚀</div>
+        <div style={{ fontSize: 34, fontWeight: 900, color: T.text, letterSpacing: -1, marginBottom: 6 }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ color: T.textMuted, fontSize: 16, marginBottom: 10, letterSpacing: 1 }}>TRANSFORME A ROTINA EM AVENTURA</div>
+        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.6, maxWidth: 320, margin: "0 auto 36px" }}>
+          O app de gamificação que faz as crianças amarem sua rotina — e os pais amarem a paz em casa.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "0 auto" }}>
+          <button onClick={onSignup} style={{ padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
+            ✨ Criar conta grátis
+          </button>
+          <button onClick={onLogin} style={{ padding: "15px 28px", borderRadius: 18, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+            Já tenho conta
+          </button>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ background: T.card, padding: "20px 28px", display: "flex", justifyContent: "space-around", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {[{ n: "100%", label: "gratuito para começar" }, { n: "6", label: "níveis de evolução" }, { n: "16", label: "conquistas para ganhar" }].map((s, i) => (
+          <div key={i} style={{ textAlign: "center" }}>
+            <div style={{ color: T.primary, fontWeight: 900, fontSize: 22 }}>{s.n}</div>
+            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Features */}
+      <div style={{ padding: "36px 24px" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Tudo que você precisa</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {features.map((f, i) => (
+            <div key={i} style={{ background: T.card, borderRadius: 20, padding: "18px 20px", display: "flex", alignItems: "flex-start", gap: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.primary}22, ${T.purple}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{f.emoji}</div>
+              <div>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{f.title}</div>
+                <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.5 }}>{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div style={{ padding: "0 24px 40px" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Como funciona</div>
+        {[
+          { step: "1", emoji: "👨‍👩‍👧", title: "Crie a família", desc: "Responsável cadastra a família e adiciona os filhos" },
+          { step: "2", emoji: "🎯", title: "Crie missões", desc: "Defina tarefas do dia a dia como missões com recompensas" },
+          { step: "3", emoji: "⭐", title: "Crianças completam", desc: "Elas fazem a tarefa e marcam como concluída no app" },
+          { step: "4", emoji: "✅", title: "Você aprova", desc: "Revise e aprove — KidCoins são creditados automaticamente" },
+        ].map((item, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>{item.step}</div>
+            <div style={{ paddingTop: 4 }}>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{item.emoji} {item.title}</div>
+              <div style={{ color: T.textMuted, fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom CTA */}
+      <div style={{ background: `linear-gradient(135deg, ${T.primary}18, ${T.purple}18)`, padding: "36px 28px 60px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 8 }}>Pronto para começar?</div>
+        <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 28 }}>Gratuito para sempre. Sem cartão de crédito.</div>
+        <button onClick={onSignup} style={{ width: "100%", maxWidth: 320, padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
+          ✨ Começar grátis agora
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
 const AuthScreen = () => {
@@ -1649,7 +1740,7 @@ export default function App() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) { setUser(session.user); loadProfile(session.user.id); }
-      else { setUser(null); setProfile(null); setScreen("auth"); setLoading(false); }
+      else { setUser(null); setProfile(null); setScreen("landing"); setLoading(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -1684,8 +1775,9 @@ export default function App() {
         <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
           {screen === "splash" && <Splash onDone={() => {
             if (!loading && user && profile) setScreen(profile.role === "parent" ? "parent" : "child");
-            else setScreen("auth");
+            else setScreen("landing");
           }} />}
+          {screen === "landing"    && <LandingPage onSignup={() => setScreen("auth")} onLogin={() => setScreen("auth")} />}
           {screen === "auth"       && <AuthScreen />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
           {screen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
