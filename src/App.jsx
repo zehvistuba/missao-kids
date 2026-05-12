@@ -149,9 +149,12 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
   const handleSave = async () => {
     if (!name.trim()) return;
     setErr(""); setLoading(true);
-    const updates = { display_name: name.trim(), avatar_emoji: avatar };
-    if (birthDate) { updates.age = calcAge(birthDate); }
-    const { error } = await supabase.from("profiles").update(updates).eq("id", child.id);
+    const { error } = await supabase.rpc("update_child", {
+      p_child_id:     child.id,
+      p_display_name: name.trim(),
+      p_birth_date:   birthDate || null,
+      p_avatar_emoji: avatar,
+    });
     setLoading(false);
     if (error) { setErr(error.message); return; }
     onSave();
@@ -160,18 +163,9 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
   const handleDelete = async () => {
     if (!confirmDel) { setConfirmDel(true); return; }
     setDeleting(true);
-    // Tenta RPC (cascade). Se não existir, faz delete direto
-    const { error: rpcErr } = await supabase.rpc("delete_child", { p_child_id: child.id });
-    if (rpcErr) {
-      // fallback: remove logs e achievements primeiro, depois o perfil
-      await supabase.from("mission_logs").delete().eq("child_id", child.id);
-      await supabase.from("child_achievements").delete().eq("child_id", child.id);
-      const { error } = await supabase.from("profiles").delete().eq("id", child.id);
-      setDeleting(false);
-      if (error) { setErr(error.message); return; }
-    } else {
-      setDeleting(false);
-    }
+    const { error } = await supabase.rpc("delete_child", { p_child_id: child.id });
+    setDeleting(false);
+    if (error) { setErr(error.message); return; }
     onDelete();
   };
 

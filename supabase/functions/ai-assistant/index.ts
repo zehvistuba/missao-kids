@@ -3,6 +3,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const respond = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -11,25 +17,27 @@ Deno.serve(async (req) => {
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY não configurado nos secrets do Supabase" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ error: "GEMINI_API_KEY não configurado nos secrets do Supabase" }, 500);
     }
 
-    const { action, context } = await req.json();
+    let body: { action?: string; context?: Record<string, unknown> };
+    try {
+      body = await req.json();
+    } catch {
+      return respond({ error: "Body JSON inválido" }, 400);
+    }
+
+    const { action, context = {} } = body;
     let prompt = "";
     let isJson = false;
 
     if (action === "suggest_missions") {
       isJson = true;
-      const childrenInfo = (context.children ?? [])
-        .map((c: { name: string; age?: number; xp?: number }) =>
-          `${c.name} (${c.age ?? "?"}anos, ${c.xp ?? 0}XP)`
-        )
+      const childrenInfo = (context.children as Array<{ name: string; age?: number; xp?: number }> ?? [])
+        .map((c) => `${c.name} (${c.age ?? "?"}anos, ${c.xp ?? 0}XP)`)
         .join(", ") || "crianças";
-      const existingTitles = (context.existingMissions ?? [])
-        .map((m: { title: string }) => m.title)
+      const existingTitles = (context.existingMissions as Array<{ title: string }> ?? [])
+        .map((m) => m.title)
         .join(", ") || "nenhuma";
 
       prompt = `Você é especialista em gamificação educacional infantil. App: Missão Kids.
@@ -43,10 +51,8 @@ Gere 5 missões NOVAS, criativas e adequadas às idades. Retorne APENAS JSON vá
 Regras: missões rotineiras+educativas, coins 10-50, XP 10-40, português BR, não repita existentes, emojis relevantes.`;
 
     } else if (action === "weekly_report") {
-      const childrenInfo = (context.children ?? [])
-        .map((c: { name: string; age?: number; xp?: number; kidcoins?: number; streak?: number }) =>
-          `- ${c.name}: ${c.xp ?? 0}XP, ${c.kidcoins ?? 0} KidCoins, streak ${c.streak ?? 0}d`
-        )
+      const childrenInfo = (context.children as Array<{ name: string; age?: number; xp?: number; kidcoins?: number; streak?: number }> ?? [])
+        .map((c) => `- ${c.name}: ${c.xp ?? 0}XP, ${c.kidcoins ?? 0} KidCoins, streak ${c.streak ?? 0}d`)
         .join("\n") || "Nenhum filho cadastrado";
 
       prompt = `Você é especialista em desenvolvimento infantil. App Missão Kids.
@@ -79,10 +85,7 @@ Crie UMA missão surpresa criativa e realizável hoje. Retorne APENAS JSON váli
 Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60, XP 15-50, português BR, descrição em 2ª pessoa.`;
 
     } else {
-      return new Response(
-        JSON.stringify({ error: `Ação desconhecida: ${action}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ error: `Ação desconhecida: ${action}` }, 400);
     }
 
     const geminiUrl =
@@ -99,7 +102,7 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      throw new Error(`Gemini ${geminiRes.status}: ${errText.slice(0, 300)}`);
+      return respond({ error: `Gemini ${geminiRes.status}: ${errText.slice(0, 300)}` }, 502);
     }
 
     const geminiData = await geminiRes.json();
@@ -108,19 +111,17 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
 
     if (isJson) {
       result = result.replace(/^```(?:json)?\s*/m, "").replace(/\s*```$/m, "").trim();
-      JSON.parse(result); // throws if invalid
+      try {
+        JSON.parse(result);
+      } catch {
+        return respond({ error: "Resposta da IA não é JSON válido: " + result.slice(0, 200) }, 502);
+      }
     }
 
-    return new Response(
-      JSON.stringify({ result }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return respond({ result });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return respond({ error: msg }, 500);
   }
 });
