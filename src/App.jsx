@@ -199,9 +199,13 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
 
 // ─── Child Join (criança sem família) ─────────────────────
 const ChildJoin = ({ onDone }) => {
-  const [code, setCode]     = useState("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr]       = useState("");
+  const [step, setStep]         = useState("code"); // "code" | "profile"
+  const [code, setCode]         = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [err, setErr]           = useState("");
+  const [avatar, setAvatar]     = useState("👦");
+  const [birthDate, setBirthDate] = useState("");
+  const [saving, setSaving]     = useState(false);
 
   const join = async () => {
     if (code.length < 6) return;
@@ -209,8 +213,42 @@ const ChildJoin = ({ onDone }) => {
     const { error } = await supabase.rpc("join_family_by_code", { p_code: code });
     setLoading(false);
     if (error) { setErr(error.message || "Código inválido ou expirado"); return; }
+    setStep("profile");
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    const updates = { avatar_emoji: avatar };
+    if (birthDate) { updates.birth_date = birthDate; updates.age = calcAge(birthDate); }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from("profiles").update(updates).eq("id", user.id);
+    setSaving(false);
     onDone();
   };
+
+  if (step === "profile") {
+    const age = birthDate ? calcAge(birthDate) : null;
+    return (
+      <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
+          <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Bem-vindo à família!</div>
+          <div style={{ color: T.textMuted, fontSize: 15 }}>Escolha seu avatar e data de nascimento</div>
+        </div>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
+          {AVATARS.map(a => (
+            <button key={a} onClick={() => setAvatar(a)} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 22, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
+          ))}
+        </div>
+        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
+        <Btn onClick={saveProfile} disabled={saving} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+          {saving ? "Salvando..." : "🚀 Entrar na aventura!"}
+        </Btn>
+        <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px", justifyContent: "center" }}>
@@ -652,7 +690,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
             });
             setCelebration({ msg, coins: payload.new.coins_earned, xp: xpGained, levelUp });
           } catch {
-            notify(`🎉 Missão aprovada! +${payload.new.coins_earned} KidCoins!`);
+            const fallbacks = [
+              `Incrível, ${profile.display_name}! Você completou mais uma missão! Continue assim, campeão! 🚀`,
+              `Uhuuul! Missão concluída! Você está arrasando! Cada missão te deixa mais forte! 💪⭐`,
+              `Que aventureiro incrível! Missão cumprida com sucesso! O Capitão Rotina está orgulhoso! 🎖️`,
+            ];
+            const msg = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            setCelebration({ msg, coins: payload.new.coins_earned, xp: xpGained, levelUp });
           }
         }
       })
@@ -1248,6 +1292,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
+  const [aiError, setAiError]   = useState(null);
   const [inviteCode, setInviteCode]       = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [codeCopied, setCodeCopied]       = useState(false);
@@ -1354,8 +1399,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const suggestMissions = async () => {
     if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
-    setAiLoading("missions");
-    setAiReport(null);
+    setAiLoading("missions"); setAiReport(null); setAiError(null);
     try {
       const raw = await callAI("suggest_missions", {
         children: children.map(c => ({ name: c.display_name, age: c.age, xp: c.xp })),
@@ -1363,29 +1407,26 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       });
       setAiMissions(JSON.parse(raw));
     } catch (e) {
-      notify("Erro ao gerar sugestões: " + (e.message || "Tente novamente"), "error");
+      const msg = e.message || "Tente novamente";
+      setAiError(msg.includes("quota") || msg.includes("429") ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : "Erro ao gerar sugestões: " + msg);
     }
     setAiLoading(null);
   };
 
   const generateReport = async () => {
     if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
-    setAiLoading("report");
-    setAiMissions([]);
+    setAiLoading("report"); setAiMissions([]); setAiError(null);
     try {
       const report = await callAI("weekly_report", {
         familyName: profile.display_name,
         children: children.map(c => ({
-          name: c.display_name,
-          age: c.age,
-          xp: c.xp,
-          kidcoins: c.kidcoins,
-          streak: c.streak,
+          name: c.display_name, age: c.age, xp: c.xp, kidcoins: c.kidcoins, streak: c.streak,
         })),
       });
       setAiReport(report);
     } catch (e) {
-      notify("Erro ao gerar relatório: " + (e.message || "Tente novamente"), "error");
+      const msg = e.message || "Tente novamente";
+      setAiError(msg.includes("quota") || msg.includes("429") ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : "Erro ao gerar relatório: " + msg);
     }
     setAiLoading(null);
   };
@@ -1715,6 +1756,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     {aiLoading === "report" ? "Gerando... 📊" : "📊 Relatório semanal"}
                   </button>
                 </div>
+
+                {/* Erro da IA — persistente e visível */}
+                {aiError && (
+                  <div style={{ background: `${T.pink}14`, borderRadius: 14, padding: "12px 16px", marginTop: 4, marginBottom: 4, border: `1px solid ${T.pink}33`, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>⚠️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: T.pink, fontSize: 13, fontWeight: 700 }}>{aiError}</div>
+                      <button onClick={() => setAiError(null)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: 0, marginTop: 4 }}>✕ Fechar</button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Missões sugeridas pela IA */}
                 {aiMissions.length > 0 && (
