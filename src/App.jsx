@@ -805,8 +805,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [historyLogs, setHistoryLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
-  const [photoCapture, setPhotoCapture] = useState(null); // { mid, file }
-  const [uploading, setUploading]       = useState(false);
+  const [submitting, setSubmitting] = useState(null); // mission id being submitted
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -935,27 +934,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     return logs.find(l => l.mission_id === mid && l.due_date >= cutoffStr);
   };
 
-  const submit = async (mid, photoFile = null) => {
-    setUploading(true);
-    let photoUrl = null;
-    if (photoFile) {
-      const ext = photoFile.type.split("/")[1] || "jpg";
-      const path = `${profile.id}/${mid}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("mission-photos").upload(path, photoFile, { contentType: photoFile.type });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from("mission-photos").getPublicUrl(path);
-        photoUrl = urlData.publicUrl;
-      }
-    }
+  const submit = async (mid) => {
+    setSubmitting(mid);
     const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid });
-    setUploading(false);
+    setSubmitting(null);
     if (error) return notify("Erro ao enviar missão", "error");
-    if (photoUrl) {
-      const today = new Date().toISOString().split("T")[0];
-      await supabase.from("mission_logs").update({ photo_url: photoUrl })
-        .eq("child_id", profile.id).eq("mission_id", mid).eq("due_date", today).eq("status", "pending");
-    }
-    setPhotoCapture(null);
     notify("✅ Missão enviada para aprovação!"); load();
   };
 
@@ -1118,7 +1101,6 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                     const log = getLog(m.id, m.frequency);
                     const done = log?.status === "approved";
                     const pend = log?.status === "pending";
-                    const isCapturing = photoCapture?.mid === m.id;
                     return (
                       <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.75 : 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1131,27 +1113,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                               {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
                             </div>
                           </div>
-                          {!done && !pend && !isCapturing && <button onClick={() => setPhotoCapture({ mid: m.id, file: null })} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>Feito!</button>}
+                          {!done && !pend && <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>}
                           {pend && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>}
                         </div>
-                        {/* Photo capture panel */}
-                        {isCapturing && (
-                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                            <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 8 }}>📸 Quer tirar uma foto como prova? (opcional)</div>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                              <label style={{ padding: "8px 12px", borderRadius: 10, background: photoCapture.file ? `${T.accent}22` : `${T.blue}22`, color: photoCapture.file ? T.accent : T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                                {photoCapture.file ? "✅ Foto pronta" : "📷 Escolher foto"}
-                                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
-                                  onChange={e => { const f = e.target.files?.[0]; if (f) setPhotoCapture(pc => ({...pc, file: f})); }} />
-                              </label>
-                              <button onClick={() => submit(m.id, photoCapture.file)} disabled={uploading}
-                                style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: uploading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                                {uploading ? "Enviando..." : photoCapture.file ? "📤 Enviar com foto" : "✓ Confirmar"}
-                              </button>
-                              <button onClick={() => setPhotoCapture(null)} style={{ padding: "8px 10px", borderRadius: 10, background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })
@@ -1511,6 +1475,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [editingReward, setEditingReward]   = useState(null);
   const [familyPlan, setFamilyPlan]         = useState("free");
   const [showUpgrade, setShowUpgrade]       = useState(false);
+  const [childLogs, setChildLogs]           = useState([]);
+  const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -1574,14 +1540,32 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: ch }, { data: m }, { data: p }, { data: r }] = await Promise.all([
+    const last30 = Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return d.toISOString().split("T")[0];});
+    const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }] = await Promise.all([
       supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
       supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
       supabase.from("pending_approvals").select("*"),
       supabase.from("rewards").select("*").eq("family_id", profile.family_id),
+      supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
     ]);
-    setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]);
+    setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]);
     setLoading(false);
+  };
+
+  const getChildLog = (childId, missionId, frequency = "daily") => {
+    const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - cutoffDays);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+    return childLogs.find(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr);
+  };
+
+  const parentCheck = async (childId, missionId) => {
+    const key = `${childId}-${missionId}`;
+    setCheckingMission(key);
+    const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId });
+    setCheckingMission(null);
+    if (error) return notify(error.message || "Erro ao marcar missão", "error");
+    notify("✅ Missão marcada como concluída!"); load();
   };
 
   const review = async (logId, approve) => {
@@ -1795,6 +1779,32 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           </div>
                         </div>
                         <XPBar current={(child.xp||0)-l.xpNeeded} max={n.xpNeeded-l.xpNeeded} color={l.color} />
+                        {/* Missões para marcar pelo responsável */}
+                        {missions.length > 0 && (
+                          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>MARCAR MISSÕES</div>
+                            {missions.map(m => {
+                              const log = getChildLog(child.id, m.id, m.frequency);
+                              const done = log?.status === "approved";
+                              const pend = log?.status === "pending";
+                              const key = `${child.id}-${m.id}`;
+                              return (
+                                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, opacity: done ? 0.5 : 1 }}>
+                                  <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✅" : m.emoji}</span>
+                                  <div style={{ flex: 1, color: done ? T.textMuted : T.text, fontSize: 13, fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
+                                  {done
+                                    ? <span style={{ fontSize: 10, color: T.accent, fontWeight: 800 }}>Feito</span>
+                                    : pend
+                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800 }}>Pendente</span>
+                                    : <button onClick={() => parentCheck(child.id, m.id)} disabled={checkingMission === key}
+                                        style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: checkingMission === key ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                        {checkingMission === key ? "..." : "✓ Marcar"}
+                                      </button>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })
@@ -1848,14 +1858,6 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
                         </div>
                       </div>
-                      {p.photo_url && (
-                        <div style={{ marginTop: 12 }}>
-                          <a href={p.photo_url} target="_blank" rel="noopener noreferrer">
-                            <img src={p.photo_url} alt="Prova da missão" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 12, border: `1px solid ${T.warning}44` }} />
-                          </a>
-                          <div style={{ color: T.textMuted, fontSize: 11, marginTop: 4 }}>📸 Foto enviada pela criança</div>
-                        </div>
-                      )}
                     </div>
                   ))
               }
