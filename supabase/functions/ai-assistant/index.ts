@@ -98,7 +98,7 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.85,
-          maxOutputTokens: 1024,
+          maxOutputTokens: isJson ? 2048 : 1024,
           ...(isJson ? { responseMimeType: "application/json" } : {}),
         },
       }),
