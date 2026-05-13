@@ -1363,7 +1363,7 @@ const UpgradeModal = ({ onClose }) => {
           <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>Cancele quando quiser</div>
         </div>
 
-        <a href="https://wa.me/5551999999999?text=Quero%20assinar%20o%20Miss%C3%A3o%20Kids%20Premium!" target="_blank" rel="noopener noreferrer" style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
+        <a href="https://wa.me/5551999999999?text=Quero%20assinar%20o%20RotinUp%20Premium!" target="_blank" rel="noopener noreferrer" style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
           👑 Quero o Premium
         </a>
         <button onClick={onClose} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
@@ -1538,6 +1538,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     if (!inviteCode) return;
     navigator.clipboard.writeText(inviteCode).then(() => {
       setCodeCopied(true);
+      notify("✅ Código copiado!");
       setTimeout(() => setCodeCopied(false), 2000);
     });
   };
