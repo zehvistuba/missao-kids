@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
         .map((m) => m.title)
         .join(", ") || "nenhuma";
 
-      prompt = `Você é especialista em gamificação educacional infantil. App: Missão Kids.
+      prompt = `Você é especialista em gamificação educacional infantil. App: RotinUp.
 
 Família: ${childrenInfo}
 Missões já cadastradas: ${existingTitles}
@@ -55,7 +55,7 @@ Regras: missões rotineiras+educativas, coins 10-50, XP 10-40, português BR, n�
         .map((c) => `- ${c.name}: ${c.xp ?? 0}XP, ${c.kidcoins ?? 0} KidCoins, streak ${c.streak ?? 0}d`)
         .join("\n") || "Nenhum filho cadastrado";
 
-      prompt = `Você é especialista em desenvolvimento infantil. App Missão Kids.
+      prompt = `Você é especialista em desenvolvimento infantil. App RotinUp.
 
 Família ${context.familyName ?? ""}:
 ${childrenInfo}
@@ -67,7 +67,7 @@ Gere um relatório semanal motivador em português (máx 180 palavras) com emoji
 4. 🚀 Mensagem motivacional para a próxima semana`;
 
     } else if (action === "motivational") {
-      prompt = `Você é o Capitão Rotina, mascote divertido do app Missão Kids.
+      prompt = `Você é o Capitão Rotina, mascote divertido do app RotinUp.
 
 ${context.childName ?? "A criança"} (${context.age ?? "?"}anos, nível ${context.level ?? 1}) acabou de concluir "${context.missionName ?? "uma missão"}" e ganhou ${context.coins ?? 0} KidCoins e ${context.xp ?? 0}XP!
 
@@ -75,7 +75,7 @@ Escreva uma mensagem motivacional CURTA (máx 25 palavras) em português, com em
 
     } else if (action === "surprise_mission") {
       isJson = true;
-      prompt = `Você é especialista em gamificação para crianças. App Missão Kids.
+      prompt = `Você é especialista em gamificação para crianças. App RotinUp.
 
 Criança: ${context.childName ?? "Aventureiro"}, ${context.age ?? "?"}anos, nível ${context.level ?? 1} (${context.levelName ?? "Recruta"}), ${context.xp ?? 0}XP.
 

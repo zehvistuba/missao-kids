@@ -10,10 +10,25 @@ const callAI = async (action, context) => {
   const { data, error } = await supabase.functions.invoke("ai-assistant", {
     body: { action, context },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    let msg = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) msg = body.error;
+    } catch {}
+    throw new Error(msg);
+  }
   if (data?.error) throw new Error(data.error);
-  return data.result;
+  return data?.result;
 };
+
+const FREQ_OPTS = [
+  { key: "daily",    label: "Diária",    emoji: "📅" },
+  { key: "weekly",   label: "Semanal",   emoji: "📆" },
+  { key: "biweekly", label: "Quinzenal", emoji: "🗓️" },
+  { key: "monthly",  label: "Mensal",    emoji: "🌙" },
+];
+const freqLabel = (f) => FREQ_OPTS.find(o => o.key === f)?.label ?? "Diária";
 
 const T = {
   primary: "#FF6B35", secondary: "#FFD23F", accent: "#06D6A0",
@@ -85,6 +100,70 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 );
 
 const AVATARS = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🦋","🌟","🦅","🐉","🤖","👾"];
+
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush(userId) {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+  if (!VAPID_PUBLIC_KEY) return null;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await supabase.from("push_subscriptions").upsert({ user_id: userId, subscription: existing }, { onConflict: "user_id" });
+      return existing;
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    await supabase.from("push_subscriptions").upsert({ user_id: userId, subscription: sub }, { onConflict: "user_id" });
+    return sub;
+  } catch { return null; }
+}
+
+function NotifyToggle({ userId }) {
+  const [status, setStatus] = useState(Notification.permission);
+  const [loading, setLoading] = useState(false);
+
+  if (!("Notification" in window) || !VAPID_PUBLIC_KEY) return null;
+
+  const handleEnable = async () => {
+    setLoading(true);
+    const perm = await Notification.requestPermission();
+    setStatus(perm);
+    if (perm === "granted") await subscribePush(userId);
+    setLoading(false);
+  };
+
+  if (status === "granted") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: `${T.accent}11`, borderRadius: 14, border: `1px solid ${T.accent}33`, marginBottom: 12 }}>
+        <span style={{ fontSize: 20 }}>🔔</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: T.accent, fontWeight: 800, fontSize: 13 }}>Notificações ativadas</div>
+          <div style={{ color: T.textMuted, fontSize: 11 }}>Você receberá lembretes de missões</div>
+        </div>
+        <span style={{ fontSize: 18 }}>✅</span>
+      </div>
+    );
+  }
+
+  return (
+    <button onClick={handleEnable} disabled={loading || status === "denied"}
+      style={{ width: "100%", padding: "13px 16px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}11`, color: status === "denied" ? T.textMuted : T.purple, fontWeight: 800, fontSize: 13, cursor: status === "denied" ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: 10, marginBottom: 12, justifyContent: "center" }}>
+      <span style={{ fontSize: 20 }}>🔔</span>
+      {loading ? "Ativando..." : status === "denied" ? "Notificações bloqueadas — ative no navegador" : "Ativar notificações de missões"}
+    </button>
+  );
+}
 
 // ─── Add Child Modal ───────────────────────────────────────
 const AddChildModal = ({ onAdd, onClose }) => {
@@ -203,21 +282,49 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
 
 // ─── Child Join (criança sem família) ─────────────────────
 const ChildJoin = ({ onDone }) => {
-  const [step, setStep]         = useState("code"); // "code" | "profile"
-  const [code, setCode]         = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [err, setErr]           = useState("");
-  const [avatar, setAvatar]     = useState("👦");
+  const [step, setStep]           = useState("code"); // "code" | "claim" | "profile"
+  const [code, setCode]           = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [err, setErr]             = useState("");
+  const [avatar, setAvatar]       = useState("👦");
   const [birthDate, setBirthDate] = useState("");
-  const [saving, setSaving]     = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [orphans, setOrphans]     = useState([]);
+  const [claiming, setClaiming]   = useState(false);
 
   const join = async () => {
     if (code.length < 6) return;
     setErr(""); setLoading(true);
     const { error } = await supabase.rpc("join_family_by_code", { p_code: code });
+    if (error) { setLoading(false); setErr(error.message || "Código inválido ou expirado"); return; }
+
+    // Check for orphan profiles the parent may have pre-created
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data: myProfile } = await supabase.from("profiles").select("family_id").eq("id", authUser.id).single();
+    if (myProfile?.family_id) {
+      const { data: kids } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_emoji, age")
+        .eq("family_id", myProfile.family_id)
+        .eq("role", "child")
+        .neq("id", authUser.id);
+      if (kids?.length > 0) {
+        setOrphans(kids);
+        setLoading(false);
+        setStep("claim");
+        return;
+      }
+    }
     setLoading(false);
-    if (error) { setErr(error.message || "Código inválido ou expirado"); return; }
     setStep("profile");
+  };
+
+  const claimProfile = async (orphanId) => {
+    setErr(""); setClaiming(true);
+    const { error } = await supabase.rpc("claim_child_profile", { p_orphan_id: orphanId });
+    setClaiming(false);
+    if (error) { setErr(error.message || "Erro ao vincular perfil"); return; }
+    onDone();
   };
 
   const saveProfile = async () => {
@@ -229,6 +336,38 @@ const ChildJoin = ({ onDone }) => {
     setSaving(false);
     onDone();
   };
+
+  if (step === "claim") {
+    return (
+      <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>👋</div>
+          <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Você é algum desses?</div>
+          <div style={{ color: T.textMuted, fontSize: 15 }}>Seu responsável já criou um perfil pra você!</div>
+        </div>
+        {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+          {orphans.map(child => (
+            <button key={child.id} onClick={() => claimProfile(child.id)} disabled={claiming}
+              style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderRadius: 20, border: `2px solid ${T.accent}44`, background: `${T.accent}10`, cursor: claiming ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left", opacity: claiming ? 0.7 : 1 }}>
+              <div style={{ fontSize: 40, flexShrink: 0 }}>{child.avatar_emoji || "👦"}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>{child.display_name}</div>
+                {child.age && <div style={{ color: T.textMuted, fontSize: 13 }}>{child.age} anos</div>}
+              </div>
+              <div style={{ color: T.accent, fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
+                {claiming ? "..." : "Sou eu! 👋"}
+              </div>
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setStep("profile")}
+          style={{ background: "none", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, color: T.textMuted, fontSize: 14, padding: "13px", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>
+          Não sou nenhum desses — criar meu perfil
+        </button>
+      </div>
+    );
+  }
 
   if (step === "profile") {
     const age = birthDate ? calcAge(birthDate) : null;
@@ -282,7 +421,7 @@ const Splash = ({ onDone }) => {
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", textAlign: "center" }}>
         <div style={{ fontSize: 80, marginBottom: 16, filter: `drop-shadow(0 0 20px ${T.primary}88)` }}>🚀</div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: -1 }}>Rotin<span style={{ color: T.primary }}>Up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 8, letterSpacing: 2 }}>TRANSFORME A ROTINA EM AVENTURA</div>
       </div>
       <div style={{ marginTop: 60, display: "flex", gap: 8 }}>
@@ -310,7 +449,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
         <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${T.primary}22, transparent)`, pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}22, transparent)`, pointerEvents: "none" }} />
         <div style={{ fontSize: 72, marginBottom: 20, filter: `drop-shadow(0 0 24px ${T.primary}66)`, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>🚀</div>
-        <div style={{ fontSize: 34, fontWeight: 900, color: T.text, letterSpacing: -1, marginBottom: 6 }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ fontSize: 34, fontWeight: 900, color: T.text, letterSpacing: -1, marginBottom: 6 }}>Rotin<span style={{ color: T.primary }}>Up</span></div>
         <div style={{ color: T.textMuted, fontSize: 16, marginBottom: 10, letterSpacing: 1 }}>TRANSFORME A ROTINA EM AVENTURA</div>
         <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.6, maxWidth: 320, margin: "0 auto 36px" }}>
           O app de gamificação que faz as crianças amarem sua rotina — e os pais amarem a paz em casa.
@@ -386,8 +525,8 @@ const LandingPage = ({ onSignup, onLogin }) => {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
-const AuthScreen = () => {
-  const [mode, setMode]         = useState("login");
+const AuthScreen = ({ initialMode = "login" }) => {
+  const [mode, setMode]         = useState(initialMode);
   const [userType, setUserType] = useState("parent");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -446,7 +585,7 @@ const AuthScreen = () => {
       <Notif msg={notif} type={notifType} />
       <div style={{ textAlign: "center", paddingTop: 60, marginBottom: 36 }}>
         <div style={{ fontSize: 52, marginBottom: 8 }}>🚀</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: T.text }}>Missão<span style={{ color: T.primary }}> Kids</span></div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: T.text }}>Rotin<span style={{ color: T.primary }}>Up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
       </div>
 
@@ -666,6 +805,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [historyLogs, setHistoryLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
+  const [photoCapture, setPhotoCapture] = useState(null); // { mid, file }
+  const [uploading, setUploading]       = useState(false);
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -718,15 +859,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const load = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
-    const last7 = Array.from({length: 7}, (_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      return d.toISOString().split("T")[0];
-    });
+    const last7  = Array.from({length: 7},  (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split("T")[0]; });
+    const last30 = Array.from({length: 30}, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split("T")[0]; });
     const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
       supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
       supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
       supabase.from("achievements").select("*").order("condition_val"),
-      supabase.from("mission_logs").select("*").eq("child_id", profile.id).eq("due_date", today),
+      supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
       supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
     ]);
     setMissions(m || []); setRewards(r || []); setLogs(l || []);
@@ -788,11 +927,35 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setSurpriseLoading(false);
   };
 
-  const getLog = (mid) => logs.find(l => l.mission_id === mid);
+  const getLog = (mid, frequency = "daily") => {
+    const today = new Date().toISOString().split("T")[0];
+    const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - cutoffDays);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+    return logs.find(l => l.mission_id === mid && l.due_date >= cutoffStr);
+  };
 
-  const submit = async (mid) => {
+  const submit = async (mid, photoFile = null) => {
+    setUploading(true);
+    let photoUrl = null;
+    if (photoFile) {
+      const ext = photoFile.type.split("/")[1] || "jpg";
+      const path = `${profile.id}/${mid}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("mission-photos").upload(path, photoFile, { contentType: photoFile.type });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("mission-photos").getPublicUrl(path);
+        photoUrl = urlData.publicUrl;
+      }
+    }
     const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid });
+    setUploading(false);
     if (error) return notify("Erro ao enviar missão", "error");
+    if (photoUrl) {
+      const today = new Date().toISOString().split("T")[0];
+      await supabase.from("mission_logs").update({ photo_url: photoUrl })
+        .eq("child_id", profile.id).eq("mission_id", mid).eq("due_date", today).eq("status", "pending");
+    }
+    setPhotoCapture(null);
     notify("✅ Missão enviada para aprovação!"); load();
   };
 
@@ -948,33 +1111,53 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 </div>
               )}
 
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões de Hoje</div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões</div>
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
                 : missions.map(m => {
-                    const log = getLog(m.id);
+                    const log = getLog(m.id, m.frequency);
                     const done = log?.status === "approved";
-                    const pending = log?.status === "pending";
+                    const pend = log?.status === "pending";
+                    const isCapturing = photoCapture?.mid === m.id;
                     return (
-                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pending ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pending ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.7 : 1 }}>
+                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.75 : 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✅" : m.emoji}</div>
-                          <div style={{ flex: 1 }}>
+                          <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{done ? "✅" : m.emoji}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
-                            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                              <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                              <span style={{ fontSize: 12, color: T.accent }}>+{m.xp_reward} XP</span>
+                            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                              <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
+                              {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
                             </div>
                           </div>
-                          {!done && !pending && <button onClick={() => submit(m.id)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Feito!</button>}
-                          {pending && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700 }}>⏳ Aguardando</span>}
+                          {!done && !pend && !isCapturing && <button onClick={() => setPhotoCapture({ mid: m.id, file: null })} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>Feito!</button>}
+                          {pend && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>}
                         </div>
+                        {/* Photo capture panel */}
+                        {isCapturing && (
+                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 8 }}>📸 Quer tirar uma foto como prova? (opcional)</div>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                              <label style={{ padding: "8px 12px", borderRadius: 10, background: photoCapture.file ? `${T.accent}22` : `${T.blue}22`, color: photoCapture.file ? T.accent : T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                {photoCapture.file ? "✅ Foto pronta" : "📷 Escolher foto"}
+                                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                                  onChange={e => { const f = e.target.files?.[0]; if (f) setPhotoCapture(pc => ({...pc, file: f})); }} />
+                              </label>
+                              <button onClick={() => submit(m.id, photoCapture.file)} disabled={uploading}
+                                style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: uploading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                                {uploading ? "Enviando..." : photoCapture.file ? "📤 Enviar com foto" : "✓ Confirmar"}
+                              </button>
+                              <button onClick={() => setPhotoCapture(null)} style={{ padding: "8px 10px", borderRadius: 10, background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })
               }
-              {/* Badge "Missão do Dia" completa */}
-              {missions.length > 0 && missions.every(m => getLog(m.id)?.status === "approved") && (
+              {/* Badge "Missões Concluídas" */}
+              {missions.length > 0 && missions.every(m => getLog(m.id, m.frequency)?.status === "approved") && (
                 <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.blue}22)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `2px solid ${T.accent}55`, animation: "bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
                   <div style={{ fontSize: 44, marginBottom: 8 }}>🌟</div>
                   <div style={{ color: T.accent, fontWeight: 900, fontSize: 17, marginBottom: 4 }}>Missões do Dia Concluídas!</div>
@@ -1112,6 +1295,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 ))}
               </div>
 
+              <NotifyToggle userId={profile.id} />
               <button onClick={onSignOut} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
@@ -1141,7 +1325,7 @@ const UpgradeModal = ({ onClose }) => {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 52, marginBottom: 12 }}>👑</div>
-          <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 6 }}>Missão Kids Premium</div>
+          <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 6 }}>RotinUp Premium</div>
           <div style={{ color: T.textMuted, fontSize: 14 }}>Desbloqueie todo o potencial da família</div>
         </div>
 
@@ -1192,17 +1376,18 @@ const UpgradeModal = ({ onClose }) => {
 
 // ─── Mission Modal ────────────────────────────────────────
 const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
-  const [title, setTitle]   = useState(mission.title || "");
-  const [emoji, setEmoji]   = useState(mission.emoji || "⭐");
-  const [coins, setCoins]   = useState(mission.coins_reward ?? 20);
-  const [xp, setXp]         = useState(mission.xp_reward ?? 15);
-  const [saving, setSaving] = useState(false);
+  const [title, setTitle]     = useState(mission.title || "");
+  const [emoji, setEmoji]     = useState(mission.emoji || "⭐");
+  const [coins, setCoins]     = useState(mission.coins_reward ?? 20);
+  const [xp, setXp]           = useState(mission.xp_reward ?? 15);
+  const [frequency, setFreq]  = useState(mission.frequency || "daily");
+  const [saving, setSaving]   = useState(false);
   const [confirm, setConfirm] = useState(false);
 
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    await onSave({ title: title.trim(), emoji, coins_reward: coins, xp_reward: xp });
+    await onSave({ title: title.trim(), emoji, coins_reward: coins, xp_reward: xp, frequency });
     setSaving(false);
   };
 
@@ -1216,9 +1401,20 @@ const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
           ))}
         </div>
         <Inp icon={emoji} placeholder="Nome da missão" value={title} onChange={e => setTitle(e.target.value)} />
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {FREQ_OPTS.map(o => (
+              <button key={o.key} onClick={() => setFreq(o.key)}
+                style={{ flex: 1, padding: "8px 4px", borderRadius: 10, border: `2px solid ${frequency === o.key ? T.purple : "rgba(255,255,255,0.1)"}`, background: frequency === o.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: frequency === o.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                {o.emoji}<br/>{o.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
-            <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KIDCOINS</div>
+            <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
             <input type="number" value={coins} onChange={e => setCoins(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
           </div>
           <div>
@@ -1266,7 +1462,7 @@ const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
         </div>
         <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} />
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>CUSTO EM KIDCOINS</div>
+          <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
           <input type="number" value={cost} onChange={e => setCost(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
@@ -1298,7 +1494,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showMission, setShowMission]   = useState(false);
   const [showReward, setShowReward]     = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
-  const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 });
+  const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" });
   const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50 });
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
@@ -1335,7 +1531,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setInviteLoading(false);
     if (error) return notify("Erro ao gerar código: " + error.message, "error");
     setInviteCode(data);
-    notify("✅ Código gerado! Compartilhe com o co-responsável.");
+    notify("✅ Código gerado! Compartilhe com a criança ou co-responsável.");
   };
 
   const copyCode = () => {
@@ -1398,7 +1594,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     if (!newM.title) return notify("Digite o nome da missão", "error");
     const { error } = await supabase.from("missions").insert({ ...newM, family_id: profile.family_id, created_by: profile.id });
     if (error) return notify("Erro ao criar", "error");
-    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15 }); load();
+    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
   };
 
   const createReward = async () => {
@@ -1416,7 +1612,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         children: children.map(c => ({ name: c.display_name, age: c.age, xp: c.xp })),
         existingMissions: missions.map(m => ({ title: m.title })),
       });
-      setAiMissions(JSON.parse(raw));
+      if (!raw) throw new Error("IA não retornou resultados");
+      const parsed = Array.isArray(raw) ? raw : JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("IA retornou lista vazia, tente novamente");
+      setAiMissions(parsed);
     } catch (e) {
       const msg = e.message || "Tente novamente";
       setAiError(msg.includes("quota") || msg.includes("429") ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : "Erro ao gerar sugestões: " + msg);
@@ -1428,12 +1627,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
     setAiLoading("report"); setAiMissions([]); setAiError(null);
     try {
-      const report = await callAI("weekly_report", {
+      const rawReport = await callAI("weekly_report", {
         familyName: profile.display_name,
         children: children.map(c => ({
           name: c.display_name, age: c.age, xp: c.xp, kidcoins: c.kidcoins, streak: c.streak,
         })),
       });
+      const report = (rawReport || "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
       setAiReport(report);
     } catch (e) {
       const msg = e.message || "Tente novamente";
@@ -1637,16 +1837,24 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 : pending.map(p => (
                     <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, background: `${T.warning}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{p.mission_emoji}</div>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: `${T.warning}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{p.mission_emoji}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
                           <div style={{ fontSize: 12, color: T.textMuted }}>{p.child_avatar} {p.child_name} · 🪙 {p.coins_reward} KidCoins</div>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                           <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
                           <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
                         </div>
                       </div>
+                      {p.photo_url && (
+                        <div style={{ marginTop: 12 }}>
+                          <a href={p.photo_url} target="_blank" rel="noopener noreferrer">
+                            <img src={p.photo_url} alt="Prova da missão" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 12, border: `1px solid ${T.warning}44` }} />
+                          </a>
+                          <div style={{ color: T.textMuted, fontSize: 11, marginTop: 4 }}>📸 Foto enviada pela criança</div>
+                        </div>
+                      )}
                     </div>
                   ))
               }
@@ -1663,9 +1871,20 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               {showMission && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
                   <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon="🎯" />
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {FREQ_OPTS.map(o => (
+                        <button key={o.key} onClick={() => setNewM(p=>({...p,frequency:o.key}))}
+                          style={{ flex: 1, padding: "7px 2px", borderRadius: 10, border: `2px solid ${newM.frequency === o.key ? T.purple : "rgba(255,255,255,0.1)"}`, background: newM.frequency === o.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: newM.frequency === o.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.3 }}>
+                          {o.emoji}<br/>{o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                     <div>
-                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KIDCOINS</div>
+                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
                       <input type="number" value={newM.coins_reward} onChange={e => setNewM(p=>({...p,coins_reward:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                     </div>
                     <div>
@@ -1711,7 +1930,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
                   <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon="🎁" />
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>CUSTO EM KIDCOINS</div>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
                     <input type="number" value={newR.coin_cost} onChange={e => setNewR(p=>({...p,coin_cost:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
@@ -1803,7 +2022,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 {aiReport && (
                   <div style={{ background: T.darker, borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>RELATÓRIO SEMANAL</div>
-                    <div style={{ color: T.text, fontSize: 14, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{aiReport}</div>
+                    <div style={{ color: T.text, fontSize: 14, lineHeight: 1.75, whiteSpace: "pre-wrap", maxHeight: 300, overflowY: "auto" }}>{aiReport}</div>
                     <button onClick={() => setAiReport(null)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕ Fechar</button>
                   </div>
                 )}
@@ -1833,6 +2052,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 )}
               </div>
 
+              <NotifyToggle userId={profile.id} />
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
@@ -1859,6 +2079,7 @@ export default function App() {
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode]           = useState("login");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstall, setShowInstall]     = useState(false);
 
@@ -1920,8 +2141,8 @@ export default function App() {
             if (!loading && user && profile) setScreen(profile.role === "parent" ? "parent" : "child");
             else setScreen("landing");
           }} />}
-          {screen === "landing"    && <LandingPage onSignup={() => setScreen("auth")} onLogin={() => setScreen("auth")} />}
-          {screen === "auth"       && <AuthScreen />}
+          {screen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
+          {screen === "auth"       && <AuthScreen initialMode={authMode} />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
           {screen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
           {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
@@ -1938,7 +2159,7 @@ export default function App() {
             <div style={{ position: "fixed", bottom: 90, left: 12, right: 12, zIndex: 8500, background: T.card, borderRadius: 20, padding: "14px 16px", border: `1px solid ${T.primary}55`, display: "flex", alignItems: "center", gap: 14, boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${T.primary}22`, animation: "slideDown 0.3s ease" }}>
               <div style={{ fontSize: 36 }}>📲</div>
               <div style={{ flex: 1 }}>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Instalar Missão Kids</div>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Instalar RotinUp</div>
                 <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>Acesse direto da tela inicial!</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
