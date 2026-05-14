@@ -99,7 +99,20 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
   <button onClick={onClick} disabled={disabled} style={{ width: small ? "auto" : "100%", padding: small ? "10px 20px" : "15px 24px", borderRadius: 16, border: outline ? "1px solid rgba(255,255,255,0.15)" : "none", background: disabled ? "rgba(255,255,255,0.08)" : outline ? "rgba(255,255,255,0.04)" : gradient || `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: disabled ? T.textMuted : T.text, fontWeight: 800, fontSize: small ? 13 : 15, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", letterSpacing: 0.3 }}>{children}</button>
 );
 
-const AVATARS = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🦋","🌟","🦅","🐉","🤖","👾"];
+const AVATARS = [
+  // Meninos
+  "👦","🧒","👱‍♂️","👨‍🚀","👨‍🎓","🧑‍🚒","🤺","🏋️‍♂️","🤸‍♂️","🧑‍💻",
+  // Meninas
+  "👧","👱‍♀️","👩‍🚀","👩‍🎓","💃","🤸‍♀️","🎀","👸","🧖‍♀️","🧑‍🎨",
+  // Heróis & Fantasia
+  "🦸‍♂️","🦸‍♀️","🦹‍♂️","🦹‍♀️","🧙‍♂️","🧙‍♀️","🥷","🧝‍♂️","🧝‍♀️","🧚‍♀️",
+  // Animais
+  "🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🐧","🦉","🐺","🦝","🐨","🐻","🐉","🦋","🦅","🐬",
+  // Esportes ⚽🏀 (shields de times em emoji)
+  "⚽","🏀","🏈","⚾","🎾","🥊","🏊‍♂️","🚴‍♂️","🏆","🥇",
+  // Diversão
+  "🤖","👾","🎮","🎨","🚀","⭐","💎","🌟","🎯","🧸",
+];
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 
@@ -646,7 +659,7 @@ const Onboarding = ({ user, onDone }) => {
   const [joinCode, setJoinCode]       = useState("");
   const [loading, setLoading]         = useState(false);
   const [err, setErr]                 = useState("");
-  const avatars = ["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁"];
+  const avatars = AVATARS;
 
   const createFamily = async () => {
     if (!familyName) return;
