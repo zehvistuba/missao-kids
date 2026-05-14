@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -136,7 +136,7 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 };
 
 const DiceBearPicker = ({ value, onChange }) => {
-  const [dbStyle, setDbStyle] = React.useState(
+  const [dbStyle, setDbStyle] = useState(
     DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer"
   );
   return (
@@ -249,7 +249,6 @@ const AddChildModal = ({ onAdd, onClose }) => {
       p_age: age,
     });
     if (error) { setLoading(false); setErr(error.message || "Erro ao adicionar filho. Tente novamente."); return; }
-    // Salva birth_date separadamente para compatibilidade com qualquer versão do banco
     if (childId && birthDate) {
       await supabase.from("profiles").update({ birth_date: birthDate }).eq("id", childId);
     }
@@ -366,6 +365,7 @@ const ChildJoin = ({ onDone }) => {
 
     // Check for orphan profiles the parent may have pre-created
     const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) { setLoading(false); setStep("profile"); return; }
     const { data: myProfile } = await supabase.from("profiles").select("family_id").eq("id", authUser.id).single();
     if (myProfile?.family_id) {
       const { data: kids } = await supabase
@@ -416,7 +416,7 @@ const ChildJoin = ({ onDone }) => {
           {orphans.map(child => (
             <button key={child.id} onClick={() => claimProfile(child.id)} disabled={claiming}
               style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderRadius: 20, border: `2px solid ${T.accent}44`, background: `${T.accent}10`, cursor: claiming ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left", opacity: claiming ? 0.7 : 1 }}>
-              <AvatarImg value={child.avatar_emoji} size={48} radius={14} css={{ flexShrink: 0 }} />
+              <AvatarImg value={child.avatar_emoji} size={48} radius={14} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>{child.display_name}</div>
                 {child.age && <div style={{ color: T.textMuted, fontSize: 13 }}>{child.age} anos</div>}
@@ -892,7 +892,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       }, async (payload) => {
         if (payload.new.status === "approved") {
           load();
-          const mission = missions.find(m => m.id === payload.new.mission_id);
+          const mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
           const xpGained = mission?.xp_reward || 0;
           const oldLevel = getLvl(profile.xp || 0);
           const newLevel = getLvl((profile.xp || 0) + xpGained);
@@ -922,26 +922,34 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     return () => supabase.removeChannel(channel);
   }, []);
 
+  const missionsRef = useRef([]);
+
   const load = async () => {
     setLoading(true);
-    const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
-    const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-    const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
-      supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
-      supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
-      supabase.from("achievements").select("*").order("condition_val"),
-      supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
-      supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
-    ]);
-    setMissions(m || []); setRewards(r || []); setLogs(l || []);
-    const activeDaysSet = new Set((sd || []).map(x => x.due_date));
-    setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
-    if (a) {
-      const { data: earned } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
-      const earnedSet = new Set((earned || []).map(e => e.achievement_id));
-      setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
+    try {
+      const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
+      const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
+      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
+        supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
+        supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
+        supabase.from("achievements").select("*").order("condition_val"),
+        supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
+        supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
+      ]);
+      missionsRef.current = m || [];
+      setMissions(m || []); setRewards(r || []); setLogs(l || []);
+      const activeDaysSet = new Set((sd || []).map(x => x.due_date));
+      setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
+      if (a) {
+        const { data: earned } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
+        const earnedSet = new Set((earned || []).map(e => e.achievement_id));
+        setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
+      }
+    } catch {
+      // queries failed — don't leave screen stuck in loading
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -950,22 +958,27 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   const loadProfileExtras = async () => {
     setHistoryLoading(true);
-    const [{ data: sibs }, { data: hist }] = await Promise.all([
-      supabase.from("profiles")
-        .select("id,display_name,avatar_emoji,xp,kidcoins,streak")
-        .eq("family_id", profile.family_id)
-        .eq("role", "child")
-        .order("xp", { ascending: false }),
-      supabase.from("mission_logs")
-        .select("id,coins_earned,due_date,mission_id,missions(title,emoji)")
-        .eq("child_id", profile.id)
-        .eq("status", "approved")
-        .order("due_date", { ascending: false })
-        .limit(20),
-    ]);
-    setSiblings(sibs || []);
-    setHistoryLogs(hist || []);
-    setHistoryLoading(false);
+    try {
+      const [{ data: sibs }, { data: hist }] = await Promise.all([
+        supabase.from("profiles")
+          .select("id,display_name,avatar_emoji,xp,kidcoins,streak")
+          .eq("family_id", profile.family_id)
+          .eq("role", "child")
+          .order("xp", { ascending: false }),
+        supabase.from("mission_logs")
+          .select("id,coins_earned,due_date,mission_id,missions(title,emoji)")
+          .eq("child_id", profile.id)
+          .eq("status", "approved")
+          .order("due_date", { ascending: false })
+          .limit(20),
+      ]);
+      setSiblings(sibs || []);
+      setHistoryLogs(hist || []);
+    } catch {
+      // silent — profile extras are optional
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const saveAvatar = async (emoji) => {
@@ -1607,16 +1620,21 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const load = async () => {
     setLoading(true);
-    const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-    const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
-      supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
-      supabase.from("pending_approvals").select("*"),
-      supabase.from("rewards").select("*").eq("family_id", profile.family_id),
-      supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
-    ]);
-    setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]);
-    setLoading(false);
+    try {
+      const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
+      const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
+        supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
+        supabase.from("pending_approvals").select("*"),
+        supabase.from("rewards").select("*").eq("family_id", profile.family_id),
+        supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
+      ]);
+      setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]);
+    } catch {
+      // queries failed — don't leave screen stuck in loading
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getChildLog = (childId, missionId, frequency = "daily") => {
@@ -1628,7 +1646,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const parentCheck = async (childId, missionId) => {
     const key = `${childId}-${missionId}`;
     setCheckingMission(key);
-    const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId });
+    const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId, p_due_date: localDateStr(0) });
     setCheckingMission(null);
     if (error) return notify(error.message || "Erro ao marcar missão", "error");
     notify("✅ Missão marcada como concluída!"); load();
