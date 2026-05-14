@@ -99,20 +99,64 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
   <button onClick={onClick} disabled={disabled} style={{ width: small ? "auto" : "100%", padding: small ? "10px 20px" : "15px 24px", borderRadius: 16, border: outline ? "1px solid rgba(255,255,255,0.15)" : "none", background: disabled ? "rgba(255,255,255,0.08)" : outline ? "rgba(255,255,255,0.04)" : gradient || `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: disabled ? T.textMuted : T.text, fontWeight: 800, fontSize: small ? 13 : 15, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", letterSpacing: 0.3 }}>{children}</button>
 );
 
-const AVATARS = [
-  // Meninos
-  "👦","🧒","👱‍♂️","👨‍🚀","👨‍🎓","🧑‍🚒","🤺","🏋️‍♂️","🤸‍♂️","🧑‍💻",
-  // Meninas
-  "👧","👱‍♀️","👩‍🚀","👩‍🎓","💃","🤸‍♀️","🎀","👸","🧖‍♀️","🧑‍🎨",
-  // Heróis & Fantasia
-  "🦸‍♂️","🦸‍♀️","🦹‍♂️","🦹‍♀️","🧙‍♂️","🧙‍♀️","🥷","🧝‍♂️","🧝‍♀️","🧚‍♀️",
-  // Animais
-  "🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🐧","🦉","🐺","🦝","🐨","🐻","🐉","🦋","🦅","🐬",
-  // Esportes ⚽🏀 (shields de times em emoji)
-  "⚽","🏀","🏈","⚾","🎾","🥊","🏊‍♂️","🚴‍♂️","🏆","🥇",
-  // Diversão
-  "🤖","👾","🎮","🎨","🚀","⭐","💎","🌟","🎯","🧸",
+// ─── DiceBear Avatar System ────────────────────────────────
+const DB_STYLES = [
+  { key: "adventurer",  label: "Aventureiro" },
+  { key: "fun-emoji",   label: "Emoji Fun"   },
+  { key: "pixel-art",   label: "Pixel Art"   },
+  { key: "croodles",    label: "Doodle"      },
+  { key: "lorelei",     label: "Aquarela"    },
+  { key: "miniavs",     label: "Mini"        },
 ];
+const DB_SEEDS = [
+  "Luna","Bento","Sofia","Pedro","Leo","Ana","Gabi","Rafa","Nina","Theo",
+  "Mia","Duda","Luca","Bia","Gui","Lara","Mel","Kaio","Isis","Teo",
+  "Turbo","Flash","Foguete","Ninja","Dragao","Estrela","Cometa","Neon",
+  "Pixel","Spark","Bolt","Nova","Sora","Kira","Zara","Ace","Max","Rex",
+];
+const avatarUrl = (seed, style = "adventurer") =>
+  `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,transparent`;
+
+const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
+  if (value?.startsWith("http")) {
+    return <img src={value} alt="avatar" width={size} height={size} style={{ borderRadius: radius, objectFit: "cover", display: "block", background: "rgba(156,93,229,0.15)", ...css }} />;
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.55, background: "rgba(255,255,255,0.06)", ...css }}>
+      {value || "👦"}
+    </div>
+  );
+};
+
+const DiceBearPicker = ({ value, onChange }) => {
+  const [dbStyle, setDbStyle] = React.useState(
+    DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer"
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {DB_STYLES.map(s => (
+          <button key={s.key} onClick={() => setDbStyle(s.key)}
+            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+        {DB_SEEDS.map(seed => {
+          const url = avatarUrl(seed, dbStyle);
+          const sel = value === url;
+          return (
+            <div key={seed} onClick={() => onChange(url)}
+              style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 
@@ -182,7 +226,7 @@ function NotifyToggle({ userId }) {
 const AddChildModal = ({ onAdd, onClose }) => {
   const [name, setName]         = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [avatar, setAvatar]     = useState("👦");
+  const [avatar, setAvatar]     = useState(avatarUrl("Luna"));
   const [loading, setLoading]   = useState(false);
   const [err, setErr]           = useState("");
 
@@ -209,21 +253,22 @@ const AddChildModal = ({ onAdd, onClose }) => {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>👶 Adicionar Filho(a)</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-          {AVATARS.slice(0,10).map(a => (
-            <button key={a} onClick={() => setAvatar(a)} style={{ width: 46, height: 46, borderRadius: 12, fontSize: 22, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
-          ))}
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 16, textAlign: "center" }}>👶 Adicionar Filho(a)</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <AvatarImg value={avatar} size={72} radius={22} />
         </div>
-        <Inp icon={avatar} placeholder="Nome do filho(a)" value={name} onChange={e => setName(e.target.value)} />
-        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
-        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
-        {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-          <Btn onClick={handleAdd} disabled={loading || !name || !birthDate} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
-            {loading ? "Salvando..." : "✅ Adicionar"}
-          </Btn>
-          <Btn onClick={onClose} outline small>Cancelar</Btn>
+        <DiceBearPicker value={avatar} onChange={setAvatar} />
+        <div style={{ marginTop: 14 }}>
+          <Inp icon="🧒" placeholder="Nome do filho(a)" value={name} onChange={e => setName(e.target.value)} />
+          <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+          {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
+          {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+            <Btn onClick={handleAdd} disabled={loading || !name || !birthDate} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+              {loading ? "Salvando..." : "✅ Adicionar"}
+            </Btn>
+            <Btn onClick={onClose} outline small>Cancelar</Btn>
+          </div>
         </div>
       </div>
     </div>
@@ -234,7 +279,7 @@ const AddChildModal = ({ onAdd, onClose }) => {
 const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
   const [name, setName]           = useState(child.display_name || "");
   const [birthDate, setBirthDate] = useState(child.birth_date || "");
-  const [avatar, setAvatar]       = useState(child.avatar_emoji || "👦");
+  const [avatar, setAvatar]       = useState(child.avatar_emoji || avatarUrl("Luna"));
   const [loading, setLoading]     = useState(false);
   const [deleting, setDeleting]   = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -268,26 +313,27 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar {child.display_name}</div>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-          {AVATARS.map(a => (
-            <button key={a} onClick={() => setAvatar(a)} style={{ width: 42, height: 42, borderRadius: 11, fontSize: 20, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
-          ))}
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 16, textAlign: "center" }}>✏️ Editar {child.display_name}</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <AvatarImg value={avatar} size={72} radius={22} />
         </div>
-        <Inp icon={avatar} placeholder="Nome da criança" value={name} onChange={e => setName(e.target.value)} />
-        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
-        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
-        {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          <Btn onClick={handleSave} disabled={loading || !name.trim()} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
-            {loading ? "Salvando..." : "✅ Salvar"}
-          </Btn>
-          <Btn onClick={onClose} outline small>Cancelar</Btn>
+        <DiceBearPicker value={avatar} onChange={setAvatar} />
+        <div style={{ marginTop: 14 }}>
+          <Inp icon="🧒" placeholder="Nome da criança" value={name} onChange={e => setName(e.target.value)} />
+          <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+          {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
+          {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <Btn onClick={handleSave} disabled={loading || !name.trim()} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+              {loading ? "Salvando..." : "✅ Salvar"}
+            </Btn>
+            <Btn onClick={onClose} outline small>Cancelar</Btn>
+          </div>
+          <button onClick={handleDelete} disabled={deleting} style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${confirmDel ? T.pink : "rgba(255,255,255,0.1)"}`, background: confirmDel ? `${T.pink}22` : "transparent", color: confirmDel ? T.pink : T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
+            {deleting ? "Excluindo..." : confirmDel ? "⚠️ Toque para confirmar exclusão" : "🗑️ Excluir criança"}
+          </button>
+          {confirmDel && <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 6 }}>Esta ação é irreversível e remove todos os dados da criança.</div>}
         </div>
-        <button onClick={handleDelete} disabled={deleting} style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${confirmDel ? T.pink : "rgba(255,255,255,0.1)"}`, background: confirmDel ? `${T.pink}22` : "transparent", color: confirmDel ? T.pink : T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
-          {deleting ? "Excluindo..." : confirmDel ? "⚠️ Toque para confirmar exclusão" : "🗑️ Excluir criança"}
-        </button>
-        {confirmDel && <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 6 }}>Esta ação é irreversível e remove todos os dados da criança.</div>}
       </div>
     </div>
   );
@@ -299,7 +345,7 @@ const ChildJoin = ({ onDone }) => {
   const [code, setCode]           = useState("");
   const [loading, setLoading]     = useState(false);
   const [err, setErr]             = useState("");
-  const [avatar, setAvatar]       = useState("👦");
+  const [avatar, setAvatar]       = useState(avatarUrl("Luna"));
   const [birthDate, setBirthDate] = useState("");
   const [saving, setSaving]       = useState(false);
   const [orphans, setOrphans]     = useState([]);
@@ -363,7 +409,7 @@ const ChildJoin = ({ onDone }) => {
           {orphans.map(child => (
             <button key={child.id} onClick={() => claimProfile(child.id)} disabled={claiming}
               style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderRadius: 20, border: `2px solid ${T.accent}44`, background: `${T.accent}10`, cursor: claiming ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left", opacity: claiming ? 0.7 : 1 }}>
-              <div style={{ fontSize: 40, flexShrink: 0 }}>{child.avatar_emoji || "👦"}</div>
+              <AvatarImg value={child.avatar_emoji} size={48} radius={14} css={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>{child.display_name}</div>
                 {child.age && <div style={{ color: T.textMuted, fontSize: 13 }}>{child.age} anos</div>}
@@ -391,17 +437,18 @@ const ChildJoin = ({ onDone }) => {
           <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Bem-vindo à família!</div>
           <div style={{ color: T.textMuted, fontSize: 15 }}>Escolha seu avatar e data de nascimento</div>
         </div>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-          {AVATARS.map(a => (
-            <button key={a} onClick={() => setAvatar(a)} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 22, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
-          ))}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <AvatarImg value={avatar} size={72} radius={22} />
         </div>
-        <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
-        {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
-        <Btn onClick={saveProfile} disabled={saving} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
-          {saving ? "Salvando..." : "🚀 Entrar na aventura!"}
-        </Btn>
-        <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+        <DiceBearPicker value={avatar} onChange={setAvatar} />
+        <div style={{ marginTop: 14 }}>
+          <DateInp value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+          {age !== null && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{age} anos</div>}
+          <Btn onClick={saveProfile} disabled={saving} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+            {saving ? "Salvando..." : "🚀 Entrar na aventura!"}
+          </Btn>
+          <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+        </div>
       </div>
     );
   }
@@ -655,11 +702,10 @@ const Onboarding = ({ user, onDone }) => {
   const [familyName, setFamilyName]   = useState("");
   const [childName, setChildName]     = useState("");
   const [childBirth, setChildBirth]   = useState("");
-  const [avatar, setAvatar]           = useState("👦");
+  const [avatar, setAvatar]           = useState(avatarUrl("Luna"));
   const [joinCode, setJoinCode]       = useState("");
   const [loading, setLoading]         = useState(false);
   const [err, setErr]                 = useState("");
-  const avatars = AVATARS;
 
   const createFamily = async () => {
     if (!familyName) return;
@@ -749,17 +795,18 @@ const Onboarding = ({ user, onDone }) => {
               <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
               <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Adicionar filho(a)</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
-              {avatars.map(a => (
-                <button key={a} onClick={() => setAvatar(a)} style={{ width: 48, height: 48, borderRadius: 14, fontSize: 24, border: `2px solid ${avatar === a ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatar === a ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{a}</button>
-              ))}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+              <AvatarImg value={avatar} size={72} radius={22} />
             </div>
-            <Inp icon={avatar} placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
-            <DateInp value={childBirth} onChange={e => setChildBirth(e.target.value)} />
-            {childBirth && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{calcAge(childBirth)} anos</div>}
-            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-            <Btn onClick={addChild} disabled={loading || !childName || !childBirth} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
-            <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+            <DiceBearPicker value={avatar} onChange={setAvatar} />
+            <div style={{ marginTop: 14 }}>
+              <Inp icon="🧒" placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
+              <DateInp value={childBirth} onChange={e => setChildBirth(e.target.value)} />
+              {childBirth && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{calcAge(childBirth)} anos</div>}
+              {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
+              <Btn onClick={addChild} disabled={loading || !childName || !childBirth} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
+              <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
+            </div>
           </>
         )}
 
@@ -812,7 +859,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [surpriseLoading, setSurpriseLoading] = useState(false);
   const [celebration, setCelebration] = useState(null); // { msg, coins, xp }
   // Profile editing
-  const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || "👦");
+  const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || avatarUrl("Luna"));
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [siblings, setSiblings] = useState([]);
   const [historyLogs, setHistoryLogs] = useState([]);
@@ -1008,7 +1055,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       <div style={{ padding: "16px 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{profile.avatar_emoji || "👦"}</div>
+            <div style={{ width: 48, height: 48, borderRadius: 14, overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AvatarImg value={profile.avatar_emoji} size={48} radius={14} />
+            </div>
             <div>
               <div style={{ color: T.textMuted, fontSize: 11 }}>{getSaudacao()},</div>
               <div style={{ color: T.text, fontSize: 17, fontWeight: 900 }}>👋 {profile.display_name}!</div>
@@ -1192,13 +1241,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {editingAvatar && (
                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                   <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 430 }}>
-                    <div style={{ color: T.text, fontWeight: 900, fontSize: 17, textAlign: "center", marginBottom: 20 }}>✏️ Escolher avatar</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 20 }}>
-                      {["👦","👧","🧒","👶","🦸‍♂️","🦸‍♀️","🐱","🦊","🐸","🦁","🐶","🐼","🦄","🐯","🦋","🌟","🦅","🐉","🤖","👾"].map(e => (
-                        <button key={e} onClick={() => saveAvatar(e)} style={{ width: 54, height: 54, borderRadius: 16, fontSize: 26, border: `2px solid ${avatarEmoji === e ? T.accent : "rgba(255,255,255,0.1)"}`, background: avatarEmoji === e ? `${T.accent}22` : "rgba(255,255,255,0.04)", cursor: "pointer", transition: "all 0.15s" }}>{e}</button>
-                      ))}
+                    <div style={{ color: T.text, fontWeight: 900, fontSize: 17, textAlign: "center", marginBottom: 16 }}>✏️ Escolher avatar</div>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                      <AvatarImg value={avatarEmoji} size={64} radius={20} />
                     </div>
-                    <button onClick={() => setEditingAvatar(false)} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Cancelar</button>
+                    <DiceBearPicker value={avatarEmoji} onChange={saveAvatar} />
+                    <button onClick={() => setEditingAvatar(false)} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginTop: 14 }}>Cancelar</button>
                   </div>
                 </div>
               )}
@@ -1206,7 +1254,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Avatar + nome */}
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <div onClick={() => setEditingAvatar(true)} style={{ position: "relative", display: "inline-block", cursor: "pointer", marginBottom: 12 }}>
-                  <div style={{ width: 100, height: 100, borderRadius: 30, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56 }}>{avatarEmoji}</div>
+                  <div style={{ width: 100, height: 100, borderRadius: 30, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    <AvatarImg value={avatarEmoji} size={100} radius={28} />
+                  </div>
                   <div style={{ position: "absolute", bottom: -4, right: -4, width: 28, height: 28, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `2px solid ${T.darker}` }}>✏️</div>
                 </div>
                 <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
@@ -1239,7 +1289,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                     return (
                       <div key={s.id} style={{ background: isMe ? `${T.primary}18` : T.card, borderRadius: 16, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: `1px solid ${isMe ? T.primary+"44" : "rgba(255,255,255,0.06)"}` }}>
                         <div style={{ fontSize: 20, width: 28, textAlign: "center" }}>{medal}</div>
-                        <div style={{ fontSize: 28 }}>{s.avatar_emoji || "👦"}</div>
+                        <AvatarImg value={s.avatar_emoji} size={32} radius={10} />
                         <div style={{ flex: 1 }}>
                           <div style={{ color: isMe ? T.primary : T.text, fontWeight: isMe ? 800 : 600, fontSize: 14 }}>{s.display_name}{isMe ? " (você)" : ""}</div>
                           <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>⚡ {s.xp||0} XP · 🪙 {s.kidcoins||0}</div>
@@ -1781,7 +1831,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     return (
                       <div key={child.id} style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 30, background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>{child.avatar_emoji||"👦"}</div>
+                          <div style={{ width: 56, height: 56, borderRadius: 18, overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <AvatarImg value={child.avatar_emoji} size={56} radius={18} />
+                          </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
                             <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
