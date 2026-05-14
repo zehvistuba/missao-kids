@@ -53,6 +53,13 @@ const getSaudacao = () => {
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 };
 
+// Retorna data LOCAL no formato YYYY-MM-DD (evita bug de fuso UTC vs Brasil)
+const localDateStr = (daysAgo = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const calcAge = (birthDate) => {
   if (!birthDate) return null;
   const today = new Date();
@@ -917,9 +924,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   const load = async () => {
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
-    const last7  = Array.from({length: 7},  (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split("T")[0]; });
-    const last30 = Array.from({length: 30}, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().split("T")[0]; });
+    const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
+    const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
     const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
       supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
       supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
@@ -987,16 +993,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const getLog = (mid, frequency = "daily") => {
-    const today = new Date().toISOString().split("T")[0];
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - cutoffDays);
-    const cutoffStr = cutoff.toISOString().split("T")[0];
+    const cutoffStr = localDateStr(cutoffDays);
     return logs.find(l => l.mission_id === mid && l.due_date >= cutoffStr);
   };
 
   const submit = async (mid) => {
     setSubmitting(mid);
-    const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid });
+    const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid, p_due_date: localDateStr(0) });
     setSubmitting(null);
     if (error) return notify("Erro ao enviar missão", "error");
     notify("✅ Missão enviada para aprovação!"); load();
@@ -1603,7 +1607,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const load = async () => {
     setLoading(true);
-    const last30 = Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return d.toISOString().split("T")[0];});
+    const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
     const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }] = await Promise.all([
       supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
       supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
@@ -1617,8 +1621,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const getChildLog = (childId, missionId, frequency = "daily") => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - cutoffDays);
-    const cutoffStr = cutoff.toISOString().split("T")[0];
+    const cutoffStr = localDateStr(cutoffDays);
     return childLogs.find(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr);
   };
 
