@@ -2206,6 +2206,140 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 };
 
 // ═══════════════════════════════════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════════════════════════════════
+const AdminPanel = ({ onBack }) => {
+  const [families, setFamilies]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [toggling, setToggling]   = useState(null);
+  const [search, setSearch]       = useState("");
+  const [notif, setNotif]         = useState(null);
+  const [notifType, setNotifType] = useState("success");
+  const [denied, setDenied]       = useState(false);
+
+  const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc("admin_get_families");
+    if (error) {
+      if (error.message?.includes("Acesso negado")) setDenied(true);
+      else notify("Erro ao carregar: " + error.message, "error");
+      setLoading(false);
+      return;
+    }
+    setFamilies(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const togglePlan = async (familyId, currentPlan) => {
+    const newPlan = currentPlan === "premium" ? "free" : "premium";
+    setToggling(familyId);
+    const { error } = await supabase.rpc("admin_set_plan", { p_family_id: familyId, p_plan: newPlan });
+    setToggling(null);
+    if (error) { notify("Erro: " + error.message, "error"); return; }
+    notify(newPlan === "premium" ? "👑 Premium ativado!" : "✅ Voltou para Free");
+    setFamilies(prev => prev.map(f => f.family_id === familyId ? { ...f, plan: newPlan } : f));
+  };
+
+  const filtered = families.filter(f =>
+    (f.family_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (f.parent_email || "").toLowerCase().includes(search.toLowerCase()) ||
+    (f.parent_name  || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const premCount = families.filter(f => f.plan === "premium").length;
+
+  if (denied) {
+    return (
+      <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🚫</div>
+        <div style={{ color: T.pink, fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Acesso negado</div>
+        <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 28, textAlign: "center" }}>Esta conta não tem permissão de admin.</div>
+        <button onClick={onBack} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>← Voltar</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", maxWidth: 700, margin: "0 auto" }}>
+      <Notif msg={notif} type={notifType} />
+
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}12)`, padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div style={{ color: T.purple, fontSize: 10, fontWeight: 800, letterSpacing: 1.5 }}>PAINEL ADMIN</div>
+            <div style={{ color: T.text, fontSize: 22, fontWeight: 900 }}>🛡️ RotinUp Admin</div>
+          </div>
+          <button onClick={onBack} style={{ padding: "9px 18px", borderRadius: 12, border: `1px solid ${T.purple}44`, background: `${T.purple}18`, color: T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+            ← Meu app
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          {[
+            { label: "Total famílias", value: families.length,             color: T.blue     },
+            { label: "Premium 👑",      value: premCount,                   color: T.secondary },
+            { label: "Free",            value: families.length - premCount, color: T.textMuted },
+          ].map((s, i) => (
+            <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "10px 12px", textAlign: "center", border: `1px solid ${s.color}22` }}>
+              <div style={{ color: s.color, fontWeight: 900, fontSize: 24 }}>{s.value}</div>
+              <div style={{ color: T.textMuted, fontSize: 10, marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Busca */}
+      <div style={{ padding: "14px 20px 0" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar família, email ou responsável..."
+          style={{ width: "100%", padding: "12px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box" }}
+          onFocus={e => e.target.style.borderColor = T.purple}
+          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+        />
+      </div>
+
+      {/* Lista */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando famílias... ⏳</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhuma família encontrada</div>
+        ) : filtered.map(f => (
+          <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <span style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{f.family_name || "Sem nome"}</span>
+                  <span style={{ background: f.plan === "premium" ? `linear-gradient(135deg, ${T.purple}, ${T.pink})` : "rgba(255,255,255,0.08)", color: f.plan === "premium" ? "#fff" : T.textMuted, fontSize: 9, fontWeight: 900, borderRadius: 999, padding: "2px 9px", letterSpacing: 0.5 }}>
+                    {f.plan === "premium" ? "👑 PREMIUM" : "FREE"}
+                  </span>
+                </div>
+                <div style={{ color: T.textMuted, fontSize: 12 }}>{f.parent_email || "—"}</div>
+                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>
+                  {f.parent_name || "—"} · {f.child_count} filho{f.child_count !== 1 ? "s" : ""} · {new Date(f.created_at).toLocaleDateString("pt-BR")}
+                </div>
+              </div>
+              <button
+                onClick={() => togglePlan(f.family_id, f.plan)}
+                disabled={toggling === f.family_id}
+                style={{ padding: "9px 16px", borderRadius: 12, border: "none", minWidth: 90, textAlign: "center", fontFamily: "'Nunito', sans-serif", fontWeight: 900, fontSize: 12, cursor: toggling === f.family_id ? "not-allowed" : "pointer", flexShrink: 0, transition: "all 0.18s",
+                  background: toggling === f.family_id ? "rgba(255,255,255,0.06)" : f.plan === "premium" ? `${T.pink}28` : `linear-gradient(135deg, ${T.purple}, ${T.pink})`,
+                  color: toggling === f.family_id ? T.textMuted : f.plan === "premium" ? T.pink : "#fff",
+                }}>
+                {toggling === f.family_id ? "..." : f.plan === "premium" ? "→ Free" : "👑 Premium"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
 // APP ROOT
 // ═══════════════════════════════════════════════════════════
 export default function App() {
@@ -2249,13 +2383,14 @@ export default function App() {
       const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
       if (data) {
         setProfile(data);
+        const isAdmin = window.location.pathname === "/admin";
         setScreen(
-          !data.family_id && data.role === "parent" ? "onboarding"
-          : !data.family_id && data.role === "child" ? "child_join"
+          isAdmin ? "admin"
+          : !data.family_id && data.role === "parent" ? "onboarding"
+          : !data.family_id && data.role === "child"  ? "child_join"
           : data.role === "parent" ? "parent" : "child"
         );
       } else {
-        // Perfil não encontrado: trigger falhou anteriormente. Desloga para o usuário se recadastrar.
         await supabase.auth.signOut();
       }
     } catch {
@@ -2270,7 +2405,14 @@ export default function App() {
     <>
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
-        <div style={{ width: "100%", maxWidth: 430, overflow: "hidden", minHeight: "100vh" }}>
+        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh" }}>
+          {screen === "admin" && (
+            <AdminPanel onBack={() => {
+              window.history.pushState({}, "", "/");
+              setScreen(profile?.role === "parent" ? "parent" : "child");
+            }} />
+          )}
+          {screen !== "admin" && <>
           {screen === "splash" && <Splash onDone={() => {
             if (!loading && user && profile) setScreen(profile.role === "parent" ? "parent" : "child");
             else setScreen("landing");
@@ -2281,6 +2423,7 @@ export default function App() {
           {screen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
           {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
           {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
+          </>}
           {loading && screen !== "splash" && (
             <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div>
