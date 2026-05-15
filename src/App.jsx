@@ -879,6 +879,10 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const xpIn  = (profile.xp || 0) - lvl.xpNeeded;
   const xpFor = next.xpNeeded - lvl.xpNeeded;
 
+  // Atualização otimista de coins — não depende do onRefresh() terminar
+  const [localCoins, setLocalCoins] = useState(profile.kidcoins || 0);
+  useEffect(() => { setLocalCoins(profile.kidcoins || 0); }, [profile.kidcoins]);
+
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
   useEffect(() => {
@@ -1020,9 +1024,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const redeem = async (rid, cost) => {
-    if ((profile.kidcoins || 0) < cost) return notify("KidCoins insuficientes! 😢", "error");
+    if (localCoins < cost) return notify("KidCoins insuficientes! 😢", "error");
+    setLocalCoins(prev => prev - cost); // otimista — atualiza imediatamente na tela
     const { error } = await supabase.rpc("request_redemption", { p_reward_id: rid });
-    if (error) return notify(error.message || "Erro ao resgatar", "error");
+    if (error) {
+      setLocalCoins(profile.kidcoins || 0); // rollback se falhar
+      return notify(error.message || "Erro ao resgatar", "error");
+    }
     notify("🎁 Recompensa solicitada! Aguarde a entrega do responsável.");
     load();
     if (onRefresh) onRefresh();
@@ -1083,7 +1091,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, borderRadius: 14, padding: "8px 14px", border: `1px solid ${T.secondary}33` }}>
-            <span>🪙</span><span style={{ color: T.secondary, fontWeight: 900, fontSize: 16 }}>{profile.kidcoins || 0}</span>
+            <span>🪙</span><span style={{ color: T.secondary, fontWeight: 900, fontSize: 16 }}>{localCoins}</span>
           </div>
         </div>
 
@@ -1216,12 +1224,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           {tab === "store" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
-              <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {profile.kidcoins || 0}</span></div>
+              <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {localCoins}</span></div>
               {rewards.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     {rewards.map(r => {
-                      const can = (profile.kidcoins || 0) >= r.coin_cost;
+                      const can = localCoins >= r.coin_cost;
                       return (
                         <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: `1px solid ${can ? T.accent+"33" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.6 }}>
                           <div style={{ fontSize: 40, marginBottom: 8 }}>{r.emoji}</div>
@@ -1285,7 +1293,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Stats */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
                 {[
-                  { label:"KidCoins", value:profile.kidcoins||0, icon:"🪙", color:T.secondary },
+                  { label:"KidCoins", value:localCoins, icon:"🪙", color:T.secondary },
                   { label:"XP Total", value:profile.xp||0, icon:"⚡", color:T.accent },
                   { label:"Nível", value:lvl.level, icon:lvl.emoji, color:lvl.color },
                   { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning },
