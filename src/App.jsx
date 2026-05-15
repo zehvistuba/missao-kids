@@ -88,7 +88,7 @@ const XPBar = ({ current, max, color = T.accent }) => (
 );
 
 const Notif = ({ msg, type }) => msg ? (
-  <div style={{ position: "fixed", top: 20, left: 16, right: 16, zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", maxWidth: 430, margin: "0 auto" }}>{msg}</div>
+  <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", width: "min(calc(100vw - 32px), 398px)", zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>{msg}</div>
 ) : null;
 
 const Inp = ({ placeholder, type = "text", value, onChange, icon }) => (
@@ -605,14 +605,14 @@ const AuthScreen = ({ initialMode = "login" }) => {
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
 
   const authErrPT = (msg = "") => {
-    if (msg.includes("Invalid login credentials")) return "Email ou senha incorretos";
+    if (msg.includes("Invalid login credentials") || msg.includes("invalid_credentials")) return "Email ou senha incorretos";
     if (msg.includes("Email not confirmed"))       return "Confirme seu email antes de entrar";
-    if (msg.includes("User already registered"))   return "Este email já está cadastrado";
-    if (msg.includes("Password should be"))        return "A senha deve ter pelo menos 6 caracteres";
-    if (msg.includes("Unable to validate email"))  return "Email inválido";
-    if (msg.includes("rate limit"))                return "Muitas tentativas. Aguarde alguns minutos";
-    if (msg.includes("weak_password"))             return "Senha muito fraca. Use pelo menos 6 caracteres";
-    return msg || "Erro ao autenticar";
+    if (msg.includes("User already registered") || msg.includes("user_already_exists") || msg.includes("already registered")) return "Este email já está cadastrado";
+    if (msg.includes("Password should be") || msg.includes("weak_password") || msg.includes("password"))  return "A senha deve ter pelo menos 6 caracteres";
+    if (msg.includes("Unable to validate email") || msg.includes("invalid email")) return "Email inválido";
+    if (msg.includes("rate limit") || msg.includes("too_many_requests")) return "Muitas tentativas. Aguarde alguns minutos";
+    if (msg.includes("network") || msg.includes("fetch")) return "Erro de conexão. Verifique sua internet";
+    return "Erro ao autenticar. Tente novamente";
   };
 
   const handleEmail = async () => {
@@ -1021,9 +1021,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   const redeem = async (rid, cost) => {
     if ((profile.kidcoins || 0) < cost) return notify("KidCoins insuficientes! 😢", "error");
-    const { error } = await supabase.rpc("redeem_reward", { p_reward_id: rid });
-    if (error) return notify(error.message || "Erro", "error");
-    notify("🎁 Recompensa resgatada! Aguarde a entrega."); load();
+    const { error } = await supabase.rpc("request_redemption", { p_reward_id: rid });
+    if (error) return notify(error.message || "Erro ao resgatar", "error");
+    notify("🎁 Recompensa solicitada! Aguarde a entrega do responsável.");
+    load();
+    if (onRefresh) onRefresh();
   };
 
   const navTabs = [{ key:"home",icon:"🏠",label:"Início"},{key:"store",icon:"🏪",label:"Loja"},{key:"achievements",icon:"🏆",label:"Conquistas"},{key:"profile",icon:"👤",label:"Perfil"}];
@@ -1557,6 +1559,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showUpgrade, setShowUpgrade]       = useState(false);
   const [childLogs, setChildLogs]           = useState([]);
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
+  const [redemptions, setRedemptions]         = useState([]);
+  const [confirmingRed, setConfirmingRed]     = useState(null);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -1622,14 +1626,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setLoading(true);
     try {
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }] = await Promise.all([
+      const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }, { data: rd }] = await Promise.all([
         supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
         supabase.from("pending_approvals").select("*"),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
+        supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
       ]);
-      setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]);
+      setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
     } catch {
       // queries failed — don't leave screen stuck in loading
     } finally {
@@ -1650,6 +1655,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setCheckingMission(null);
     if (error) return notify(error.message || "Erro ao marcar missão", "error");
     notify("✅ Missão marcada como concluída!"); load();
+  };
+
+  const confirmDelivery = async (redemptionId) => {
+    setConfirmingRed(redemptionId);
+    const { error } = await supabase.rpc("confirm_redemption", { p_log_id: redemptionId });
+    setConfirmingRed(null);
+    if (error) return notify(error.message || "Erro ao confirmar entrega", "error");
+    notify("✅ Entrega confirmada!"); load();
   };
 
   const review = async (logId, approve) => {
@@ -1686,8 +1699,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("IA retornou lista vazia, tente novamente");
       setAiMissions(parsed);
     } catch (e) {
-      const msg = e.message || "Tente novamente";
-      setAiError(msg.includes("quota") || msg.includes("429") ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : "Erro ao gerar sugestões: " + msg);
+      const msg = e.message || "";
+      const isQuota = msg.includes("quota") || msg.includes("429");
+      const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
+      setAiError(isQuota ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : isOverload ? "IA sobrecarregada no momento. Tente em alguns segundos ⏳" : "Erro ao gerar sugestões. Tente novamente.");
     }
     setAiLoading(null);
   };
@@ -1705,8 +1720,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       const report = (rawReport || "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
       setAiReport(report);
     } catch (e) {
-      const msg = e.message || "Tente novamente";
-      setAiError(msg.includes("quota") || msg.includes("429") ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : "Erro ao gerar relatório: " + msg);
+      const msg = e.message || "";
+      const isQuota = msg.includes("quota") || msg.includes("429");
+      const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
+      setAiError(isQuota ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : isOverload ? "IA sobrecarregada no momento. Tente em alguns segundos ⏳" : "Erro ao gerar relatório. Tente novamente.");
     }
     setAiLoading(null);
   };
@@ -1881,7 +1898,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                                   {done
                                     ? <span style={{ fontSize: 10, color: T.accent, fontWeight: 800 }}>Feito</span>
                                     : pend
-                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800 }}>Pendente</span>
+                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800 }}>⏳ Aguardando</span>
                                     : <button onClick={() => parentCheck(child.id, m.id)} disabled={checkingMission === key}
                                         style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: checkingMission === key ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
                                         {checkingMission === key ? "..." : "✓ Marcar"}
@@ -1889,6 +1906,23 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                                 </div>
                               );
                             })}
+                          </div>
+                        )}
+                        {/* Resgates pendentes de entrega */}
+                        {redemptions.filter(r => r.child_id === child.id).length > 0 && (
+                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>🎁 RESGATES AGUARDANDO ENTREGA</div>
+                            {redemptions.filter(r => r.child_id === child.id).map(r => (
+                              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, background: `${T.secondary}0A`, borderRadius: 12, padding: "8px 10px" }}>
+                                <span style={{ fontSize: 20, flexShrink: 0 }}>{r.reward_emoji}</span>
+                                <div style={{ flex: 1, color: T.text, fontSize: 13, fontWeight: 600 }}>{r.reward_title}</div>
+                                <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>🪙 {r.coin_cost}</span>
+                                <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id}
+                                  style={{ padding: "5px 10px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: confirmingRed === r.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                  {confirmingRed === r.id ? "..." : "✅ Entreguei"}
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -1937,7 +1971,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ width: 48, height: 48, borderRadius: 14, background: `${T.warning}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{p.mission_emoji}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
-                          <div style={{ fontSize: 12, color: T.textMuted }}>{p.child_avatar} {p.child_name} · 🪙 {p.coins_reward} KidCoins</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                            <AvatarImg value={p.child_avatar} size={20} radius={6} />
+                            <span style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward} KidCoins</span>
+                          </div>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                           <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
