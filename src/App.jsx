@@ -37,6 +37,19 @@ const T = {
   text: "#F0F0FF", textMuted: "#9090B0", warning: "#FFD23F",
 };
 
+// Paleta de fundos para ícones de missão/recompensa — cicla por índice
+const ICON_GRADIENTS = [
+  `linear-gradient(135deg, #FF6B3522, #FF6B3544)`,
+  `linear-gradient(135deg, #06D6A022, #06D6A044)`,
+  `linear-gradient(135deg, #9B5DE522, #9B5DE544)`,
+  `linear-gradient(135deg, #4CC9F022, #4CC9F044)`,
+  `linear-gradient(135deg, #FFD23F22, #FFD23F44)`,
+  `linear-gradient(135deg, #F7258522, #F7258544)`,
+];
+const ICON_BORDERS = ["#FF6B3555","#06D6A055","#9B5DE555","#4CC9F055","#FFD23F55","#F7258555"];
+const iconGrad   = (i) => ICON_GRADIENTS[i % ICON_GRADIENTS.length];
+const iconBorder = (i) => ICON_BORDERS[i % ICON_BORDERS.length];
+
 const DEMERIT_PRESETS = [
   { emoji: "😤", title: "Reclamação",               coins: 15 },
   { emoji: "🌙", title: "Não dormiu no horário",    coins: 10 },
@@ -1202,14 +1215,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões</div>
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
-                : missions.map(m => {
+                : missions.map((m, mi) => {
                     const log = getLog(m.id, m.frequency);
                     const done = log?.status === "approved";
                     const pend = log?.status === "pending";
                     return (
                       <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.75 : 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 26, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{done ? "✅" : m.emoji}</div>
+                          <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 28, background: done ? `${T.accent}22` : iconGrad(mi), border: `1px solid ${done ? T.accent+"44" : iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: done ? "none" : `0 4px 12px rgba(0,0,0,0.2)` }}>{done ? "✅" : m.emoji}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
                             <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
@@ -1244,11 +1257,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {rewards.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {rewards.map(r => {
+                    {rewards.map((r, ri) => {
                       const can = localCoins >= r.coin_cost;
                       return (
-                        <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: `1px solid ${can ? T.accent+"33" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.6 }}>
-                          <div style={{ fontSize: 40, marginBottom: 8 }}>{r.emoji}</div>
+                        <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: `1px solid ${can ? T.accent+"44" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.6 }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 20, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
                           <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{r.title}</div>
                           <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14, marginBottom: 10 }}>🪙 {r.coin_cost}</div>
                           <button onClick={() => redeem(r.id, r.coin_cost)} style={{ width: "100%", padding: "8px 0", borderRadius: 12, border: "none", background: can ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: can ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 12, cursor: can ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif" }}>{can ? "Resgatar" : "Sem saldo"}</button>
@@ -2260,7 +2273,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 : pending.map(p => (
                     <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, background: `${T.warning}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{p.mission_emoji}</div>
+                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${T.warning}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
@@ -2360,10 +2373,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               {rewards.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {rewards.map(r => (
+                    {rewards.map((r, ri) => (
                       <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
                         <button onClick={() => setEditingReward(r)} style={{ position: "absolute", top: 10, right: 10, padding: "4px 8px", borderRadius: 8, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️</button>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>{r.emoji}</div>
+                        <div style={{ width: 60, height: 60, borderRadius: 18, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
                         <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
                       </div>
