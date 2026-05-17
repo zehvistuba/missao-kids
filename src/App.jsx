@@ -1368,7 +1368,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Histórico de deméritos */}
               {!historyLoading && demeritLogs.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ color: T.pink, fontWeight: 800, fontSize: 15, marginBottom: 12 }}>⚠️ Deméritos Recebidos</div>
+                  <div style={{ color: T.pink, fontWeight: 800, fontSize: 15, marginBottom: 12 }}>⚠️ Tropeços Recebidos</div>
                   {demeritLogs.map((d, i) => (
                     <div key={d.id || i} style={{ background: `${T.pink}0D`, borderRadius: 14, padding: "11px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: `1px solid ${T.pink}22` }}>
                       <div style={{ fontSize: 22 }}>{d.emoji || "⚠️"}</div>
@@ -1566,6 +1566,133 @@ const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
   );
 };
 
+// ─── Extrato Modal ────────────────────────────────────────
+const ExtratoModal = ({ child, onClose }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      const [{ data: missions }, { data: redemptions }, { data: demerits }] = await Promise.all([
+        supabase.from("mission_logs")
+          .select("id,coins_earned,due_date,missions(title,emoji)")
+          .eq("child_id", child.id)
+          .eq("status", "approved")
+          .order("due_date", { ascending: false })
+          .limit(30),
+        supabase.from("redemption_logs")
+          .select("id,reward_title,reward_emoji,coin_cost,status,created_at")
+          .eq("child_id", child.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+        supabase.from("demerit_logs")
+          .select("id,title,emoji,coins_deducted,created_at")
+          .eq("child_id", child.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+      ]);
+
+      const all = [
+        ...(missions || []).map(m => ({
+          id: m.id, type: "mission",
+          emoji: m.missions?.emoji || "✅",
+          label: m.missions?.title || "Missão",
+          coins: +(m.coins_earned || 0),
+          date: m.due_date,
+          sortKey: m.due_date,
+        })),
+        ...(redemptions || []).map(r => ({
+          id: r.id, type: "redemption",
+          emoji: r.reward_emoji || "🎁",
+          label: r.reward_title,
+          coins: -(r.coin_cost || 0),
+          date: r.created_at?.slice(0, 10),
+          status: r.status,
+          sortKey: r.created_at,
+        })),
+        ...(demerits || []).map(d => ({
+          id: d.id, type: "demerit",
+          emoji: d.emoji || "⚠️",
+          label: d.title,
+          coins: -(d.coins_deducted || 0),
+          date: d.created_at?.slice(0, 10),
+          sortKey: d.created_at,
+        })),
+      ].sort((a, b) => (b.sortKey || "").localeCompare(a.sortKey || ""));
+
+      setItems(all);
+      setLoading(false);
+    };
+    fetch();
+  }, [child.id]);
+
+  const typeColor = { mission: T.accent, redemption: T.secondary, demerit: T.pink };
+  const typeLabel = { mission: "Bônus", redemption: "Resgate", demerit: "Tropeço" };
+
+  const total = items.reduce((sum, i) => sum + i.coins, 0);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexShrink: 0 }}>
+          <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>📋 Extrato de {child.display_name}</div>
+            <div style={{ color: T.textMuted, fontSize: 12 }}>Bônus, resgates e tropeços</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Saldo do extrato */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16, flexShrink: 0 }}>
+          {[
+            { label: "Ganhos", value: items.filter(i=>i.coins>0).reduce((s,i)=>s+i.coins,0), color: T.accent, sign: "+" },
+            { label: "Gastos", value: items.filter(i=>i.coins<0).reduce((s,i)=>s+i.coins,0), color: T.pink, sign: "" },
+            { label: "Saldo atual", value: child.kidcoins || 0, color: T.secondary, sign: "" },
+          ].map((s, i) => (
+            <div key={i} style={{ background: T.darker, borderRadius: 14, padding: "10px 8px", textAlign: "center", border: `1px solid ${s.color}22` }}>
+              <div style={{ color: s.color, fontWeight: 900, fontSize: 15 }}>{s.sign}{Math.abs(s.value)}</div>
+              <div style={{ color: T.textMuted, fontSize: 10, marginTop: 2 }}>🪙 {s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Lista */}
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div>
+          ) : items.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>Nenhuma movimentação ainda
+            </div>
+          ) : items.map((item, i) => {
+            const positive = item.coins > 0;
+            const color = typeColor[item.type];
+            return (
+              <div key={`${item.type}-${item.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{item.emoji}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: T.text, fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+                    <span style={{ fontSize: 10, color: color, fontWeight: 800, background: `${color}18`, borderRadius: 6, padding: "1px 6px" }}>{typeLabel[item.type]}</span>
+                    <span style={{ fontSize: 10, color: T.textMuted }}>{item.date}</span>
+                    {item.type === "redemption" && item.status === "pending" && <span style={{ fontSize: 10, color: T.secondary, fontWeight: 700 }}>⏳ aguardando entrega</span>}
+                  </div>
+                </div>
+                <div style={{ color: positive ? T.accent : T.pink, fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
+                  {positive ? "+" : ""}{item.coins}🪙
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Demerit Modal ────────────────────────────────────────
 const DemeritModal = ({ child, onApply, onClose }) => {
   const [selected, setSelected] = useState(null);
@@ -1597,7 +1724,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
           <div>
-            <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>⚠️ Aplicar Demerito</div>
+            <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>⚠️ Registrar Tropeço</div>
             <div style={{ color: T.textMuted, fontSize: 12 }}>{child.display_name} · 🪙 {child.kidcoins||0} coins</div>
           </div>
         </div>
@@ -1621,7 +1748,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 
         {selected === -1 && (
           <div style={{ marginBottom: 16 }}>
-            <Inp icon={customEmoji} placeholder="Motivo do demerito" value={customTitle} onChange={e => setCustomTitle(e.target.value)} />
+            <Inp icon={customEmoji} placeholder="Motivo do tropeço" value={customTitle} onChange={e => setCustomTitle(e.target.value)} />
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
               {["⚠️","😤","📋","❌","😠","🌙","📱","🙅","💢","🔇"].map(e => (
                 <button key={e} onClick={() => setCustomEmoji(e)} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${customEmoji === e ? T.pink : "rgba(255,255,255,0.12)"}`, background: customEmoji === e ? `${T.pink}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
@@ -1647,7 +1774,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={handleApply} disabled={applying || !canApply}
             style={{ flex: 1, padding: "14px", borderRadius: 16, border: "none", background: applying || !canApply ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${T.pink}, #FF4040)`, color: applying || !canApply ? T.textMuted : "#fff", fontWeight: 900, fontSize: 15, cursor: applying || !canApply ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-            {applying ? "Aplicando..." : "⚠️ Aplicar Demerito"}
+            {applying ? "Registrando..." : "⚠️ Registrar Tropeço"}
           </button>
           <button onClick={onClose} style={{ padding: "14px 18px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Cancelar</button>
         </div>
@@ -1693,6 +1820,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [redemptions, setRedemptions]         = useState([]);
   const [confirmingRed, setConfirmingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
+  const [extratoTarget, setExtratoTarget]     = useState(null); // child object
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -1804,9 +1932,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       p_emoji:    emoji,
       p_coins:    coins,
     });
-    if (error) { notify(error.message || "Erro ao aplicar demerito", "error"); return; }
+    if (error) { notify(error.message || "Erro ao registrar tropeço", "error"); return; }
     setDemeritTarget(null);
-    notify(`⚠️ Demerito aplicado${coins > 0 ? ` — -🪙${coins} de ${children.find(c=>c.id===childId)?.display_name}` : ""}!`);
+    notify(`⚠️ Tropeço registrado${coins > 0 ? ` — -🪙${coins} de ${children.find(c=>c.id===childId)?.display_name}` : ""}!`);
     load();
   };
 
@@ -1915,7 +2043,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         />
       )}
 
-      {/* Modal demerito */}
+      {/* Modal extrato */}
+      {extratoTarget && (
+        <ExtratoModal
+          child={extratoTarget}
+          onClose={() => setExtratoTarget(null)}
+        />
+      )}
+
+      {/* Modal tropeço */}
       {demeritTarget && (
         <DemeritModal
           child={demeritTarget}
@@ -2032,7 +2168,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                             <button onClick={() => setEditingChild(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
-                            <button onClick={() => setDemeritTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Demerito</button>
+                            <button onClick={() => setExtratoTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
+                            <button onClick={() => setDemeritTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
                             <div style={{ color: T.warning, fontWeight: 900, fontSize: 13 }}>{child.streak||0}🔥</div>
                           </div>
                         </div>
