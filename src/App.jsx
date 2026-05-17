@@ -37,6 +37,15 @@ const T = {
   text: "#F0F0FF", textMuted: "#9090B0", warning: "#FFD23F",
 };
 
+const DEMERIT_PRESETS = [
+  { emoji: "😤", title: "Reclamação",               coins: 15 },
+  { emoji: "🌙", title: "Não dormiu no horário",    coins: 10 },
+  { emoji: "📋", title: "ATA da escola",             coins: 30 },
+  { emoji: "😠", title: "Respondeu ao responsável",  coins: 20 },
+  { emoji: "❌", title: "Mau comportamento",         coins: 25 },
+  { emoji: "📱", title: "Excesso de tela",           coins: 15 },
+];
+
 const LEVELS = [
   { level: 1, name: "Recruta",     xpNeeded: 0,    color: "#9090B0", emoji: "🌱" },
   { level: 2, name: "Explorador",  xpNeeded: 100,  color: "#4CC9F0", emoji: "⭐" },
@@ -870,6 +879,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [siblings, setSiblings] = useState([]);
   const [historyLogs, setHistoryLogs] = useState([]);
+  const [demeritLogs, setDemeritLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
   const [submitting, setSubmitting] = useState(null); // mission id being submitted
@@ -963,7 +973,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const loadProfileExtras = async () => {
     setHistoryLoading(true);
     try {
-      const [{ data: sibs }, { data: hist }] = await Promise.all([
+      const [{ data: sibs }, { data: hist }, { data: dem }] = await Promise.all([
         supabase.from("profiles")
           .select("id,display_name,avatar_emoji,xp,kidcoins,streak")
           .eq("family_id", profile.family_id)
@@ -975,9 +985,15 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           .eq("status", "approved")
           .order("due_date", { ascending: false })
           .limit(20),
+        supabase.from("demerit_logs")
+          .select("id,title,emoji,coins_deducted,created_at")
+          .eq("child_id", profile.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
       setSiblings(sibs || []);
       setHistoryLogs(hist || []);
+      setDemeritLogs(dem || []);
     } catch {
       // silent — profile extras are optional
     } finally {
@@ -1349,6 +1365,23 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 ))}
               </div>
 
+              {/* Histórico de deméritos */}
+              {!historyLoading && demeritLogs.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.pink, fontWeight: 800, fontSize: 15, marginBottom: 12 }}>⚠️ Deméritos Recebidos</div>
+                  {demeritLogs.map((d, i) => (
+                    <div key={d.id || i} style={{ background: `${T.pink}0D`, borderRadius: 14, padding: "11px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: `1px solid ${T.pink}22` }}>
+                      <div style={{ fontSize: 22 }}>{d.emoji || "⚠️"}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: T.text, fontWeight: 600, fontSize: 13 }}>{d.title}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{new Date(d.created_at).toLocaleDateString("pt-BR")}</div>
+                      </div>
+                      {d.coins_deducted > 0 && <div style={{ color: T.pink, fontWeight: 800, fontSize: 13 }}>-🪙{d.coins_deducted}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <NotifyToggle userId={profile.id} />
               <button onClick={onSignOut} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
@@ -1533,6 +1566,96 @@ const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
   );
 };
 
+// ─── Demerit Modal ────────────────────────────────────────
+const DemeritModal = ({ child, onApply, onClose }) => {
+  const [selected, setSelected] = useState(null);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customEmoji, setCustomEmoji] = useState("⚠️");
+  const [coins, setCoins] = useState(0);
+  const [applying, setApplying] = useState(false);
+
+  const preset = selected !== null && selected >= 0 ? DEMERIT_PRESETS[selected] : null;
+  const title = preset ? preset.title : customTitle;
+  const emoji = preset ? preset.emoji : customEmoji;
+  const canApply = selected !== null && title.trim().length > 0 && coins >= 0;
+
+  useEffect(() => {
+    if (preset) setCoins(preset.coins);
+    else if (selected === -1) { setCustomTitle(""); setCoins(0); }
+  }, [selected]);
+
+  const handleApply = async () => {
+    if (!canApply) return;
+    setApplying(true);
+    await onApply({ childId: child.id, title: title.trim(), emoji, coins });
+    setApplying(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
+          <div>
+            <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>⚠️ Aplicar Demerito</div>
+            <div style={{ color: T.textMuted, fontSize: 12 }}>{child.display_name} · 🪙 {child.kidcoins||0} coins</div>
+          </div>
+        </div>
+
+        <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 10 }}>TIPO DE DEMERITO</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {DEMERIT_PRESETS.map((p, i) => (
+            <button key={i} onClick={() => setSelected(i)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 14, border: `2px solid ${selected === i ? T.pink : "rgba(255,255,255,0.1)"}`, background: selected === i ? `${T.pink}15` : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left" }}>
+              <span style={{ fontSize: 22, flexShrink: 0 }}>{p.emoji}</span>
+              <div style={{ flex: 1, color: selected === i ? T.text : T.textMuted, fontWeight: 700, fontSize: 13 }}>{p.title}</div>
+              <span style={{ color: T.pink, fontWeight: 900, fontSize: 12, flexShrink: 0 }}>-🪙{p.coins}</span>
+            </button>
+          ))}
+          <button onClick={() => setSelected(-1)}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 14, border: `2px solid ${selected === -1 ? T.pink : "rgba(255,255,255,0.1)"}`, background: selected === -1 ? `${T.pink}15` : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left" }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>✏️</span>
+            <div style={{ color: selected === -1 ? T.text : T.textMuted, fontWeight: 700, fontSize: 13 }}>Personalizado</div>
+          </button>
+        </div>
+
+        {selected === -1 && (
+          <div style={{ marginBottom: 16 }}>
+            <Inp icon={customEmoji} placeholder="Motivo do demerito" value={customTitle} onChange={e => setCustomTitle(e.target.value)} />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              {["⚠️","😤","📋","❌","😠","🌙","📱","🙅","💢","🔇"].map(e => (
+                <button key={e} onClick={() => setCustomEmoji(e)} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${customEmoji === e ? T.pink : "rgba(255,255,255,0.12)"}`, background: customEmoji === e ? `${T.pink}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selected !== null && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 8 }}>KIDCOINS A DESCONTAR</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button onClick={() => setCoins(Math.max(0, coins - 5))} style={{ width: 40, height: 40, borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: T.text, fontSize: 22, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "10px 16px", textAlign: "center", border: `2px solid ${T.pink}44` }}>
+                <span style={{ color: T.pink, fontWeight: 900, fontSize: 22, fontFamily: "'Nunito', sans-serif" }}>🪙 {coins}</span>
+              </div>
+              <button onClick={() => setCoins(coins + 5)} style={{ width: 40, height: 40, borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: T.text, fontSize: 22, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            </div>
+            {coins === 0 && <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 6 }}>0 coins = só registra, sem desconto</div>}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={handleApply} disabled={applying || !canApply}
+            style={{ flex: 1, padding: "14px", borderRadius: 16, border: "none", background: applying || !canApply ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${T.pink}, #FF4040)`, color: applying || !canApply ? T.textMuted : "#fff", fontWeight: 900, fontSize: 15, cursor: applying || !canApply ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+            {applying ? "Aplicando..." : "⚠️ Aplicar Demerito"}
+          </button>
+          <button onClick={onClose} style={{ padding: "14px 18px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
@@ -1569,6 +1692,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
   const [confirmingRed, setConfirmingRed]     = useState(null);
+  const [demeritTarget, setDemeritTarget]     = useState(null); // child object
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -1673,6 +1797,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     notify("✅ Entrega confirmada!"); load();
   };
 
+  const applyDemerit = async ({ childId, title, emoji, coins }) => {
+    const { error } = await supabase.rpc("apply_demerit", {
+      p_child_id: childId,
+      p_title:    title,
+      p_emoji:    emoji,
+      p_coins:    coins,
+    });
+    if (error) { notify(error.message || "Erro ao aplicar demerito", "error"); return; }
+    setDemeritTarget(null);
+    notify(`⚠️ Demerito aplicado${coins > 0 ? ` — -🪙${coins} de ${children.find(c=>c.id===childId)?.display_name}` : ""}!`);
+    load();
+  };
+
   const review = async (logId, approve) => {
     const { error } = await supabase.rpc("review_mission", { p_log_id: logId, p_approve: approve, p_note: approve ? "Ótimo trabalho! 🎉" : "Tente novamente!" });
     if (error) return notify("Erro ao revisar", "error");
@@ -1775,6 +1912,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           onSave={() => { setEditingChild(null); load(); notify("✅ Dados salvos!"); }}
           onDelete={() => { setEditingChild(null); load(); notify("🗑️ Criança removida."); }}
           onClose={() => setEditingChild(null)}
+        />
+      )}
+
+      {/* Modal demerito */}
+      {demeritTarget && (
+        <DemeritModal
+          child={demeritTarget}
+          onApply={applyDemerit}
+          onClose={() => setDemeritTarget(null)}
         />
       )}
 
@@ -1886,6 +2032,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                             <button onClick={() => setEditingChild(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                            <button onClick={() => setDemeritTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Demerito</button>
                             <div style={{ color: T.warning, fontWeight: 900, fontSize: 13 }}>{child.streak||0}🔥</div>
                           </div>
                         </div>
