@@ -1648,7 +1648,8 @@ const ExtratoModal = ({ child, onClose }) => {
           id: r.id, type: "redemption",
           emoji: r.reward_emoji || "🎁",
           label: r.reward_title,
-          coins: -(r.coin_cost || 0),
+          coins: r.status === "cancelled" ? 0 : -(r.coin_cost || 0),
+          rawCost: r.coin_cost || 0,
           date: r.created_at?.slice(0, 10),
           status: r.status,
           sortKey: r.created_at,
@@ -1721,10 +1722,11 @@ const ExtratoModal = ({ child, onClose }) => {
                     <span style={{ fontSize: 10, color: color, fontWeight: 800, background: `${color}18`, borderRadius: 6, padding: "1px 6px" }}>{typeLabel[item.type]}</span>
                     <span style={{ fontSize: 10, color: T.textMuted }}>{item.date}</span>
                     {item.type === "redemption" && item.status === "pending" && <span style={{ fontSize: 10, color: T.secondary, fontWeight: 700 }}>⏳ aguardando entrega</span>}
+                    {item.type === "redemption" && item.status === "cancelled" && <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 700 }}>❌ cancelado</span>}
                   </div>
                 </div>
-                <div style={{ color: positive ? T.accent : T.pink, fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
-                  {positive ? "+" : ""}{item.coins}🪙
+                <div style={{ color: item.status === "cancelled" ? T.textMuted : positive ? T.accent : T.pink, fontWeight: 900, fontSize: 14, flexShrink: 0, textDecoration: item.status === "cancelled" ? "line-through" : "none", opacity: item.status === "cancelled" ? 0.5 : 1 }}>
+                  {item.status === "cancelled" ? `-${item.rawCost || 0}🪙` : `${positive ? "+" : ""}${item.coins}🪙`}
                 </div>
               </div>
             );
@@ -1861,6 +1863,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
   const [confirmingRed, setConfirmingRed]     = useState(null);
+  const [cancellingRed, setCancellingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
   const [extratoTarget, setExtratoTarget]     = useState(null); // child object
 
@@ -1965,6 +1968,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setConfirmingRed(null);
     if (error) return notify(error.message || "Erro ao confirmar entrega", "error");
     notify("✅ Entrega confirmada!"); load();
+  };
+
+  const cancelRedemption = async (redemptionId) => {
+    setCancellingRed(redemptionId);
+    const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redemptionId });
+    setCancellingRed(null);
+    if (error) return notify(error.message || "Erro ao cancelar", "error");
+    notify("🔄 Solicitação cancelada. Coins devolvidos."); load();
   };
 
   const applyDemerit = async ({ childId, title, emoji, coins }) => {
@@ -2251,9 +2262,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                                 <span style={{ fontSize: 20, flexShrink: 0 }}>{r.reward_emoji}</span>
                                 <div style={{ flex: 1, color: T.text, fontSize: 13, fontWeight: 600 }}>{r.reward_title}</div>
                                 <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>🪙 {r.coin_cost}</span>
-                                <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id}
-                                  style={{ padding: "5px 10px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: confirmingRed === r.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
+                                  style={{ padding: "5px 10px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
                                   {confirmingRed === r.id ? "..." : "✅ Entreguei"}
+                                </button>
+                                <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
+                                  style={{ padding: "5px 10px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                  {cancellingRed === r.id ? "..." : "❌"}
                                 </button>
                               </div>
                             ))}

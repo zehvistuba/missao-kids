@@ -39,7 +39,9 @@ $$;
 CREATE OR REPLACE FUNCTION public.admin_set_plan(p_family_id UUID, p_plan TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-  IF (SELECT email FROM auth.users WHERE id = auth.uid()) != 'zehvistuba@gmail.com' THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  ) THEN
     RAISE EXCEPTION 'Acesso negado';
   END IF;
 
