@@ -2484,6 +2484,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               </div>
 
               <NotifyToggle userId={profile.id} />
+              {(profile.role === "admin") && (
+                <button onClick={() => { window.history.pushState({}, "", "/admin"); window.location.reload(); }}
+                  style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 }}>
+                  🛡️ Painel Admin
+                </button>
+              )}
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
             </div>
           )}
@@ -2508,11 +2514,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 const AdminPanel = ({ onBack }) => {
   const [families, setFamilies]   = useState([]);
   const [loading, setLoading]     = useState(true);
-  const [toggling, setToggling]   = useState(null);
-  const [search, setSearch]       = useState("");
-  const [notif, setNotif]         = useState(null);
-  const [notifType, setNotifType] = useState("success");
-  const [denied, setDenied]       = useState(false);
+  const [toggling, setToggling]       = useState(null);
+  const [search, setSearch]           = useState("");
+  const [notif, setNotif]             = useState(null);
+  const [notifType, setNotifType]     = useState("success");
+  const [denied, setDenied]           = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(null); // family_id
+  const [deleting, setDeleting]       = useState(null);           // family_id
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
@@ -2542,6 +2550,16 @@ const AdminPanel = ({ onBack }) => {
     if (error) { notify("Erro: " + error.message, "error"); return; }
     notify(newPlan === "premium" ? "👑 Premium ativado!" : "✅ Voltou para Free");
     setFamilies(prev => prev.map(f => f.family_id === familyId ? { ...f, plan: newPlan } : f));
+  };
+
+  const deleteFamily = async (familyId) => {
+    setDeleting(familyId);
+    const { error } = await supabase.rpc("admin_delete_family", { p_family_id: familyId });
+    setDeleting(null);
+    setConfirmingDelete(null);
+    if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
+    notify("🗑️ Família removida.");
+    setFamilies(prev => prev.filter(f => f.family_id !== familyId));
   };
 
   const filtered = families.filter(f =>
@@ -2620,7 +2638,7 @@ const AdminPanel = ({ onBack }) => {
         ) : !loadError && filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhuma família encontrada</div>
         ) : filtered.map(f => (
-          <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}` }}>
+          <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${confirmingDelete === f.family_id ? T.pink + "55" : f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
@@ -2634,16 +2652,42 @@ const AdminPanel = ({ onBack }) => {
                   {f.parent_name || "—"} · {f.child_count} filho{f.child_count !== 1 ? "s" : ""} · {new Date(f.created_at).toLocaleDateString("pt-BR")}
                 </div>
               </div>
-              <button
-                onClick={() => togglePlan(f.family_id, f.plan)}
-                disabled={toggling === f.family_id}
-                style={{ padding: "9px 16px", borderRadius: 12, border: "none", minWidth: 90, textAlign: "center", fontFamily: "'Nunito', sans-serif", fontWeight: 900, fontSize: 12, cursor: toggling === f.family_id ? "not-allowed" : "pointer", flexShrink: 0, transition: "all 0.18s",
-                  background: toggling === f.family_id ? "rgba(255,255,255,0.06)" : f.plan === "premium" ? `${T.pink}28` : `linear-gradient(135deg, ${T.purple}, ${T.pink})`,
-                  color: toggling === f.family_id ? T.textMuted : f.plan === "premium" ? T.pink : "#fff",
-                }}>
-                {toggling === f.family_id ? "..." : f.plan === "premium" ? "→ Free" : "👑 Premium"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={() => togglePlan(f.family_id, f.plan)}
+                  disabled={toggling === f.family_id || deleting === f.family_id}
+                  style={{ padding: "8px 14px", borderRadius: 10, border: "none", minWidth: 88, textAlign: "center", fontFamily: "'Nunito', sans-serif", fontWeight: 900, fontSize: 12, cursor: toggling === f.family_id ? "not-allowed" : "pointer", transition: "all 0.18s",
+                    background: toggling === f.family_id ? "rgba(255,255,255,0.06)" : f.plan === "premium" ? `${T.pink}28` : `linear-gradient(135deg, ${T.purple}, ${T.pink})`,
+                    color: toggling === f.family_id ? T.textMuted : f.plan === "premium" ? T.pink : "#fff",
+                  }}>
+                  {toggling === f.family_id ? "..." : f.plan === "premium" ? "→ Free" : "👑 Premium"}
+                </button>
+                <button
+                  onClick={() => confirmingDelete === f.family_id ? setConfirmingDelete(null) : setConfirmingDelete(f.family_id)}
+                  disabled={deleting === f.family_id}
+                  style={{ padding: "6px 14px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: confirmingDelete === f.family_id ? `${T.pink}22` : "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "center" }}>
+                  {deleting === f.family_id ? "..." : "🗑️ Remover"}
+                </button>
+              </div>
             </div>
+            {/* Confirmação de remoção expandida */}
+            {confirmingDelete === f.family_id && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.pink}33` }}>
+                <div style={{ color: T.pink, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                  ⚠️ Isso apaga <strong>todas</strong> as missões, coins, filhos e histórico desta família. Irreversível.
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => deleteFamily(f.family_id)} disabled={deleting === f.family_id}
+                    style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.pink}, #CC0000)`, color: "#fff", fontWeight: 900, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                    {deleting === f.family_id ? "Removendo..." : "✓ Confirmar remoção"}
+                  </button>
+                  <button onClick={() => setConfirmingDelete(null)}
+                    style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -2696,11 +2740,12 @@ export default function App() {
       if (data) {
         setProfile(data);
         const isAdmin = window.location.pathname === "/admin";
+        const isParentRole = data.role === "parent" || data.role === "admin";
         setScreen(
           isAdmin ? "admin"
-          : !data.family_id && data.role === "parent" ? "onboarding"
-          : !data.family_id && data.role === "child"  ? "child_join"
-          : data.role === "parent" ? "parent" : "child"
+          : !data.family_id && isParentRole   ? "onboarding"
+          : !data.family_id && data.role === "child" ? "child_join"
+          : isParentRole ? "parent" : "child"
         );
       } else {
         await supabase.auth.signOut();
@@ -2721,12 +2766,15 @@ export default function App() {
           {screen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
-              setScreen(profile?.role === "parent" ? "parent" : "child");
+              setScreen((profile?.role === "parent" || profile?.role === "admin") ? "parent" : "child");
             }} />
           )}
           {screen !== "admin" && <>
           {screen === "splash" && <Splash onDone={() => {
-            if (!loading && user && profile) setScreen(profile.role === "parent" ? "parent" : "child");
+            if (!loading && user && profile) {
+              const r = profile.role;
+              setScreen(r === "parent" || r === "admin" ? "parent" : "child");
+            }
             else setScreen("landing");
           }} />}
           {screen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
