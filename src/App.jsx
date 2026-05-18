@@ -2516,17 +2516,20 @@ const AdminPanel = ({ onBack }) => {
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
+  const [loadError, setLoadError] = useState(null);
+
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     const { data, error } = await supabase.rpc("admin_get_families");
+    setLoading(false);
     if (error) {
-      if (error.message?.includes("Acesso negado")) setDenied(true);
-      else notify("Erro ao carregar: " + error.message, "error");
-      setLoading(false);
+      console.error("[Admin] admin_get_families error:", error);
+      if (error.message?.includes("Acesso negado")) { setDenied(true); return; }
+      setLoadError(error.message || "Erro desconhecido");
       return;
     }
     setFamilies(data || []);
-    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -2598,11 +2601,23 @@ const AdminPanel = ({ onBack }) => {
         />
       </div>
 
+      {/* Erro persistente de carregamento */}
+      {loadError && (
+        <div style={{ margin: "12px 20px 0", padding: "14px 18px", borderRadius: 16, background: `${T.pink}15`, border: `1px solid ${T.pink}44`, color: T.pink }}>
+          <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>⚠️ Erro ao carregar famílias</div>
+          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10, wordBreak: "break-all" }}>{loadError}</div>
+          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
+            Verifique se <strong style={{ color: T.text }}>supabase_admin.sql</strong> foi executado no Supabase SQL Editor.
+          </div>
+          <button onClick={load} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
+        </div>
+      )}
+
       {/* Lista */}
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando famílias... ⏳</div>
-        ) : filtered.length === 0 ? (
+        ) : !loadError && filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhuma família encontrada</div>
         ) : filtered.map(f => (
           <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}` }}>
