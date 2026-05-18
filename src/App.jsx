@@ -623,6 +623,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
   const [loading, setLoading]   = useState(false);
   const [notif, setNotif]       = useState(null);
   const [notifType, setNotifType] = useState("success");
+  const [inlineErr, setInlineErr] = useState("");
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
 
@@ -638,8 +639,10 @@ const AuthScreen = ({ initialMode = "login" }) => {
   };
 
   const handleEmail = async () => {
-    if (mode !== "login" && !name) return notify("Digite seu nome!", "error");
-    if (!email || !password) return notify("Preencha email e senha!", "error");
+    setInlineErr("");
+    if (mode !== "login" && !name) { setInlineErr("Digite seu nome"); return; }
+    if (!email) { setInlineErr("Digite seu email"); return; }
+    if (!password) { setInlineErr("Digite sua senha"); return; }
     setLoading(true);
     try {
       if (mode === "login") {
@@ -690,9 +693,10 @@ const AuthScreen = ({ initialMode = "login" }) => {
       )}
 
       <div style={{ flex: 1 }}>
-        {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} />}
-        <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-        <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+        {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => { setName(e.target.value); setInlineErr(""); }} />}
+        <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
+        <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => { setPassword(e.target.value); setInlineErr(""); }} />
+        {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
         <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
@@ -886,6 +890,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [loading, setLoading]   = useState(true);
   const [surpriseMission, setSurpriseMission] = useState(null);
   const [surpriseLoading, setSurpriseLoading] = useState(false);
+  const [surpriseError, setSurpriseError] = useState(null);
   const [celebration, setCelebration] = useState(null); // { msg, coins, xp }
   // Profile editing
   const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || avatarUrl("Luna"));
@@ -1028,6 +1033,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   const generateSurpriseMission = async () => {
     setSurpriseLoading(true);
+    setSurpriseError(null);
     try {
       const raw = await callAI("surprise_mission", {
         childName: profile.display_name,
@@ -1037,8 +1043,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         xp: profile.xp || 0,
       });
       setSurpriseMission(JSON.parse(raw));
-    } catch {
-      notify("Não consegui criar a missão surpresa 😅 Tente novamente!", "error");
+    } catch (e) {
+      const msg = e.message || "";
+      const isQuota = msg.includes("quota") || msg.includes("429");
+      const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
+      setSurpriseError(isQuota ? "IA em pausa ⏳ Tente mais tarde" : isOverload ? "IA sobrecarregada 🤖 Tente em instantes" : "Não consegui gerar 😅 Tente novamente!");
     }
     setSurpriseLoading(false);
   };
@@ -1173,12 +1182,18 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                   {!surpriseMission ? (
                     <button onClick={generateSurpriseMission} disabled={surpriseLoading} style={{ padding: "10px 16px", borderRadius: 14, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 900, fontSize: 13, cursor: surpriseLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                      {surpriseLoading ? "✨..." : "✨ Gerar"}
+                      {surpriseLoading ? "✨ Gerando..." : "✨ Gerar"}
                     </button>
                   ) : (
-                    <button onClick={() => setSurpriseMission(null)} style={{ padding: "8px 14px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Nova 🔄</button>
+                    <button onClick={() => { setSurpriseMission(null); setSurpriseError(null); }} style={{ padding: "8px 14px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Nova 🔄</button>
                   )}
                 </div>
+                {surpriseError && (
+                  <div style={{ marginTop: 12, background: "rgba(0,0,0,0.22)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>😅</span>
+                    <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: 700 }}>{surpriseError}</span>
+                  </div>
+                )}
                 {surpriseMission && (
                   <div style={{ marginTop: 14, background: "rgba(0,0,0,0.22)", borderRadius: 16, padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -1773,7 +1788,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
           </div>
         </div>
 
-        <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 10 }}>TIPO DE DEMERITO</div>
+        <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 10 }}>TIPO DE TROPEÇO</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
           {DEMERIT_PRESETS.map((p, i) => (
             <button key={i} onClick={() => setSelected(i)}
@@ -2345,7 +2360,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               </div>
               {showMission && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
-                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon="🎯" />
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>EMOJI</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["⭐","🎯","📚","🏃","🧹","🛁","🍽️","🐕","🌱","🎨","📖","💪","🎵","✏️","🦷","🛏️","🧺","🌍","🏊","🎤"].map(e => (
+                        <button key={e} onClick={() => setNewM(p=>({...p,emoji:e}))} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${newM.emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: newM.emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon={newM.emoji} />
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -2375,15 +2398,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               )}
               {missions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>Nenhuma missão ainda!</div>
-                : missions.map(m => (
+                : missions.map((m, mi) => (
                     <div key={m.id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28 }}>{m.emoji}</span>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: iconGrad(mi), border: `1px solid ${iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>{m.emoji}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
                           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                             <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
                             <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
+                            {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
                           </div>
                         </div>
                         <button onClick={() => setEditingMission(m)} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>✏️</button>
@@ -2403,7 +2427,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               </div>
               {showReward && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
-                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon="🎁" />
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>EMOJI</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"].map(e => (
+                        <button key={e} onClick={() => setNewR(p=>({...p,emoji:e}))} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${newR.emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: newR.emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon={newR.emoji} />
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
                     <input type="number" value={newR.coin_cost} onChange={e => setNewR(p=>({...p,coin_cost:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
