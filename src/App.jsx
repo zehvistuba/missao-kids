@@ -896,6 +896,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
   const [submitting, setSubmitting] = useState(null); // mission id being submitted
+  const [quantities, setQuantities] = useState({});   // { [rewardId]: number }
+
+  const qty    = (rid) => quantities[rid] || 1;
+  const setQty = (rid, delta, max) =>
+    setQuantities(prev => ({ ...prev, [rid]: Math.min(max, Math.max(1, (prev[rid] || 1) + delta)) }));
 
   const lvl  = getLvl(profile.xp || 0);
   const next = getNext(profile.xp || 0);
@@ -1053,14 +1058,19 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const redeem = async (rid, cost) => {
-    if (localCoins < cost) return notify("KidCoins insuficientes! 😢", "error");
-    setLocalCoins(prev => prev - cost); // otimista — atualiza imediatamente na tela
-    const { error } = await supabase.rpc("request_redemption", { p_reward_id: rid });
-    if (error) {
-      setLocalCoins(profile.kidcoins || 0); // rollback se falhar
-      return notify(error.message || "Erro ao resgatar", "error");
+    const n     = qty(rid);
+    const total = cost * n;
+    if (localCoins < total) return notify("KidCoins insuficientes! 😢", "error");
+    setLocalCoins(prev => prev - total); // otimista
+    for (let i = 0; i < n; i++) {
+      const { error } = await supabase.rpc("request_redemption", { p_reward_id: rid });
+      if (error) {
+        setLocalCoins(profile.kidcoins || 0); // rollback
+        return notify(error.message || "Erro ao resgatar", "error");
+      }
     }
-    notify("🎁 Recompensa solicitada! Aguarde a entrega do responsável.");
+    setQuantities(prev => ({ ...prev, [rid]: 1 })); // reset contador
+    notify(`🎁 ${n > 1 ? `${n}x ` : ""}Recompensa solicitada! Aguarde a entrega.`);
     load();
     if (onRefresh) onRefresh();
   };
@@ -1258,13 +1268,32 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     {rewards.map((r, ri) => {
-                      const can = localCoins >= r.coin_cost;
+                      const q        = qty(r.id);
+                      const total    = r.coin_cost * q;
+                      const maxQty   = Math.max(1, Math.floor(localCoins / r.coin_cost));
+                      const can      = localCoins >= r.coin_cost;
+                      const canMore  = localCoins >= r.coin_cost * (q + 1);
                       return (
                         <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: `1px solid ${can ? T.accent+"44" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.6 }}>
                           <div style={{ width: 64, height: 64, borderRadius: 20, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
-                          <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{r.title}</div>
-                          <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14, marginBottom: 10 }}>🪙 {r.coin_cost}</div>
-                          <button onClick={() => redeem(r.id, r.coin_cost)} style={{ width: "100%", padding: "8px 0", borderRadius: 12, border: "none", background: can ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: can ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 12, cursor: can ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif" }}>{can ? "Resgatar" : "Sem saldo"}</button>
+                          <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
+                          <div style={{ color: T.secondary, fontWeight: 900, fontSize: 13, marginBottom: 10 }}>
+                            🪙 {r.coin_cost}{q > 1 ? <span style={{ color: T.textMuted, fontSize: 11 }}> × {q} = <span style={{ color: T.secondary }}>{total}</span></span> : ""}
+                          </div>
+                          {/* Stepper de quantidade */}
+                          {can && (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 }}>
+                              <button onClick={() => setQty(r.id, -1, maxQty)} disabled={q <= 1}
+                                style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: q <= 1 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)", color: q <= 1 ? T.textMuted : T.text, fontSize: 16, fontWeight: 900, cursor: q <= 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Nunito', sans-serif" }}>−</button>
+                              <span style={{ color: T.text, fontWeight: 900, fontSize: 16, minWidth: 20, textAlign: "center" }}>{q}</span>
+                              <button onClick={() => setQty(r.id, +1, maxQty)} disabled={!canMore}
+                                style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: !canMore ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)", color: !canMore ? T.textMuted : T.text, fontSize: 16, fontWeight: 900, cursor: !canMore ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Nunito', sans-serif" }}>+</button>
+                            </div>
+                          )}
+                          <button onClick={() => redeem(r.id, r.coin_cost)} disabled={!can}
+                            style={{ width: "100%", padding: "8px 0", borderRadius: 12, border: "none", background: can ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: can ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 12, cursor: can ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif" }}>
+                            {can ? `Resgatar${q > 1 ? ` (🪙 ${total})` : ""}` : "Sem saldo"}
+                          </button>
                         </div>
                       );
                     })}
