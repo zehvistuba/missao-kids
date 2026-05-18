@@ -2045,14 +2045,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const createMission = async () => {
     if (!newM.title) return notify("Digite o nome da missão", "error");
-    const { error } = await supabase.from("missions").insert({ ...newM, family_id: profile.family_id, created_by: profile.id });
+    const { error } = await supabase.rpc("create_mission", {
+      p_title: newM.title, p_emoji: newM.emoji,
+      p_coins_reward: newM.coins_reward, p_xp_reward: newM.xp_reward, p_frequency: newM.frequency,
+    });
     if (error) return notify("Erro ao criar missão: " + error.message, "error");
     notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
   };
 
   const createReward = async () => {
     if (!newR.title) return notify("Digite o nome da recompensa", "error");
-    const { error } = await supabase.from("rewards").insert({ ...newR, family_id: profile.family_id, created_by: profile.id });
+    const { error } = await supabase.rpc("create_reward", {
+      p_title: newR.title, p_emoji: newR.emoji, p_coin_cost: newR.coin_cost,
+    });
     if (error) return notify("Erro ao criar recompensa: " + error.message, "error");
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
   };
@@ -2100,15 +2105,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const addAIMission = async (m) => {
-    const { error } = await supabase.from("missions").insert({
-      title: m.title,
-      emoji: m.emoji,
-      coins_reward: m.coins_reward,
-      xp_reward: m.xp_reward,
-      family_id: profile.family_id,
-      created_by: profile.id,
+    const { error } = await supabase.rpc("create_mission", {
+      p_title: m.title, p_emoji: m.emoji,
+      p_coins_reward: m.coins_reward, p_xp_reward: m.xp_reward, p_frequency: m.frequency || "daily",
     });
-    if (error) return notify("Erro ao criar missão", "error");
+    if (error) return notify("Erro ao criar missão: " + error.message, "error");
     notify(`✅ "${m.title}" adicionada!`);
     setAiMissions(prev => prev.filter(x => x.title !== m.title));
     load();
@@ -2167,7 +2168,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             mission={m}
             emojis={MISSION_EMOJIS}
             onSave={async (data) => {
-              const { error } = await supabase.from("missions").update(data).eq("id", m.id);
+              const { error } = await supabase.rpc("update_mission", {
+                p_mission_id: m.id, p_title: data.title, p_emoji: data.emoji,
+                p_coins_reward: data.coins_reward, p_xp_reward: data.xp_reward, p_frequency: data.frequency,
+              });
               if (error) return notify("Erro: " + error.message, "error");
               setEditingMission(null); load(); notify("✅ Missão atualizada!");
             }}
@@ -2190,7 +2194,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             reward={r}
             emojis={REWARD_EMOJIS}
             onSave={async (data) => {
-              const { error } = await supabase.from("rewards").update(data).eq("id", r.id);
+              const { error } = await supabase.rpc("update_reward", {
+                p_reward_id: r.id, p_title: data.title, p_emoji: data.emoji, p_coin_cost: data.coin_cost,
+              });
               if (error) return notify("Erro: " + error.message, "error");
               setEditingReward(null); load(); notify("✅ Recompensa atualizada!");
             }}
