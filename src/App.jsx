@@ -1321,16 +1321,33 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           {tab === "achievements" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
-              {achievements.map(a => (
-                <div key={a.id} style={{ background: a.earned ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${a.earned ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", gap: 16, opacity: a.earned ? 1 : 0.5 }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 28, background: a.earned ? `${T.secondary}22` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", filter: a.earned ? "none" : "grayscale(100%)" }}>{a.emoji}</div>
-                  <div>
-                    <div style={{ color: a.earned ? T.text : T.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
-                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 3 }}>{a.description}</div>
-                    {a.earned && <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>✨ Desbloqueado</span>}
+              {achievements.map(a => {
+                const isStreak = a.condition_key === "streak_days";
+                const currentStreak = profile.streak || 0;
+                const streakPct = isStreak ? Math.min(1, currentStreak / a.condition_val) : 0;
+                const accentColor = a.earned ? T.secondary : (isStreak ? T.primary : T.accent);
+                return (
+                  <div key={a.id} style={{ background: a.earned ? `${accentColor}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${a.earned ? accentColor+"44" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", gap: 16, opacity: a.earned ? 1 : 0.55 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 28, background: a.earned ? `${accentColor}22` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", filter: a.earned ? "none" : "grayscale(100%)", flexShrink: 0 }}>{a.emoji}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: a.earned ? T.text : T.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
+                      <div style={{ color: T.textMuted, fontSize: 12, marginTop: 3 }}>{a.description}</div>
+                      {isStreak && !a.earned && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 3 }}>
+                            <div style={{ height: "100%", width: `${streakPct * 100}%`, background: T.primary, borderRadius: 999, transition: "width 0.5s" }} />
+                          </div>
+                          <div style={{ fontSize: 10, color: T.textMuted }}>🔥 {currentStreak}/{a.condition_val} dias</div>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                        {a.earned && <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>✨ Desbloqueado</span>}
+                        {(a.bonus_coins > 0) && <span style={{ background: `${T.accent}18`, color: T.accent, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>+{a.bonus_coins}🪙 bônus</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -1631,7 +1648,7 @@ const ExtratoModal = ({ child, onClose }) => {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const [{ data: missions }, { data: redemptions }, { data: demerits }] = await Promise.all([
+      const [{ data: missions }, { data: redemptions }, { data: demerits }, { data: streakBonuses }] = await Promise.all([
         supabase.from("mission_logs")
           .select("id,coins_earned,due_date,missions(title,emoji)")
           .eq("child_id", child.id)
@@ -1648,6 +1665,11 @@ const ExtratoModal = ({ child, onClose }) => {
           .eq("child_id", child.id)
           .order("created_at", { ascending: false })
           .limit(30),
+        supabase.from("streak_bonus_logs")
+          .select("id,coins_awarded,streak_days,created_at,achievements(emoji,name)")
+          .eq("child_id", child.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
 
       const all = [
@@ -1677,6 +1699,14 @@ const ExtratoModal = ({ child, onClose }) => {
           date: d.created_at?.slice(0, 10),
           sortKey: d.created_at,
         })),
+        ...(streakBonuses || []).map(s => ({
+          id: s.id, type: "streak",
+          emoji: s.achievements?.emoji || "🔥",
+          label: s.achievements?.name || `${s.streak_days} dias seguidos!`,
+          coins: +(s.coins_awarded || 0),
+          date: s.created_at?.slice(0, 10),
+          sortKey: s.created_at,
+        })),
       ].sort((a, b) => (b.sortKey || "").localeCompare(a.sortKey || ""));
 
       setItems(all);
@@ -1685,8 +1715,8 @@ const ExtratoModal = ({ child, onClose }) => {
     fetch();
   }, [child.id]);
 
-  const typeColor = { mission: T.accent, redemption: T.secondary, demerit: T.pink };
-  const typeLabel = { mission: "Bônus", redemption: "Resgate", demerit: "Tropeço" };
+  const typeColor = { mission: T.accent, redemption: T.secondary, demerit: T.pink, streak: T.primary };
+  const typeLabel = { mission: "Bônus", redemption: "Resgate", demerit: "Tropeço", streak: "Sequência" };
 
   const total = items.reduce((sum, i) => sum + i.coins, 0);
 
@@ -2016,14 +2046,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const createMission = async () => {
     if (!newM.title) return notify("Digite o nome da missão", "error");
     const { error } = await supabase.from("missions").insert({ ...newM, family_id: profile.family_id, created_by: profile.id });
-    if (error) return notify("Erro ao criar", "error");
+    if (error) return notify("Erro ao criar missão: " + error.message, "error");
     notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
   };
 
   const createReward = async () => {
     if (!newR.title) return notify("Digite o nome da recompensa", "error");
     const { error } = await supabase.from("rewards").insert({ ...newR, family_id: profile.family_id, created_by: profile.id });
-    if (error) return notify("Erro ao criar", "error");
+    if (error) return notify("Erro ao criar recompensa: " + error.message, "error");
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
   };
 
@@ -2142,7 +2172,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               setEditingMission(null); load(); notify("✅ Missão atualizada!");
             }}
             onDeactivate={async () => {
-              await supabase.from("missions").update({ is_active: false }).eq("id", m.id);
+              const { error } = await supabase.rpc("deactivate_mission", { p_mission_id: m.id });
+              if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
               setEditingMission(null); load(); notify("🗑️ Missão removida.");
             }}
             onClose={() => setEditingMission(null)}
@@ -2164,7 +2195,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               setEditingReward(null); load(); notify("✅ Recompensa atualizada!");
             }}
             onDeactivate={async () => {
-              await supabase.from("rewards").update({ is_active: false }).eq("id", r.id);
+              const { error } = await supabase.rpc("deactivate_reward", { p_reward_id: r.id });
+              if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
               setEditingReward(null); load(); notify("🗑️ Recompensa removida.");
             }}
             onClose={() => setEditingReward(null)}
