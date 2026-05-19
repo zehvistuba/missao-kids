@@ -509,7 +509,7 @@ const Splash = ({ onDone }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", textAlign: "center" }}>
-        <img src="/icon.png" alt="RotinUp" style={{ width: 110, height: 110, marginBottom: 20, borderRadius: 28, filter: `drop-shadow(0 0 24px #9B5DE566)` }} />
+        <img src="/icon.svg" alt="RotinUp" style={{ width: 110, height: 110, marginBottom: 20, borderRadius: 28, filter: `drop-shadow(0 0 24px #9B5DE566)` }} />
         <div style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: -2, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 8, letterSpacing: 2 }}>TRANSFORME A ROTINA EM AVENTURA</div>
       </div>
@@ -537,7 +537,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
       <div style={{ background: `linear-gradient(160deg, ${T.darker} 0%, #1A0A2E 100%)`, padding: "60px 28px 50px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${T.primary}22, transparent)`, pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}22, transparent)`, pointerEvents: "none" }} />
-        <img src="/icon.png" alt="RotinUp" style={{ width: 100, height: 100, marginBottom: 16, borderRadius: 24, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", filter: "drop-shadow(0 0 28px #9B5DE555)" }} />
+        <img src="/icon.svg" alt="RotinUp" style={{ width: 100, height: 100, marginBottom: 16, borderRadius: 24, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", filter: "drop-shadow(0 0 28px #9B5DE555)" }} />
         <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: -2, marginBottom: 6, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 16, marginBottom: 10, letterSpacing: 1 }}>TRANSFORME A ROTINA EM AVENTURA</div>
         <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.6, maxWidth: 320, margin: "0 auto 36px" }}>
@@ -716,7 +716,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
       <Notif msg={notif} type={notifType} />
       <div style={{ textAlign: "center", paddingTop: 50, marginBottom: 32 }}>
-        <img src="/icon.png" alt="RotinUp" style={{ width: 80, height: 80, borderRadius: 22, marginBottom: 12, filter: "drop-shadow(0 0 16px #9B5DE555)" }} />
+        <img src="/icon.svg" alt="RotinUp" style={{ width: 80, height: 80, borderRadius: 22, marginBottom: 12, filter: "drop-shadow(0 0 16px #9B5DE555)" }} />
         <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -1, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
       </div>
