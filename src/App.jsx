@@ -2058,7 +2058,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const parentCheck = async (childId, missionId) => {
     const key = `${childId}-${missionId}`;
     setCheckingMission(key);
-    const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId, p_due_date: localDateStr(0) });
+    const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId });
     setCheckingMission(null);
     if (error) return notify(error.message || "Erro ao marcar missão", "error");
     notify("✅ Missão marcada como concluída!"); load();
