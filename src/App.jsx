@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -263,6 +264,7 @@ const AddChildModal = ({ onAdd, onClose }) => {
 
   const handleAdd = async () => {
     if (!name || !birthDate) return;
+    if (new Date(birthDate) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr("");
     setLoading(true);
     const { data: childId, error } = await supabase.rpc("add_child", {
@@ -317,6 +319,7 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
 
   const handleSave = async () => {
     if (!name.trim()) return;
+    if (birthDate && new Date(birthDate) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr(""); setLoading(true);
     const { error } = await supabase.rpc("update_child", {
       p_child_id:     child.id,
@@ -778,7 +781,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
         </span>
       </div>
 
-      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+      {showTerms && createPortal(<TermsModal onClose={() => setShowTerms(false)} />, document.body)}
     </div>
   );
 };

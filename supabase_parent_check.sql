@@ -13,9 +13,9 @@ DECLARE
   v_today         DATE := CURRENT_DATE;
   v_cutoff        DATE;
 BEGIN
-  -- Verificar que o chamador é responsável
+  -- Verificar que o chamador é responsável ou admin
   SELECT family_id INTO v_caller_family
-    FROM profiles WHERE id = auth.uid() AND role = 'parent';
+    FROM profiles WHERE id = auth.uid() AND role IN ('parent', 'admin');
   IF v_caller_family IS NULL THEN
     RAISE EXCEPTION 'Não autorizado';
   END IF;
