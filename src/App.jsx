@@ -715,9 +715,9 @@ const AuthScreen = ({ initialMode = "login" }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
       <Notif msg={notif} type={notifType} />
-      <div style={{ textAlign: "center", paddingTop: 60, marginBottom: 36 }}>
-        <div style={{ fontSize: 52, marginBottom: 8 }}>🚀</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: T.text }}>Rotin<span style={{ color: T.primary }}>Up</span></div>
+      <div style={{ textAlign: "center", paddingTop: 50, marginBottom: 32 }}>
+        <img src="/icon.png" alt="RotinUp" style={{ width: 80, height: 80, borderRadius: 22, marginBottom: 12, filter: "drop-shadow(0 0 16px #9B5DE555)" }} />
+        <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -1, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
       </div>
 
