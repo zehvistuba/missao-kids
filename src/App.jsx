@@ -2105,6 +2105,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [removingCoParent, setRemovingCoParent] = useState(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [inactiveMissions, setInactiveMissions] = useState([]);
+  const [showArchivedMissions, setShowArchivedMissions] = useState(false);
+  const [showArchivedRewards, setShowArchivedRewards]   = useState(false);
+  const [reactivating, setReactivating]       = useState(null);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -2190,9 +2194,26 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const { data, error } = await supabase.rpc("delete_my_account");
     if (error) { setDeletingAccount(false); return notify(error.message, "error"); }
     await supabase.auth.signOut();
-    // Auth user deletion requires service role — profile is cleaned, session ends
     setDeletingAccount(false);
     onSignOut();
+  };
+
+  const reactivateMission = async (missionId) => {
+    setReactivating(missionId);
+    const { error } = await supabase.rpc("reactivate_mission", { p_mission_id: missionId });
+    setReactivating(null);
+    if (error) return notify(error.message, "error");
+    notify("✅ Missão reativada!");
+    load();
+  };
+
+  const reactivateReward = async (rewardId) => {
+    setReactivating(rewardId);
+    const { error } = await supabase.rpc("reactivate_reward", { p_reward_id: rewardId });
+    setReactivating(null);
+    if (error) return notify(error.message, "error");
+    notify("✅ Recompensa reativada!");
+    load();
   };
 
   useEffect(() => {
@@ -2218,15 +2239,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setLoading(true);
     try {
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: ch }, { data: m }, { data: p }, { data: r }, { data: cl }, { data: rd }] = await Promise.all([
+      const [{ data: ch }, { data: m }, { data: mi }, { data: p }, { data: r }, { data: cl }, { data: rd }] = await Promise.all([
         supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
+        supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",false),
         supabase.from("pending_approvals").select("*"),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
       ]);
-      setChildren(ch||[]); setMissions(m||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
+      setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
     } catch {
       // queries failed — don't leave screen stuck in loading
     } finally {
@@ -2697,6 +2719,28 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     </div>
                   ))
               }
+
+              {/* Missões arquivadas */}
+              {inactiveMissions.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => setShowArchivedMissions(v => !v)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: "8px 0", width: "100%", textAlign: "left" }}>
+                    {showArchivedMissions ? "▲" : "▼"} {inactiveMissions.length} missão(ões) arquivada(s)
+                  </button>
+                  {showArchivedMissions && inactiveMissions.map(m => (
+                    <div key={m.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 12, opacity: 0.7 }}>
+                      <div style={{ fontSize: 22, flexShrink: 0 }}>{m.emoji}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13, textDecoration: "line-through" }}>{m.title}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11 }}>🪙 {m.coins_reward} · ⚡ {m.xp_reward} XP</div>
+                      </div>
+                      <button onClick={() => reactivateMission(m.id)} disabled={reactivating === m.id}
+                        style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}18`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                        {reactivating === m.id ? "..." : "↩ Reativar"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2728,10 +2772,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                 </div>
               )}
-              {rewards.length === 0
+              {rewards.filter(r => r.is_active !== false).length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {rewards.map((r, ri) => (
+                    {rewards.filter(r => r.is_active !== false).map((r, ri) => (
                       <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
                         <button onClick={() => setEditingReward(r)} style={{ position: "absolute", top: 10, right: 10, padding: "4px 8px", borderRadius: 8, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️</button>
                         <div style={{ width: 60, height: 60, borderRadius: 18, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
@@ -2741,6 +2785,28 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     ))}
                   </div>
               }
+
+              {/* Recompensas arquivadas */}
+              {rewards.filter(r => r.is_active === false).length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => setShowArchivedRewards(v => !v)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: "8px 0", width: "100%", textAlign: "left" }}>
+                    {showArchivedRewards ? "▲" : "▼"} {rewards.filter(r => r.is_active === false).length} recompensa(s) arquivada(s)
+                  </button>
+                  {showArchivedRewards && rewards.filter(r => r.is_active === false).map(r => (
+                    <div key={r.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: "12px 14px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 12, opacity: 0.7 }}>
+                      <div style={{ fontSize: 22, flexShrink: 0 }}>{r.emoji}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13, textDecoration: "line-through" }}>{r.title}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11 }}>🪙 {r.coin_cost}</div>
+                      </div>
+                      <button onClick={() => reactivateReward(r.id)} disabled={reactivating === r.id}
+                        style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}18`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                        {reactivating === r.id ? "..." : "↩ Reativar"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
