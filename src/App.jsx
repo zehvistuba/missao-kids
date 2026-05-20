@@ -670,11 +670,11 @@ const LandingPage = ({ onSignup, onLogin }) => {
             </div>
             {[
               "1 filho",
-              "Até 2 responsáveis",
-              "Missões ilimitadas",
-              "KidCoins & recompensas",
-              "IA — sugestões de missões",
-              "Conquistas & níveis",
+              "1 responsável",
+              "Até 5 missões ativas",
+              "Até 3 recompensas ativas",
+              "KidCoins & gamificação completa",
+              "IA: sugestão de missões (limitado)",
             ].map(item => (
               <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ color: T.accent, fontWeight: 900, fontSize: 14 }}>✓</span>
@@ -691,15 +691,16 @@ const LandingPage = ({ onSignup, onLogin }) => {
             <div style={{ position: "absolute", top: 14, right: 14, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 10, padding: "4px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>MAIS POPULAR</div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 12 }}>Via Hotmart — acesso imediato</div>
+              <div style={{ color: T.textMuted, fontSize: 12 }}>R$ 19,90/mês · Hotmart · cancele quando quiser</div>
             </div>
             {[
               "Até 10 filhos",
               "Até 20 responsáveis",
-              "Tudo do plano gratuito",
-              "Relatório semanal com IA",
-              "Missões surpresa personalizadas",
-              "Suporte prioritário",
+              "Missões e recompensas ilimitadas",
+              "IA: sugestão ilimitada de missões",
+              "IA: relatório semanal automático",
+              "IA: missão surpresa personalizada",
+              "Suporte prioritário WhatsApp",
             ].map(item => (
               <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ color: T.primary, fontWeight: 900, fontSize: 14 }}>✓</span>
@@ -1135,6 +1136,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
   const [submitting, setSubmitting] = useState(null); // mission id being submitted
   const [quantities, setQuantities] = useState({});   // { [rewardId]: number }
+  const [familyPlan, setFamilyPlan] = useState("free");
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const qty    = (rid) => quantities[rid] || 1;
   const setQty = (rid, delta, max) =>
@@ -1214,13 +1217,15 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     try {
       const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }] = await Promise.all([
+      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }] = await Promise.all([
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("achievements").select("*").order("condition_val"),
         supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
         supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
+        supabase.rpc("get_family_plan"),
       ]);
+      setFamilyPlan(planData || "free");
       missionsRef.current = m || [];
       setMissions(m || []); setRewards(r || []); setLogs(l || []);
       const activeDaysSet = new Set((sd || []).map(x => x.due_date));
@@ -1251,7 +1256,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           .eq("role", "child")
           .order("xp", { ascending: false }),
         supabase.from("mission_logs")
-          .select("id,coins_earned,due_date,mission_id,missions(title,emoji)")
+          .select("id,coins_earned,due_date,mission_id,missions(title,emoji,coins_reward)")
           .eq("child_id", profile.id)
           .eq("status", "approved")
           .order("due_date", { ascending: false })
@@ -1280,6 +1285,10 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const generateSurpriseMission = async () => {
+    if (familyPlan === "free") {
+      setSurpriseError("Missão Surpresa é exclusiva do plano Premium! 👑 Peça ao responsável para fazer upgrade.");
+      return;
+    }
     setSurpriseLoading(true);
     setSurpriseError(null);
     try {
@@ -1293,6 +1302,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       setSurpriseMission(JSON.parse(raw));
     } catch (e) {
       const msg = e.message || "";
+      if (msg.includes("premium_required")) { setShowUpgrade(true); setSurpriseLoading(false); return; }
       const isQuota = msg.includes("quota") || msg.includes("429");
       const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
       setSurpriseError(isQuota ? "IA em pausa ⏳ Tente mais tarde" : isOverload ? "IA sobrecarregada 🤖 Tente em instantes" : "Não consegui gerar 😅 Tente novamente!");
@@ -1335,6 +1345,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
       <Notif msg={notif} type={notifType} />
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
 
       {/* Modal de celebração IA */}
       {celebration && (
@@ -1680,7 +1691,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                       <div style={{ color: T.text, fontWeight: 600, fontSize: 13 }}>{log.missions?.title || "Missão"}</div>
                       <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{log.due_date}</div>
                     </div>
-                    <div style={{ color: T.secondary, fontWeight: 800, fontSize: 13 }}>+🪙{log.coins_earned||0}</div>
+                    <div style={{ color: T.secondary, fontWeight: 800, fontSize: 13 }}>+🪙{log.coins_earned || log.missions?.coins_reward || 0}</div>
                   </div>
                 ))}
               </div>
@@ -1747,8 +1758,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose }) => {
-  const FREE_ITEMS  = ["1 filho", "Até 2 responsáveis", "Missões e recompensas ilimitadas", "IA: missão surpresa", "Gamificação completa (XP, níveis, streak, conquistas)", "PWA — acesso pelo celular"];
-  const PREM_ITEMS  = ["Até 10 filhos", "Até 20 responsáveis", "IA: sugestão de missões", "IA: relatório semanal automático", "Histórico completo por filho", "Suporte prioritário"];
+  const FREE_ITEMS  = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
+  const PREM_ITEMS  = ["Até 10 filhos", "Até 20 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -2398,7 +2409,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       p_title: newM.title, p_emoji: newM.emoji,
       p_coins_reward: newM.coins_reward, p_xp_reward: newM.xp_reward, p_frequency: newM.frequency,
     });
-    if (error) return notify("Erro ao criar missão: " + error.message, "error");
+    if (error) {
+      if (error.message?.includes("Limite")) { setShowMission(false); setShowUpgrade(true); return; }
+      return notify("Erro ao criar missão: " + error.message, "error");
+    }
     notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
   };
 
@@ -2407,7 +2421,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const { error } = await supabase.rpc("create_reward", {
       p_title: newR.title, p_emoji: newR.emoji, p_coin_cost: newR.coin_cost,
     });
-    if (error) return notify("Erro ao criar recompensa: " + error.message, "error");
+    if (error) {
+      if (error.message?.includes("Limite")) { setShowReward(false); setShowUpgrade(true); return; }
+      return notify("Erro ao criar recompensa: " + error.message, "error");
+    }
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
   };
 
@@ -2433,6 +2450,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const generateReport = async () => {
+    if (familyPlan === "free") { setShowUpgrade(true); return; }
     if (children.length === 0) return notify("Adicione um filho primeiro!", "error");
     setAiLoading("report"); setAiMissions([]); setAiError(null);
     try {
@@ -2446,6 +2464,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       setAiReport(report);
     } catch (e) {
       const msg = e.message || "";
+      if (msg.includes("premium_required")) { setShowUpgrade(true); setAiLoading(null); return; }
       const isQuota = msg.includes("quota") || msg.includes("429");
       const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
       setAiError(isQuota ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : isOverload ? "IA sobrecarregada no momento. Tente em alguns segundos ⏳" : "Erro ao gerar relatório. Tente novamente.");
@@ -2458,7 +2477,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       p_title: m.title, p_emoji: m.emoji,
       p_coins_reward: m.coins_reward, p_xp_reward: m.xp_reward, p_frequency: m.frequency || "daily",
     });
-    if (error) return notify("Erro ao criar missão: " + error.message, "error");
+    if (error) {
+      if (error.message?.includes("Limite")) { setShowUpgrade(true); return; }
+      return notify("Erro ao criar missão: " + error.message, "error");
+    }
     notify(`✅ "${m.title}" adicionada!`);
     setAiMissions(prev => prev.filter(x => x.title !== m.title));
     load();
@@ -2744,7 +2766,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {tab === "missions" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões</div>
+                  {familyPlan === "free" && (
+                    <span onClick={() => setShowUpgrade(true)} style={{ background: missions.length >= 5 ? `${T.pink}22` : `${T.accent}18`, color: missions.length >= 5 ? T.pink : T.accent, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
+                      {missions.length}/5 {missions.length >= 5 ? "• upgrade 👑" : ""}
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => setShowMission(!showMission)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showMission && (
@@ -2833,7 +2862,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {tab === "rewards" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎁 Recompensas</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎁 Recompensas</div>
+                  {familyPlan === "free" && (() => { const activeR = rewards.filter(r => r.is_active !== false).length; return (
+                    <span onClick={() => setShowUpgrade(true)} style={{ background: activeR >= 3 ? `${T.pink}22` : `${T.secondary}18`, color: activeR >= 3 ? T.pink : T.secondary, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
+                      {activeR}/3 {activeR >= 3 ? "• upgrade 👑" : ""}
+                    </span>
+                  ); })()}
+                </div>
                 <button onClick={() => setShowReward(!showReward)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showReward && (
@@ -3308,6 +3344,11 @@ export default function App() {
     try {
       const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
       if (data) {
+        // Google OAuth users may arrive without a role — default to parent
+        if (!data.role) {
+          await supabase.from("profiles").update({ role: "parent" }).eq("id", uid);
+          data.role = "parent";
+        }
         setProfile(data);
         const isAdmin = window.location.pathname === "/admin";
         const isParentRole = data.role === "parent" || data.role === "admin";

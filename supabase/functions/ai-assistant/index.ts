@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -8,6 +10,9 @@ const respond = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+// Actions that require Premium plan
+const PREMIUM_ACTIONS = new Set(["weekly_report", "surprise_mission"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -28,6 +33,23 @@ Deno.serve(async (req) => {
     }
 
     const { action, context = {} } = body;
+
+    // Verify plan for premium-only actions
+    if (action && PREMIUM_ACTIONS.has(action)) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) return respond({ error: "premium_required" }, 403);
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const callerClient = createClient(supabaseUrl, supabaseAnon, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: plan } = await callerClient.rpc("get_family_plan");
+      if (plan !== "premium") {
+        return respond({ error: "premium_required" }, 403);
+      }
+    }
     let prompt = "";
     let isJson = false;
 
