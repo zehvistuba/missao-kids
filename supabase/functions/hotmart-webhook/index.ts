@@ -6,7 +6,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const EVENTS_PREMIUM = new Set([
   "PURCHASE_APPROVED",
   "PURCHASE_COMPLETE",
-  "PURCHASE_BILLET_PRINTED",
 ]);
 const EVENTS_FREE = new Set([
   "PURCHASE_CANCELED",
@@ -103,9 +102,10 @@ Deno.serve(async (req) => {
   }
 
   // Atualizar plano + salvar buyer_email para facilitar lookups futuros
+  const maxCoParents = newPlan === "premium" ? 20 : 2;
   const { error: updErr } = await supabase
     .from("families")
-    .update({ plan: newPlan, hotmart_buyer_email: email })
+    .update({ plan: newPlan, hotmart_buyer_email: email, max_co_parents: maxCoParents })
     .eq("id", familyId);
 
   if (updErr) {

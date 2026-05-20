@@ -114,10 +114,10 @@ const Notif = ({ msg, type }) => msg ? (
   <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", width: "min(calc(100vw - 32px), 398px)", zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>{msg}</div>
 ) : null;
 
-const Inp = ({ placeholder, type = "text", value, onChange, icon }) => (
+const Inp = ({ placeholder, type = "text", value, onChange, icon, maxLength }) => (
   <div style={{ position: "relative", marginBottom: 14 }}>
     {icon && <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 16, zIndex: 1 }}>{icon}</span>}
-    <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+    <input type={type} value={value} onChange={onChange} placeholder={placeholder} maxLength={maxLength}
       style={{ width: "100%", padding: icon ? "14px 18px 14px 46px" : "14px 18px", borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 15, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box" }}
       onFocus={e => e.target.style.borderColor = T.primary}
       onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
@@ -420,12 +420,20 @@ const ChildJoin = ({ onDone }) => {
 
   const saveProfile = async () => {
     setSaving(true);
-    const updates = { avatar_emoji: avatar };
-    if (birthDate) { updates.birth_date = birthDate; updates.age = calcAge(birthDate); }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await supabase.from("profiles").update(updates).eq("id", user.id);
-    setSaving(false);
-    onDone();
+    try {
+      const updates = { avatar_emoji: avatar };
+      if (birthDate) { updates.birth_date = birthDate; updates.age = calcAge(birthDate); }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
+        if (error) throw error;
+      }
+      onDone();
+    } catch (e) {
+      setErr("Não foi possível salvar o perfil. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (step === "claim") {
@@ -681,10 +689,25 @@ const AuthScreen = ({ initialMode = "login" }) => {
     return "Erro ao autenticar. Tente novamente";
   };
 
+  const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
   const handleEmail = async () => {
     setInlineErr("");
+    if (mode === "forgot") {
+      if (!email) { setInlineErr("Digite seu email"); return; }
+      if (!isValidEmail(email)) { setInlineErr("Email inválido"); return; }
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "?reset=1",
+      });
+      setLoading(false);
+      if (error) notify(authErrPT(error.message), "error");
+      else { notify("✅ Email de recuperação enviado! Verifique sua caixa de entrada."); setTimeout(() => setMode("login"), 3000); }
+      return;
+    }
     if (mode !== "login" && !name) { setInlineErr("Digite seu nome"); return; }
     if (!email) { setInlineErr("Digite seu email"); return; }
+    if (!isValidEmail(email)) { setInlineErr("Email inválido"); return; }
     if (!password) { setInlineErr("Digite sua senha"); return; }
     setLoading(true);
     try {
@@ -736,11 +759,32 @@ const AuthScreen = ({ initialMode = "login" }) => {
       )}
 
       <div style={{ flex: 1 }}>
-        {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => { setName(e.target.value); setInlineErr(""); }} />}
-        <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
-        <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => { setPassword(e.target.value); setInlineErr(""); }} />
-        {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
-        <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
+        {mode === "forgot" ? (
+          <>
+            <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 16, textAlign: "center", lineHeight: 1.6 }}>
+              Informe o email cadastrado e enviaremos um link para redefinir sua senha.
+            </div>
+            <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
+            {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
+            <Btn onClick={handleEmail} disabled={loading}>{loading ? "Enviando..." : "📧 Enviar link de recuperação"}</Btn>
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <span onClick={() => setMode("login")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>← Voltar ao login</span>
+            </div>
+          </>
+        ) : (
+          <>
+            {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => { setName(e.target.value); setInlineErr(""); }} />}
+            <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
+            <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => { setPassword(e.target.value); setInlineErr(""); }} />
+            {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
+            {mode === "login" && (
+              <div style={{ textAlign: "right", marginBottom: 12, marginTop: -4 }}>
+                <span onClick={() => setMode("forgot")} style={{ color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</span>
+              </div>
+            )}
+            <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
+          </>
+        )}
 
         {mode === "signup" && (
           <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
@@ -751,7 +795,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
+        {mode !== "forgot" && <><div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
           <span style={{ color: T.textMuted, fontSize: 12 }}>ou continue com</span>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
@@ -765,15 +809,15 @@ const AuthScreen = ({ initialMode = "login" }) => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Entrar com Google
-        </button>
+        </button></>}
       </div>
 
-      <div style={{ textAlign: "center", padding: "24px 0 40px", color: T.textMuted, fontSize: 14 }}>
+      {mode !== "forgot" && <div style={{ textAlign: "center", padding: "24px 0 40px", color: T.textMuted, fontSize: 14 }}>
         {mode === "login"
           ? <> Novo por aqui? <span onClick={() => setMode("signup")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Criar conta grátis</span></>
           : <> Já tem conta? <span onClick={() => setMode("login")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Fazer login</span></>
         }
-      </div>
+      </div>}
 
       <div style={{ textAlign: "center", paddingBottom: 20 }}>
         <span onClick={() => setShowTerms(true)} style={{ color: T.textMuted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
@@ -1012,6 +1056,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         if (payload.new.status === "approved") {
           load();
           const mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
+          const coinsEarned = mission?.coins_reward || 0;
           const xpGained = mission?.xp_reward || 0;
           const oldLevel = getLvl(profile.xp || 0);
           const newLevel = getLvl((profile.xp || 0) + xpGained);
@@ -1022,10 +1067,10 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               age: profile.age,
               level: newLevel.level,
               missionName: mission?.title || "essa missão",
-              coins: payload.new.coins_earned,
+              coins: coinsEarned,
               xp: xpGained,
             });
-            setCelebration({ msg, coins: payload.new.coins_earned, xp: xpGained, levelUp });
+            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
           } catch {
             const fallbacks = [
               `Incrível, ${profile.display_name}! Você completou mais uma missão! Continue assim, campeão! 🚀`,
@@ -1033,7 +1078,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               `Que aventureiro incrível! Missão cumprida com sucesso! O Capitão Rotina está orgulhoso! 🎖️`,
             ];
             const msg = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-            setCelebration({ msg, coins: payload.new.coins_earned, xp: xpGained, levelUp });
+            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
           }
         }
       })
@@ -1643,7 +1688,7 @@ const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
             <button key={e} onClick={() => setEmoji(e)} style={{ width: 40, height: 40, borderRadius: 10, fontSize: 20, border: `2px solid ${emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
           ))}
         </div>
-        <Inp icon={emoji} placeholder="Nome da missão" value={title} onChange={e => setTitle(e.target.value)} />
+        <Inp icon={emoji} placeholder="Nome da missão" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
         <div style={{ marginBottom: 14 }}>
           <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
           <div style={{ display: "flex", gap: 6 }}>
@@ -1703,7 +1748,7 @@ const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
             <button key={e} onClick={() => setEmoji(e)} style={{ width: 40, height: 40, borderRadius: 10, fontSize: 20, border: `2px solid ${emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
           ))}
         </div>
-        <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} />
+        <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
         <div style={{ marginBottom: 16 }}>
           <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
           <input type="number" value={cost} onChange={e => setCost(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
@@ -2509,7 +2554,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                       ))}
                     </div>
                   </div>
-                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon={newM.emoji} />
+                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon={newM.emoji} maxLength={60} />
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -2576,7 +2621,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                       ))}
                     </div>
                   </div>
-                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon={newR.emoji} />
+                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon={newR.emoji} maxLength={60} />
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
                     <input type="number" value={newR.coin_cost} onChange={e => setNewR(p=>({...p,coin_cost:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />

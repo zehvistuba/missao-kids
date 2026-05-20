@@ -20,6 +20,19 @@ Deno.serve(async (req) => {
     const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
     const SUPABASE_URL      = Deno.env.get("SUPABASE_URL")       ?? "";
     const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const SUPABASE_ANON_KEY    = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    // Authenticate caller — must be a valid Supabase user
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const callerJwt  = authHeader.replace(/^Bearer\s+/i, "");
+    if (!callerJwt) return respond({ error: "Não autenticado" }, 401);
+
+    const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${callerJwt}` } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: { user }, error: authErr } = await callerClient.auth.getUser();
+    if (authErr || !user) return respond({ error: "Token inválido" }, 401);
 
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
       return respond({ error: "VAPID keys não configuradas" }, 500);
