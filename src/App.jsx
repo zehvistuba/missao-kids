@@ -1747,8 +1747,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose }) => {
-  const FREE_ITEMS  = ["1 filho cadastrado", "Missões e recompensas ilimitadas", "IA: missão surpresa", "Gamificação completa (XP, níveis, streak)", "PWA — acesso pelo celular"];
-  const PREM_ITEMS  = ["✅ Filhos ilimitados", "✅ IA: sugestão de missões", "✅ IA: relatório semanal", "✅ Co-responsável (convite)", "✅ Histórico completo", "✅ Suporte prioritário"];
+  const FREE_ITEMS  = ["1 filho", "Até 2 responsáveis", "Missões e recompensas ilimitadas", "IA: missão surpresa", "Gamificação completa (XP, níveis, streak, conquistas)", "PWA — acesso pelo celular"];
+  const PREM_ITEMS  = ["Até 10 filhos", "Até 20 responsáveis", "IA: sugestão de missões", "IA: relatório semanal automático", "Histórico completo por filho", "Suporte prioritário"];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -2205,9 +2205,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     }
   };
 
-  const loadFamilyPlan = async () => {
+  const loadFamilyPlan = async (prevPlan) => {
     const { data } = await supabase.rpc("get_family_plan");
-    setFamilyPlan(data || "free");
+    const plan = data || "free";
+    setFamilyPlan(plan);
+    if (prevPlan === "free" && plan === "premium") {
+      notify("🎉 Bem-vindo ao Premium! Seus benefícios já estão ativos.", "success");
+    }
   };
 
   const generateCode = async () => {
