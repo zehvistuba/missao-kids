@@ -636,6 +636,84 @@ const LandingPage = ({ onSignup, onLogin }) => {
         ))}
       </div>
 
+      {/* Níveis de evolução */}
+      <div style={{ padding: "0 24px 40px" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>6 Níveis de Evolução</div>
+        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Cada missão ganha XP — a criança sobe de nível e desbloqueia conquistas</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {LEVELS.map((lv, i) => (
+            <div key={lv.level} style={{ background: T.card, borderRadius: 16, padding: "13px 16px", display: "flex", alignItems: "center", gap: 14, border: `1px solid ${lv.color}33` }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: `${lv.color}22`, border: `2px solid ${lv.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{lv.emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: lv.color, fontWeight: 900, fontSize: 14 }}>Nível {lv.level} — {lv.name}</div>
+                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{lv.xpNeeded === 0 ? "Início da jornada" : `A partir de ${lv.xpNeeded} XP`}</div>
+              </div>
+              {i === LEVELS.length - 1 && <span style={{ fontSize: 10, fontWeight: 800, color: lv.color, background: `${lv.color}22`, borderRadius: 8, padding: "3px 8px" }}>TOPO</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Planos FREE vs PREMIUM */}
+      <div style={{ padding: "0 24px 48px" }}>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>Escolha seu plano</div>
+        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Comece grátis. Faça upgrade quando quiser crescer.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* FREE */}
+          <div style={{ background: T.card, borderRadius: 20, padding: 20, border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div>
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>Gratuito</div>
+                <div style={{ color: T.textMuted, fontSize: 12 }}>Para sempre, sem cartão</div>
+              </div>
+              <div style={{ color: T.accent, fontWeight: 900, fontSize: 22 }}>R$ 0</div>
+            </div>
+            {[
+              "1 filho",
+              "Até 2 responsáveis",
+              "Missões ilimitadas",
+              "KidCoins & recompensas",
+              "IA — sugestões de missões",
+              "Conquistas & níveis",
+            ].map(item => (
+              <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ color: T.accent, fontWeight: 900, fontSize: 14 }}>✓</span>
+                <span style={{ color: T.textMuted, fontSize: 13 }}>{item}</span>
+              </div>
+            ))}
+            <button onClick={onSignup} style={{ width: "100%", marginTop: 8, padding: "13px", borderRadius: 14, border: `1px solid ${T.accent}55`, background: `${T.accent}14`, color: T.accent, fontWeight: 900, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+              Criar conta grátis
+            </button>
+          </div>
+
+          {/* PREMIUM */}
+          <div style={{ background: `linear-gradient(145deg, ${T.primary}18, ${T.purple}22)`, borderRadius: 20, padding: 20, border: `2px solid ${T.primary}55`, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 14, right: 14, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 10, padding: "4px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>MAIS POPULAR</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>Premium</div>
+              <div style={{ color: T.textMuted, fontSize: 12 }}>Via Hotmart — acesso imediato</div>
+            </div>
+            {[
+              "Até 10 filhos",
+              "Até 20 responsáveis",
+              "Tudo do plano gratuito",
+              "Relatório semanal com IA",
+              "Missões surpresa personalizadas",
+              "Suporte prioritário",
+            ].map(item => (
+              <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ color: T.primary, fontWeight: 900, fontSize: 14 }}>✓</span>
+                <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>{item}</span>
+              </div>
+            ))}
+            <a href="https://pay.hotmart.com/rotinup" target="_blank" rel="noopener noreferrer"
+              style={{ display: "block", width: "100%", marginTop: 14, padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "center", textDecoration: "none", boxShadow: `0 6px 20px ${T.primary}44` }}>
+              🚀 Assinar Premium
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* Bottom CTA */}
       <div style={{ background: `linear-gradient(135deg, ${T.primary}18, ${T.purple}18)`, padding: "36px 28px 60px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
@@ -1236,14 +1314,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     const total = cost * n;
     if (localCoins < total) return notify("KidCoins insuficientes! 😢", "error");
     setLocalCoins(prev => prev - total); // otimista
-    for (let i = 0; i < n; i++) {
-      const { error } = await supabase.rpc("request_redemption", { p_reward_id: rid });
-      if (error) {
-        setLocalCoins(profile.kidcoins || 0); // rollback
-        return notify(error.message || "Erro ao resgatar", "error");
-      }
+    const { error } = await supabase.rpc("request_redemption_bulk", { p_reward_id: rid, p_quantity: n });
+    if (error) {
+      setLocalCoins(profile.kidcoins || 0); // rollback
+      return notify(error.message || "Erro ao resgatar", "error");
     }
-    setQuantities(prev => ({ ...prev, [rid]: 1 })); // reset contador
+    setQuantities(prev => ({ ...prev, [rid]: 1 }));
     notify(`🎁 ${n > 1 ? `${n}x ` : ""}Recompensa solicitada! Aguarde a entrega.`);
     load();
     if (onRefresh) onRefresh();
