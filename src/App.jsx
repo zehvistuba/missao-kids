@@ -527,11 +527,11 @@ const ChildJoin = ({ onDone }) => {
         <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Entrar na família</div>
         <div style={{ color: T.textMuted, fontSize: 15 }}>Peça o código de convite ao seu responsável</div>
       </div>
-      <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Código de 6 letras" maxLength={6}
+      <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Código de convite" maxLength={8}
         style={{ width: "100%", padding: "18px 24px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: `2px solid ${T.accent}55`, color: T.text, fontSize: 28, fontFamily: "'Nunito', sans-serif", fontWeight: 900, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 8, marginBottom: 16 }}
       />
       {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-      <Btn onClick={join} disabled={loading || code.length < 6} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
+      <Btn onClick={join} disabled={loading || code.length < 4} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
         {loading ? "Verificando..." : "🔗 Entrar na família"}
       </Btn>
       <button onClick={() => supabase.auth.signOut()} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Sair e usar outra conta</button>
@@ -1080,17 +1080,17 @@ const Onboarding = ({ user, onDone }) => {
             <div style={{ textAlign: "center", marginBottom: 40 }}>
               <div style={{ fontSize: 64, marginBottom: 16 }}>🔗</div>
               <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Código de convite</div>
-              <div style={{ color: T.textMuted, fontSize: 15 }}>Digite o código de 6 letras que o outro responsável gerou</div>
+              <div style={{ color: T.textMuted, fontSize: 15 }}>Digite o código de convite que o responsável compartilhou</div>
             </div>
             <input
               value={joinCode}
               onChange={e => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Ex: AB3X7F"
-              maxLength={6}
+              placeholder="Código de convite"
+              maxLength={8}
               style={{ width: "100%", padding: "18px 24px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: `2px solid ${T.accent}55`, color: T.text, fontSize: 28, fontFamily: "'Nunito', sans-serif", fontWeight: 900, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 8, marginBottom: 16 }}
             />
             {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-            <Btn onClick={joinFamily} disabled={loading || joinCode.length < 6} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Verificando..." : "🔗 Entrar na família"}</Btn>
+            <Btn onClick={joinFamily} disabled={loading || joinCode.length < 4} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Verificando..." : "🔗 Entrar na família"}</Btn>
             <button onClick={() => { setStep("choice"); setErr(""); }} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Voltar</button>
           </>
         )}
@@ -1160,6 +1160,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     onSignOut();
   };
 
+  const missionsRef = useRef([]);
+
   useEffect(() => {
     load();
     // Realtime — escuta aprovação de missão
@@ -1171,7 +1173,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       }, async (payload) => {
         if (payload.new.status === "approved") {
           load();
-          const mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
+          let mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
+          // Fallback: ref vazio se load() ainda não completou — busca direto no banco
+          if (!mission) {
+            const { data } = await supabase.from("missions").select("*").eq("id", payload.new.mission_id).single();
+            if (data) mission = data;
+          }
           const coinsEarned = mission?.coins_reward || 0;
           const xpGained = mission?.xp_reward || 0;
           const oldLevel = getLvl(profile.xp || 0);
@@ -1201,8 +1208,6 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, []);
-
-  const missionsRef = useRef([]);
 
   const load = async () => {
     setLoading(true);
@@ -2684,7 +2689,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 {inviteCode ? (
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "12px 16px", border: `2px solid ${T.purple}44`, textAlign: "center" }}>
-                      <span style={{ color: T.purple, fontWeight: 900, fontSize: 24, letterSpacing: 6, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
+                      <span style={{ color: T.purple, fontWeight: 900, fontSize: 20, letterSpacing: 4, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
                     </div>
                     <button onClick={copyCode} style={{ padding: "12px 16px", borderRadius: 14, border: "none", background: codeCopied ? `${T.accent}33` : `${T.purple}22`, color: codeCopied ? T.accent : T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
                       {codeCopied ? "✅ Copiado" : "📋 Copiar"}
