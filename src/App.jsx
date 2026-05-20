@@ -790,8 +790,8 @@ const AuthScreen = ({ initialMode = "login" }) => {
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════
 const Onboarding = ({ user, onDone }) => {
-  // step: "choice" | "create" | "addchild" | "join"
-  const [step, setStep]               = useState("choice");
+  // step: "recovering" | "choice" | "create" | "addchild" | "join"
+  const [step, setStep]               = useState("recovering");
   const [familyName, setFamilyName]   = useState("");
   const [childName, setChildName]     = useState("");
   const [childBirth, setChildBirth]   = useState("");
@@ -799,6 +799,19 @@ const Onboarding = ({ user, onDone }) => {
   const [joinCode, setJoinCode]       = useState("");
   const [loading, setLoading]         = useState(false);
   const [err, setErr]                 = useState("");
+
+  // Tenta reconectar família automaticamente ao entrar no onboarding
+  useEffect(() => {
+    const tryRecover = async () => {
+      const { data, error } = await supabase.rpc("recover_family");
+      if (!error && data?.found) {
+        onDone(); // reconectado — vai direto pro dashboard
+      } else {
+        setStep("choice");
+      }
+    };
+    tryRecover();
+  }, []);
 
   const createFamily = async () => {
     if (!familyName) return;
@@ -811,6 +824,7 @@ const Onboarding = ({ user, onDone }) => {
 
   const addChild = async () => {
     if (!childName || !childBirth) return;
+    if (new Date(childBirth) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr(""); setLoading(true);
     const { data: childId, error } = await supabase.rpc("add_child", {
       p_display_name: childName,
@@ -840,6 +854,14 @@ const Onboarding = ({ user, onDone }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+
+        {/* RECOVERING */}
+        {step === "recovering" && (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
+            <div style={{ color: T.textMuted, fontSize: 15 }}>Verificando sua conta...</div>
+          </div>
+        )}
 
         {/* CHOICE */}
         {step === "choice" && (
@@ -925,7 +947,7 @@ const Onboarding = ({ user, onDone }) => {
         )}
       </div>
 
-      {step !== "choice" && (
+      {step !== "choice" && step !== "recovering" && (
         <div style={{ display: "flex", justifyContent: "center", gap: 8, paddingBottom: 40 }}>
           {Array.from({length: totalSteps}).map((_, i) => (
             <div key={i} style={{ width: i === currentStep ? 28 : 8, height: 8, borderRadius: 999, background: i === currentStep ? T.primary : "rgba(255,255,255,0.15)", transition: "all 0.3s" }} />
@@ -1954,6 +1976,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [aiReport, setAiReport] = useState(null);
   const [aiError, setAiError]   = useState(null);
   const [inviteCode, setInviteCode]       = useState(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [codeCopied, setCodeCopied]       = useState(false);
   const [editingChild, setEditingChild]   = useState(null);
@@ -1977,7 +2000,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const loadInviteCode = async () => {
     const { data } = await supabase.rpc("get_invite_code");
-    setInviteCode(data || null);
+    if (data && typeof data === "object") {
+      setInviteCode(data.code || null);
+      setInviteExpiresAt(data.expires_at || null);
+    } else {
+      setInviteCode(null);
+      setInviteExpiresAt(null);
+    }
   };
 
   const loadFamilyPlan = async () => {
@@ -1991,7 +2020,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setInviteLoading(false);
     if (error) return notify("Erro ao gerar código: " + error.message, "error");
     setInviteCode(data);
-    notify("✅ Código gerado! Compartilhe com a criança ou co-responsável.");
+    const exp = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    setInviteExpiresAt(exp.toISOString());
+    notify("✅ Código gerado! Válido por 72 horas.");
+  };
+
+  const fmtExpiry = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const now = new Date();
+    const hrs = Math.round((d - now) / 36e5);
+    if (hrs <= 0) return "expirado";
+    if (hrs < 24) return `expira em ${hrs}h`;
+    return `expira em ${Math.round(hrs/24)}d`;
   };
 
   const copyCode = () => {
@@ -2417,7 +2458,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 )}
                 {inviteCode && (
                   <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: T.textMuted, fontSize: 11 }}>O código não expira automaticamente</span>
+                    <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt) < new Date(Date.now() + 3600000) ? T.secondary : T.textMuted, fontSize: 11 }}>
+                      ⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}
+                    </span>
                     <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
                   </div>
                 )}
