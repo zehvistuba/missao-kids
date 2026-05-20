@@ -2707,32 +2707,38 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 20, border: `1px solid ${T.purple}33` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                   <div style={{ fontSize: 22 }}>🔗</div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Convidar Co-responsável</div>
                     <div style={{ color: T.textMuted, fontSize: 12 }}>Compartilhe o código com outro responsável</div>
                   </div>
+                  {familyPlan === "premium" && <span style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontSize: 9, fontWeight: 900, borderRadius: 999, padding: "2px 8px" }}>PREMIUM</span>}
                 </div>
-                {inviteCode ? (
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "12px 16px", border: `2px solid ${T.purple}44`, textAlign: "center" }}>
-                      <span style={{ color: T.purple, fontWeight: 900, fontSize: 20, letterSpacing: 4, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
+                {familyPlan === "free" ? (
+                  <button onClick={() => setShowUpgrade(true)} style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: `1px solid ${T.purple}33`, background: `${T.purple}10`, color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span>🔒</span>
+                    <span>Disponível no <span style={{ color: T.purple, fontWeight: 900 }}>Premium</span> — até 20 co-responsáveis</span>
+                  </button>
+                ) : inviteCode ? (
+                  <>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "12px 16px", border: `2px solid ${T.purple}44`, textAlign: "center" }}>
+                        <span style={{ color: T.purple, fontWeight: 900, fontSize: 20, letterSpacing: 4, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
+                      </div>
+                      <button onClick={copyCode} style={{ padding: "12px 16px", borderRadius: 14, border: "none", background: codeCopied ? `${T.accent}33` : `${T.purple}22`, color: codeCopied ? T.accent : T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                        {codeCopied ? "✅ Copiado" : "📋 Copiar"}
+                      </button>
                     </div>
-                    <button onClick={copyCode} style={{ padding: "12px 16px", borderRadius: 14, border: "none", background: codeCopied ? `${T.accent}33` : `${T.purple}22`, color: codeCopied ? T.accent : T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                      {codeCopied ? "✅ Copiado" : "📋 Copiar"}
-                    </button>
-                  </div>
+                    <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt) < new Date(Date.now() + 3600000) ? T.secondary : T.textMuted, fontSize: 11 }}>
+                        ⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}
+                      </span>
+                      <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
+                    </div>
+                  </>
                 ) : (
                   <button onClick={generateCode} disabled={inviteLoading} style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: inviteLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
                     {inviteLoading ? "Gerando..." : "✨ Gerar código de convite"}
                   </button>
-                )}
-                {inviteCode && (
-                  <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt) < new Date(Date.now() + 3600000) ? T.secondary : T.textMuted, fontSize: 11 }}>
-                      ⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}
-                    </span>
-                    <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
-                  </div>
                 )}
               </div>
 
