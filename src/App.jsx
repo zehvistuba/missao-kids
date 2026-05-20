@@ -695,7 +695,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
             </div>
             {[
               "Até 10 filhos",
-              "Até 20 responsáveis",
+              "Até 10 responsáveis",
               "Missões e recompensas ilimitadas",
               "IA: sugestão ilimitada de missões",
               "IA: relatório semanal automático",
@@ -1759,7 +1759,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose }) => {
   const FREE_ITEMS  = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
-  const PREM_ITEMS  = ["Até 10 filhos", "Até 20 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
+  const PREM_ITEMS  = ["Até 10 filhos", "Até 10 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -2403,27 +2403,37 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     load();
   };
 
+  const isLimitError = (msg = "") => msg.includes("Limite") || msg.includes("upgrade") || msg.includes("ilimitad");
+
   const createMission = async () => {
     if (!newM.title) return notify("Digite o nome da missão", "error");
-    const { error } = await supabase.rpc("create_mission", {
+    const { data, error } = await supabase.rpc("create_mission", {
       p_title: newM.title, p_emoji: newM.emoji,
       p_coins_reward: newM.coins_reward, p_xp_reward: newM.xp_reward, p_frequency: newM.frequency,
     });
     if (error) {
-      if (error.message?.includes("Limite")) { setShowMission(false); setShowUpgrade(true); return; }
+      if (isLimitError(error.message)) { setShowMission(false); setShowUpgrade(true); return; }
       return notify("Erro ao criar missão: " + error.message, "error");
+    }
+    if (data?.success === false) {
+      if (isLimitError(data.error || "")) { setShowMission(false); setShowUpgrade(true); return; }
+      return notify(data.error || "Erro ao criar missão", "error");
     }
     notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
   };
 
   const createReward = async () => {
     if (!newR.title) return notify("Digite o nome da recompensa", "error");
-    const { error } = await supabase.rpc("create_reward", {
+    const { data, error } = await supabase.rpc("create_reward", {
       p_title: newR.title, p_emoji: newR.emoji, p_coin_cost: newR.coin_cost,
     });
     if (error) {
-      if (error.message?.includes("Limite")) { setShowReward(false); setShowUpgrade(true); return; }
+      if (isLimitError(error.message)) { setShowReward(false); setShowUpgrade(true); return; }
       return notify("Erro ao criar recompensa: " + error.message, "error");
+    }
+    if (data?.success === false) {
+      if (isLimitError(data.error || "")) { setShowReward(false); setShowUpgrade(true); return; }
+      return notify(data.error || "Erro ao criar recompensa", "error");
     }
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
   };
@@ -2473,13 +2483,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const addAIMission = async (m) => {
-    const { error } = await supabase.rpc("create_mission", {
+    const { data, error } = await supabase.rpc("create_mission", {
       p_title: m.title, p_emoji: m.emoji,
       p_coins_reward: m.coins_reward, p_xp_reward: m.xp_reward, p_frequency: m.frequency || "daily",
     });
     if (error) {
-      if (error.message?.includes("Limite")) { setShowUpgrade(true); return; }
+      if (isLimitError(error.message)) { setShowUpgrade(true); return; }
       return notify("Erro ao criar missão: " + error.message, "error");
+    }
+    if (data?.success === false) {
+      if (isLimitError(data.error || "")) { setShowUpgrade(true); return; }
+      return notify(data.error || "Erro ao criar missão", "error");
     }
     notify(`✅ "${m.title}" adicionada!`);
     setAiMissions(prev => prev.filter(x => x.title !== m.title));
@@ -2600,7 +2614,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <span style={{ fontSize: 18 }}>👑</span>
             <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontWeight: 800, color: T.purple }}>Upgrade para Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>Filhos ilimitados + IA completa por R$ 19,90/mês</div>
+              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>10 filhos, missões ilimitadas + IA completa · R$ 19,90/mês</div>
             </div>
             <span style={{ color: T.purple, fontWeight: 900 }}>→</span>
           </button>

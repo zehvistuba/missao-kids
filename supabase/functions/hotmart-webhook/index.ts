@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
   }
 
   // Atualizar plano + salvar buyer_email para facilitar lookups futuros
-  const maxCoParents = newPlan === "premium" ? 20 : 1;
+  const maxCoParents = newPlan === "premium" ? 10 : 1;
   const { error: updErr } = await supabase
     .from("families")
     .update({ plan: newPlan, hotmart_buyer_email: email, max_co_parents: maxCoParents })
