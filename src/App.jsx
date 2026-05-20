@@ -1052,6 +1052,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [historyLogs, setHistoryLogs] = useState([]);
   const [demeritLogs, setDemeritLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
   const [submitting, setSubmitting] = useState(null); // mission id being submitted
   const [quantities, setQuantities] = useState({});   // { [rewardId]: number }
@@ -1070,6 +1072,15 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   useEffect(() => { setLocalCoins(profile.kidcoins || 0); }, [profile.kidcoins]);
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+
+  const deleteChildAccount = async () => {
+    setDeletingAccount(true);
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) { setDeletingAccount(false); return notify(error.message, "error"); }
+    await supabase.auth.signOut();
+    setDeletingAccount(false);
+    onSignOut();
+  };
 
   useEffect(() => {
     load();
@@ -1612,6 +1623,30 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
               <NotifyToggle userId={profile.id} />
               <button onClick={onSignOut} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+
+              {/* Excluir conta — LGPD */}
+              <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                {!confirmDeleteAccount ? (
+                  <button onClick={() => setConfirmDeleteAccount(true)} style={{ background: "none", border: "none", color: `${T.pink}99`, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, width: "100%", textAlign: "center" }}>
+                    🗑️ Excluir minha conta
+                  </button>
+                ) : (
+                  <div style={{ background: `${T.pink}12`, borderRadius: 16, padding: 16, border: `1px solid ${T.pink}33` }}>
+                    <div style={{ color: T.pink, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>⚠️ Excluir conta</div>
+                    <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 14, lineHeight: 1.6 }}>Seu perfil, histórico de missões e conquistas serão excluídos permanentemente.</div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={deleteChildAccount} disabled={deletingAccount}
+                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: T.pink, color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                        {deletingAccount ? "Excluindo..." : "Sim, excluir"}
+                      </button>
+                      <button onClick={() => setConfirmDeleteAccount(false)}
+                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>}
@@ -2066,6 +2101,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [cancellingRed, setCancellingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
   const [extratoTarget, setExtratoTarget]     = useState(null); // child object
+  const [coParents, setCoParents]             = useState([]);
+  const [removingCoParent, setRemovingCoParent] = useState(null);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -2127,10 +2166,40 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     if (onRefresh) onRefresh();
   };
 
+  const loadCoParents = async () => {
+    if (!profile.family_id) return;
+    const { data } = await supabase.from("profiles")
+      .select("id, display_name, role")
+      .eq("family_id", profile.family_id)
+      .in("role", ["parent", "admin"])
+      .neq("id", profile.id);
+    setCoParents(data || []);
+  };
+
+  const removeCoParent = async (targetId) => {
+    setRemovingCoParent(targetId);
+    const { error } = await supabase.rpc("remove_co_parent", { p_target_id: targetId });
+    setRemovingCoParent(null);
+    if (error) return notify(error.message, "error");
+    notify("✅ Co-responsável removido");
+    loadCoParents();
+  };
+
+  const deleteAccount = async () => {
+    setDeletingAccount(true);
+    const { data, error } = await supabase.rpc("delete_my_account");
+    if (error) { setDeletingAccount(false); return notify(error.message, "error"); }
+    await supabase.auth.signOut();
+    // Auth user deletion requires service role — profile is cleaned, session ends
+    setDeletingAccount(false);
+    onSignOut();
+  };
+
   useEffect(() => {
     load();
     loadInviteCode();
     loadFamilyPlan();
+    loadCoParents();
     // Realtime — nova missão pendente
     const channel = supabase
       .channel(`parent-${profile.id}`)
@@ -2780,6 +2849,53 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 </button>
               )}
               <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+
+              {/* Co-responsáveis */}
+              {coParents.length > 0 && (
+                <div style={{ background: T.card, borderRadius: 20, padding: 18, marginTop: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>CO-RESPONSÁVEIS</div>
+                  {coParents.map(cp => (
+                    <div key={cp.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ color: T.text, fontWeight: 700, fontSize: 14 }}>{cp.display_name}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11 }}>{cp.role === "admin" ? "Admin" : "Responsável"}</div>
+                      </div>
+                      {cp.role !== "admin" && (
+                        <button onClick={() => removeCoParent(cp.id)} disabled={removingCoParent === cp.id}
+                          style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                          {removingCoParent === cp.id ? "..." : "Remover"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Excluir conta — LGPD */}
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                {!confirmDeleteAccount ? (
+                  <button onClick={() => setConfirmDeleteAccount(true)} style={{ background: "none", border: "none", color: `${T.pink}99`, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, width: "100%", textAlign: "center" }}>
+                    🗑️ Excluir minha conta
+                  </button>
+                ) : (
+                  <div style={{ background: `${T.pink}12`, borderRadius: 16, padding: 16, border: `1px solid ${T.pink}33` }}>
+                    <div style={{ color: T.pink, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>⚠️ Excluir conta</div>
+                    <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 14, lineHeight: 1.6 }}>
+                      Se você for o criador da família e o único responsável, todos os dados (filhos, missões, recompensas) serão excluídos permanentemente. Esta ação não pode ser desfeita.
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={deleteAccount} disabled={deletingAccount}
+                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: T.pink, color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                        {deletingAccount ? "Excluindo..." : "Sim, excluir tudo"}
+                      </button>
+                      <button onClick={() => setConfirmDeleteAccount(false)}
+                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>}
