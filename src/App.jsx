@@ -7,9 +7,36 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON
 );
 
+const sanitizeStr = (v, maxLen = 120) =>
+  String(v ?? "").replace(/[\x00-\x1F\x7F]/g, " ").replace(/[<>"'`]/g, "").trim().slice(0, maxLen);
+
+const sanitizeContext = (ctx) => {
+  if (!ctx || typeof ctx !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(ctx)) {
+    if (typeof v === "string") out[k] = sanitizeStr(v);
+    else if (typeof v === "number") out[k] = v;
+    else if (Array.isArray(v)) out[k] = v.map(item =>
+      typeof item === "object" ? sanitizeContext(item) : typeof item === "string" ? sanitizeStr(item) : item
+    );
+    else if (typeof v === "object" && v !== null) out[k] = sanitizeContext(v);
+    else out[k] = v;
+  }
+  return out;
+};
+
+const aiCooldowns = {};
+const AI_COOLDOWN_MS = 8000;
+
 const callAI = async (action, context) => {
+  const now = Date.now();
+  if (aiCooldowns[action] && now - aiCooldowns[action] < AI_COOLDOWN_MS) {
+    throw new Error("Aguarde alguns segundos antes de tentar novamente");
+  }
+  aiCooldowns[action] = now;
+
   const { data, error } = await supabase.functions.invoke("ai-assistant", {
-    body: { action, context },
+    body: { action, context: sanitizeContext(context) },
   });
   if (error) {
     let msg = error.message;
@@ -2962,6 +2989,7 @@ const AdminPanel = ({ onBack }) => {
 // ═══════════════════════════════════════════════════════════
 export default function App() {
   const [screen, setScreen]   = useState("splash");
+  const [splashDone, setSplashDone] = useState(false);
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2982,6 +3010,19 @@ export default function App() {
     if (outcome === "accepted") setShowInstall(false);
     setInstallPrompt(null);
   };
+
+  useEffect(() => {
+    if (!splashDone || loading) return;
+    if (screen !== "splash") return;
+    if (user && profile) {
+      const r = profile.role;
+      if (!profile.family_id && (r === "parent" || r === "admin")) setScreen("onboarding");
+      else if (!profile.family_id && r === "child") setScreen("child_join");
+      else setScreen(r === "parent" || r === "admin" ? "parent" : "child");
+    } else {
+      setScreen("landing");
+    }
+  }, [splashDone, loading]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -3032,13 +3073,7 @@ export default function App() {
             }} />
           )}
           {screen !== "admin" && <>
-          {screen === "splash" && <Splash onDone={() => {
-            if (!loading && user && profile) {
-              const r = profile.role;
-              setScreen(r === "parent" || r === "admin" ? "parent" : "child");
-            }
-            else setScreen("landing");
-          }} />}
+          {screen === "splash" && <Splash onDone={() => setSplashDone(true)} />}
           {screen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
           {screen === "auth"       && <AuthScreen initialMode={authMode} />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
