@@ -559,6 +559,80 @@ const Splash = ({ onDone }) => {
 };
 
 // ═══════════════════════════════════════════════════════════
+// PLANOS — compartilhado entre LandingPremiumCard e UpgradeModal
+// ═══════════════════════════════════════════════════════════
+const PLANS = {
+  monthly: { price: "14,90", period: "/mês", label: "Mensal", total: null,    savings: null,         badge: "🚀 Lançamento" },
+  annual:  { price: "149,90", period: "/ano", label: "Anual",  total: "12,49/mês", savings: "R$ 28,90", badge: "⭐ Melhor valor" },
+};
+const HOTMART_MONTHLY = "https://pay.hotmart.com/E105936971D?off=992z9nyu";
+const HOTMART_ANNUAL  = "https://pay.hotmart.com/E105936971D?off=tjv79dzd";
+
+const PREM_ITEMS = ["Até 10 filhos", "Até 10 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
+
+// ─── Card Premium para Landing Page ──────────────────────
+const LandingPremiumCard = ({ onSignup }) => {
+  const [billing, setBilling] = useState("annual");
+  const plan = PLANS[billing];
+
+  return (
+    <div style={{ background: `linear-gradient(145deg, #1E1040, #2A1060)`, borderRadius: 20, padding: 20, border: `2px solid ${T.purple}55`, position: "relative", overflow: "hidden" }}>
+      {/* glow */}
+      <div style={{ position: "absolute", top: -40, right: -40, width: 140, height: 140, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}33, transparent)`, pointerEvents: "none" }} />
+
+      {/* header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div>
+          <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>👑 Premium</div>
+          <div style={{ color: T.textMuted, fontSize: 12 }}>Desbloqueie tudo</div>
+        </div>
+        <span style={{ background: `${T.purple}33`, color: T.purple, fontSize: 10, fontWeight: 900, borderRadius: 8, padding: "4px 9px" }}>{plan.badge}</span>
+      </div>
+
+      {/* toggle */}
+      <div style={{ display: "flex", background: "rgba(255,255,255,0.07)", borderRadius: 12, padding: 3, marginBottom: 16 }}>
+        {["monthly","annual"].map(b => (
+          <button key={b} onClick={() => setBilling(b)} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s", background: billing === b ? T.purple : "transparent", color: billing === b ? "#fff" : T.textMuted }}>
+            {b === "monthly" ? "Mensal" : "Anual"}
+          </button>
+        ))}
+      </div>
+
+      {/* price */}
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4 }}>
+          <span style={{ color: T.textMuted, fontSize: 13, marginBottom: 4 }}>R$</span>
+          <span style={{ color: T.text, fontWeight: 900, fontSize: 36 }}>{plan.price}</span>
+          <span style={{ color: T.textMuted, fontSize: 13, marginBottom: 6 }}>{plan.period}</span>
+        </div>
+        {billing === "annual" && (
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            <span style={{ color: T.accent, fontSize: 12, fontWeight: 800 }}>≈ R$ {plan.total}</span>
+            <span style={{ background: `${T.accent}22`, color: T.accent, fontSize: 11, fontWeight: 900, borderRadius: 8, padding: "2px 8px" }}>Economize {plan.savings}</span>
+          </div>
+        )}
+      </div>
+
+      {/* features */}
+      {PREM_ITEMS.map(item => (
+        <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span style={{ color: T.purple, fontWeight: 900, fontSize: 14 }}>✓</span>
+          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13 }}>{item}</span>
+        </div>
+      ))}
+
+      {/* CTA */}
+      <a href={billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 16, textDecoration: "none" }}>
+        <button style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.purple}, #7B2FBE)`, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 6px 20px ${T.purple}44` }}>
+          👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
+        </button>
+      </a>
+      <div style={{ textAlign: "center", marginTop: 10, color: T.textMuted, fontSize: 11 }}>Pagamento 100% seguro via Hotmart</div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
 // LANDING PAGE
 // ═══════════════════════════════════════════════════════════
 const LandingPage = ({ onSignup, onLogin }) => {
@@ -668,14 +742,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
               </div>
               <div style={{ color: T.accent, fontWeight: 900, fontSize: 22 }}>R$ 0</div>
             </div>
-            {[
-              "1 filho",
-              "1 responsável",
-              "Até 5 missões ativas",
-              "Até 3 recompensas ativas",
-              "KidCoins & gamificação completa",
-              "IA: sugestão de missões (limitado)",
-            ].map(item => (
+            {["1 filho","1 responsável","Até 5 missões ativas","Até 3 recompensas ativas","KidCoins & gamificação completa","IA: sugestão de missões (limitado)"].map(item => (
               <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ color: T.accent, fontWeight: 900, fontSize: 14 }}>✓</span>
                 <span style={{ color: T.textMuted, fontSize: 13 }}>{item}</span>
@@ -686,32 +753,8 @@ const LandingPage = ({ onSignup, onLogin }) => {
             </button>
           </div>
 
-          {/* PREMIUM */}
-          <div style={{ background: `linear-gradient(145deg, ${T.primary}18, ${T.purple}22)`, borderRadius: 20, padding: 20, border: `2px solid ${T.primary}55`, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 14, right: 14, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 10, padding: "4px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>MAIS POPULAR</div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 12 }}>R$ 19,90/mês · Hotmart · cancele quando quiser</div>
-            </div>
-            {[
-              "Até 10 filhos",
-              "Até 10 responsáveis",
-              "Missões e recompensas ilimitadas",
-              "IA: sugestão ilimitada de missões",
-              "IA: relatório semanal automático",
-              "IA: missão surpresa personalizada",
-              "Suporte prioritário WhatsApp",
-            ].map(item => (
-              <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ color: T.primary, fontWeight: 900, fontSize: 14 }}>✓</span>
-                <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>{item}</span>
-              </div>
-            ))}
-            <a href="https://pay.hotmart.com/rotinup" target="_blank" rel="noopener noreferrer"
-              style={{ display: "block", width: "100%", marginTop: 14, padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "center", textDecoration: "none", boxShadow: `0 6px 20px ${T.primary}44` }}>
-              🚀 Assinar Premium
-            </a>
-          </div>
+          {/* PREMIUM com toggle Mensal/Anual */}
+          <LandingPremiumCard onSignup={onSignup} />
         </div>
       </div>
 
@@ -854,13 +897,14 @@ const AuthScreen = ({ initialMode = "login" }) => {
       </div>
 
       {mode === "signup" && (
-        <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-          {[{ key: "parent", label: "Responsável", emoji: "👨‍👩‍👧", color: T.primary }, { key: "child", label: "Criança", emoji: "👦", color: T.accent }].map(opt => (
-            <button key={opt.key} onClick={() => setUserType(opt.key)} style={{ flex: 1, padding: "16px 12px", borderRadius: 18, border: `2px solid ${userType === opt.key ? opt.color : "rgba(255,255,255,0.08)"}`, background: userType === opt.key ? `${opt.color}18` : "rgba(255,255,255,0.03)", color: userType === opt.key ? opt.color : T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 28 }}>{opt.emoji}</span>
-              <span style={{ fontSize: 12, fontWeight: 800 }}>{opt.label}</span>
-            </button>
-          ))}
+        <div style={{ background: `${T.primary}14`, borderRadius: 16, padding: "14px 16px", marginBottom: 20, border: `1px solid ${T.primary}33`, display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
+          <div>
+            <div style={{ color: T.text, fontWeight: 800, fontSize: 13, marginBottom: 4 }}>Cadastro para Responsáveis</div>
+            <div style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.5 }}>
+              Crianças são adicionadas pelo responsável via <strong style={{ color: T.primary }}>código de convite</strong> — não precisam criar conta por aqui.
+            </div>
+          </div>
         </div>
       )}
 
@@ -1123,6 +1167,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [surpriseMission, setSurpriseMission] = useState(null);
   const [surpriseLoading, setSurpriseLoading] = useState(false);
   const [surpriseError, setSurpriseError] = useState(null);
+  const [surpriseSubmitting, setSurpriseSubmitting] = useState(false);
+  const [surpriseSubmitted, setSurpriseSubmitted] = useState(false);
   const [celebration, setCelebration] = useState(null); // { msg, coins, xp }
   // Profile editing
   const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || avatarUrl("Luna"));
@@ -1176,6 +1222,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       }, async (payload) => {
         if (payload.new.status === "approved") {
           load();
+          if (onRefresh) onRefresh();
           let mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
           // Fallback: ref vazio se load() ainda não completou — busca direto no banco
           if (!mission) {
@@ -1308,6 +1355,24 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       setSurpriseError(isQuota ? "IA em pausa ⏳ Tente mais tarde" : isOverload ? "IA sobrecarregada 🤖 Tente em instantes" : "Não consegui gerar 😅 Tente novamente!");
     }
     setSurpriseLoading(false);
+  };
+
+  const submitSurpriseMission = async () => {
+    if (!surpriseMission) return;
+    setSurpriseSubmitting(true);
+    const { error } = await supabase.rpc("submit_surprise_mission", {
+      p_title:       surpriseMission.title,
+      p_emoji:       surpriseMission.emoji,
+      p_coins:       surpriseMission.coins_reward,
+      p_xp:          surpriseMission.xp_reward,
+      p_description: surpriseMission.description,
+      p_due_date:    localDateStr(0),
+    });
+    setSurpriseSubmitting(false);
+    if (error) { notify("Erro ao enviar missão surpresa: " + error.message, "error"); return; }
+    setSurpriseSubmitted(true);
+    setSurpriseMission(null);
+    notify("✅ Missão surpresa enviada para aprovação!");
   };
 
   const getLog = (mid, frequency = "daily") => {
@@ -1465,6 +1530,18 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                         </div>
                       </div>
                     </div>
+                    <button
+                      onClick={submitSurpriseMission}
+                      disabled={surpriseSubmitting}
+                      style={{ width: "100%", marginTop: 12, padding: "11px", borderRadius: 12, border: "none", background: surpriseSubmitting ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${T.purple}, #7B2FBE)`, color: surpriseSubmitting ? T.textMuted : "#fff", fontWeight: 800, fontSize: 13, cursor: surpriseSubmitting ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}
+                    >
+                      {surpriseSubmitting ? "Enviando..." : "🚀 Enviar para aprovação"}
+                    </button>
+                  </div>
+                )}
+                {surpriseSubmitted && !surpriseMission && (
+                  <div style={{ marginTop: 14, background: `${T.accent}18`, borderRadius: 16, padding: "12px 16px", border: `1px solid ${T.accent}33`, textAlign: "center" }}>
+                    <div style={{ color: T.accent, fontWeight: 800, fontSize: 13 }}>✅ Missão enviada! Aguardando aprovação do responsável.</div>
                   </div>
                 )}
               </div>
@@ -1758,22 +1835,63 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose }) => {
-  const FREE_ITEMS  = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
-  const PREM_ITEMS  = ["Até 10 filhos", "Até 10 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
+  const [billing, setBilling] = useState("annual");
+  const plan = PLANS[billing];
+
+  const FREE_ITEMS = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: T.card, borderRadius: "28px 28px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 430, maxHeight: "92vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 52, marginBottom: 12 }}>👑</div>
           <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 6 }}>RotinUp Premium</div>
           <div style={{ color: T.textMuted, fontSize: 14 }}>Desbloqueie todo o potencial da família</div>
         </div>
 
+        {/* Toggle Mensal / Anual */}
+        <div style={{ display: "flex", background: T.darker, borderRadius: 16, padding: 4, marginBottom: 20, border: "1px solid rgba(255,255,255,0.08)" }}>
+          {Object.entries(PLANS).map(([key, p]) => (
+            <button key={key} onClick={() => setBilling(key)} style={{ flex: 1, padding: "10px 8px", borderRadius: 12, border: "none", background: billing === key ? `linear-gradient(135deg, ${T.purple}, ${T.pink})` : "transparent", color: billing === key ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span>{p.label}</span>
+              {billing === key && <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.85 }}>{p.badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Preço */}
+        <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "20px 20px", textAlign: "center", border: `2px solid ${T.purple}44`, marginBottom: 20, position: "relative", overflow: "hidden" }}>
+          {billing === "annual" && (
+            <div style={{ position: "absolute", top: 12, right: 12, background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, borderRadius: 8, padding: "3px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>
+              Economize {plan.savings}
+            </div>
+          )}
+          {billing === "monthly" && (
+            <div style={{ position: "absolute", top: 12, right: 12, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 8, padding: "3px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>
+              Lançamento
+            </div>
+          )}
+          <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 4 }}>
+            {billing === "annual" ? "Cobrança única anual" : "Cobrança mensal recorrente"}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2 }}>
+            <span style={{ color: T.textMuted, fontSize: 16, fontWeight: 700 }}>R$</span>
+            <span style={{ color: T.purple, fontWeight: 900, fontSize: 40, lineHeight: 1 }}>{plan.price}</span>
+            <span style={{ color: T.textMuted, fontSize: 14 }}>{plan.period}</span>
+          </div>
+          {billing === "annual" && plan.total && (
+            <div style={{ color: T.accent, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
+              equivale a R$ {plan.total} — acesso por 12 meses
+            </div>
+          )}
+          {billing === "monthly" && (
+            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 6 }}>Cancele quando quiser</div>
+          )}
+        </div>
+
         {/* Comparativo */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-          {/* Free */}
           <div style={{ background: T.darker, borderRadius: 20, padding: "16px 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>GRÁTIS</div>
             {FREE_ITEMS.map((item, i) => (
@@ -1783,30 +1901,20 @@ const UpgradeModal = ({ onClose }) => {
               </div>
             ))}
           </div>
-          {/* Premium */}
           <div style={{ background: `linear-gradient(160deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "16px 14px", border: `2px solid ${T.purple}55` }}>
             <div style={{ color: T.purple, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>PREMIUM 👑</div>
             {PREM_ITEMS.map((item, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
                 <span style={{ color: T.accent, fontSize: 12, marginTop: 1, flexShrink: 0 }}>✓</span>
-                <span style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>{item.replace("✅ ", "")}</span>
+                <span style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>{item}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Preço */}
-        <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `1px solid ${T.purple}44`, marginBottom: 20 }}>
-          <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 4 }}>Apenas</div>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
-            <span style={{ color: T.text, fontWeight: 900, fontSize: 36, color: T.purple }}>R$ 19</span>
-            <span style={{ color: T.textMuted, fontSize: 15 }}>,90/mês</span>
-          </div>
-          <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>Cancele quando quiser</div>
-        </div>
-
-        <a href="https://wa.me/5544991141555?text=Quero%20assinar%20o%20RotinUp%20Premium!" target="_blank" rel="noopener noreferrer" style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
-          👑 Quero o Premium
+        <a href={billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
+          👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
         </a>
         <button onClick={onClose} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
           Continuar no plano gratuito
@@ -2614,7 +2722,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <span style={{ fontSize: 18 }}>👑</span>
             <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontWeight: 800, color: T.purple }}>Upgrade para Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>10 filhos, missões ilimitadas + IA completa · R$ 19,90/mês</div>
+              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>10 filhos, missões ilimitadas + IA completa · R$ 14,90/mês</div>
             </div>
             <span style={{ color: T.purple, fontWeight: 900 }}>→</span>
           </button>
@@ -2730,7 +2838,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 {familyPlan === "free" ? (
                   <button onClick={() => setShowUpgrade(true)} style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: `1px solid ${T.purple}33`, background: `${T.purple}10`, color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                     <span>🔒</span>
-                    <span>Disponível no <span style={{ color: T.purple, fontWeight: 900 }}>Premium</span> — até 20 co-responsáveis</span>
+                    <span>Disponível no <span style={{ color: T.purple, fontWeight: 900 }}>Premium</span> — até 10 co-responsáveis</span>
                   </button>
                 ) : inviteCode ? (
                   <>
