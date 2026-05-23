@@ -2282,6 +2282,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
   const [aiError, setAiError]   = useState(null);
+  const aiResultsRef = useRef(null);
   const [inviteCode, setInviteCode]       = useState(null);
   const [inviteExpiresAt, setInviteExpiresAt] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -2558,6 +2559,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       const parsed = Array.isArray(raw) ? raw : JSON.parse(raw);
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("IA retornou lista vazia, tente novamente");
       setAiMissions(parsed);
+      setTimeout(() => aiResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 150);
     } catch (e) {
       const msg = e.message || "";
       const isQuota = msg.includes("quota") || msg.includes("429");
@@ -2902,7 +2904,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     </span>
                   )}
                 </div>
-                <button onClick={() => setShowMission(!showMission)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
+                <button onClick={() => { if (familyPlan === "free" && missions.length >= 5) { setShowUpgrade(true); return; } setShowMission(!showMission); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showMission && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
@@ -2998,7 +3000,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     </span>
                   ); })()}
                 </div>
-                <button onClick={() => setShowReward(!showReward)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
+                <button onClick={() => { if (familyPlan === "free" && rewards.filter(r => r.is_active !== false).length >= 3) { setShowUpgrade(true); return; } setShowReward(!showReward); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showReward && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
@@ -3104,7 +3106,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
                 {/* Missões sugeridas pela IA */}
                 {aiMissions.length > 0 && (
-                  <div>
+                  <div ref={aiResultsRef}>
                     <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>SUGESTÕES — TOQUE PARA ADICIONAR</div>
                     {aiMissions.map((m, i) => (
                       <div key={i} style={{ background: T.darker, borderRadius: 14, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
