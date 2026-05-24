@@ -68,111 +68,25 @@ BEGIN
   RETURNING id INTO v_mission_id;
 
   -- Criar log pendente de aprovação
-  INSERT INTO mission_logs (child_id, mission_id, family_id, due_date, status, review_note)
-  VALUES (v_child.id, v_mission_id, v_child.family_id, p_due_date, 'pending', '✨ Missão Surpresa — aguardando aprovação')
+  INSERT INTO mission_logs (child_id, mission_id, family_id, due_date, status)
+  VALUES (v_child.id, v_mission_id, v_child.family_id, p_due_date, 'pending')
   RETURNING id INTO v_log_id;
 
   RETURN v_log_id;
 END;
 $$;
 
--- ══════════════════════════════════════════════════════════════════════
--- BLOCO 3: Corrigir review_mission — coluna correta é review_note (não parent_note)
--- O Chrome Claude "corrigiu" para parent_note na sessão anterior — isso está ERRADO.
--- A coluna real em mission_logs é review_note (conforme esquema original).
--- ══════════════════════════════════════════════════════════════════════
-
-CREATE OR REPLACE FUNCTION public.review_mission(
-  p_log_id  UUID,
-  p_approve BOOLEAN,
-  p_note    TEXT DEFAULT NULL
-)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_log         mission_logs%ROWTYPE;
-  v_mission     missions%ROWTYPE;
-  v_caller_fam  UUID;
-  v_child_fam   UUID;
-BEGIN
-  SELECT family_id INTO v_caller_fam
-  FROM profiles
-  WHERE id = auth.uid() AND role IN ('parent', 'admin');
-
-  IF v_caller_fam IS NULL THEN
-    RAISE EXCEPTION 'Não autorizado';
-  END IF;
-
-  SELECT * INTO v_log FROM mission_logs WHERE id = p_log_id;
-
-  IF v_log.id IS NULL THEN
-    RAISE EXCEPTION 'Log não encontrado';
-  END IF;
-
-  IF v_log.status <> 'pending' THEN
-    RAISE EXCEPTION 'Log já foi revisado';
-  END IF;
-
-  SELECT family_id INTO v_child_fam
-  FROM profiles WHERE id = v_log.child_id;
-
-  IF v_child_fam IS NULL OR v_child_fam <> v_caller_fam THEN
-    RAISE EXCEPTION 'Sem permissão para revisar esta missão';
-  END IF;
-
-  SELECT * INTO v_mission FROM missions WHERE id = v_log.mission_id;
-
-  IF p_approve THEN
-    UPDATE mission_logs
-    SET status      = 'approved',
-        reviewed_by = auth.uid(),
-        review_note = COALESCE(p_note, 'Ótimo trabalho! 🎉'),
-        reviewed_at = NOW()
-    WHERE id = p_log_id;
-
-    UPDATE profiles
-    SET xp       = xp + COALESCE(v_log.xp_earned, v_mission.xp_reward, 0),
-        kidcoins = kidcoins + COALESCE(v_log.coins_earned, v_mission.coins_reward, 0)
-    WHERE id = v_log.child_id;
-
-    -- Streak: usa due_date do log (data local Brasil) — não UTC do servidor
-    UPDATE profiles
-    SET streak = CASE
-          WHEN EXISTS (
-            SELECT 1 FROM mission_logs
-            WHERE child_id  = v_log.child_id
-              AND status    = 'approved'
-              AND due_date::date = v_log.due_date::date - 1
-          ) THEN streak + 1
-          ELSE 1
-        END
-    WHERE id = v_log.child_id;
-
-    PERFORM check_and_grant_achievements(v_log.child_id);
-
-  ELSE
-    UPDATE mission_logs
-    SET status      = 'rejected',
-        reviewed_by = auth.uid(),
-        review_note = COALESCE(p_note, 'Tente novamente!'),
-        reviewed_at = NOW()
-    WHERE id = p_log_id;
-  END IF;
-END;
-$$;
-
 NOTIFY pgrst, 'reload schema';
 
+-- NOTA: review_mission NÃO está neste arquivo.
+-- A versão em produção (deployada pelo Chrome Claude em 23/05/2026) usa parent_note
+-- e insere em coin_transactions — é mais completa. Não sobrescrever daqui.
+
 -- ══════════════════════════════════════════════════════════════════════
--- VERIFICAÇÃO: confirmar que as RPCs existem
+-- VERIFICAÇÃO: confirmar que submit_surprise_mission existe
 -- ══════════════════════════════════════════════════════════════════════
 
-SELECT routine_name, routine_type
+SELECT routine_name
 FROM information_schema.routines
-WHERE routine_schema = 'public'
-  AND routine_name IN ('submit_surprise_mission', 'review_mission', 'parent_check_mission')
-ORDER BY routine_name;
--- Deve retornar 3 linhas
+WHERE routine_schema = 'public' AND routine_name = 'submit_surprise_mission';
+-- Deve retornar 1 linha
