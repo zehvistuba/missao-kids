@@ -1502,7 +1502,15 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                     <div style={{ color: "#fff", fontWeight: 900, fontSize: 15 }}>🎲 Missão Surpresa</div>
                     <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, marginTop: 2 }}>Gerada por IA só pra você!</div>
                   </div>
-                  {!surpriseMission ? (
+                  {familyPlan === "free" ? (
+                    <div style={{ padding: "8px 14px", borderRadius: 14, border: "2px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>🔒</span>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.9)", fontWeight: 900, fontSize: 12 }}>Premium</div>
+                        <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10 }}>peça upgrade 👑</div>
+                      </div>
+                    </div>
+                  ) : !surpriseMission ? (
                     <button onClick={generateSurpriseMission} disabled={surpriseLoading} style={{ padding: "10px 16px", borderRadius: 14, border: "2px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 900, fontSize: 13, cursor: surpriseLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
                       {surpriseLoading ? "✨ Gerando..." : "✨ Gerar"}
                     </button>
@@ -2310,6 +2318,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showArchivedMissions, setShowArchivedMissions] = useState(false);
   const [showArchivedRewards, setShowArchivedRewards]   = useState(false);
   const [reactivating, setReactivating]       = useState(null);
+  const pendingRef = useRef(null);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -2713,7 +2722,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <div style={{ color: T.text, fontSize: 20, fontWeight: 900 }}>👋 {profile.display_name}!</div>
           </div>
           {pending.length > 0 && (
-            <div style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite" }}>
+            <div onClick={() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite", cursor: "pointer" }}>
               {pending.length} pendente{pending.length>1?"s":""}
             </div>
           )}
@@ -2737,6 +2746,31 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Pendentes — mostrar no topo quando há missões aguardando aprovação */}
+              {pending.length > 0 && (
+                <div ref={pendingRef} style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
+                  {pending.map(p => (
+                    <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${T.warning}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                            <AvatarImg value={p.child_avatar} size={20} radius={6} />
+                            <span style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward} KidCoins</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                          <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+                          <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Filhos */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2866,29 +2900,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 )}
               </div>
 
-              {/* Pendentes */}
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
-              {pending.length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>Tudo em dia!</div>
-                : pending.map(p => (
-                    <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${T.warning}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                            <AvatarImg value={p.child_avatar} size={20} radius={6} />
-                            <span style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward} KidCoins</span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
-                          <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-              }
+              {/* Pendentes — estado vazio (lista aparece no topo quando há itens) */}
+              {pending.length === 0 && (
+                <div>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
+                  <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>Tudo em dia!</div>
+                </div>
+              )}
             </div>
           )}
 
