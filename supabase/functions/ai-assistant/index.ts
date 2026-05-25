@@ -82,7 +82,7 @@ Regras: missões rotineiras+educativas, coins 10-50, XP 10-40, português BR, n�
 Família ${context.familyName ?? ""}:
 ${childrenInfo}
 
-Gere um relatório semanal motivador em português (máx 180 palavras) com emojis. Estruture assim:
+Gere um relatório semanal motivador em português com emojis. Estruture assim:
 1. 📊 Resumo do desempenho geral
 2. ⭐ Destaque positivo de cada criança pelo nome
 3. 💡 Uma dica construtiva e gentil
@@ -120,9 +120,12 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.85,
-          maxOutputTokens: isJson ? 2048 : 1024,
+          maxOutputTokens: isJson ? 2048 : 4096,
           ...(isJson ? { responseMimeType: "application/json" } : {}),
         },
+        // Desabilita thinking para modelos Gemini 2.5 — sem isso o thinking
+        // consome a maior parte dos tokens deixando a resposta truncada
+        thinkingConfig: { thinkingBudget: 0 },
       }),
     });
 

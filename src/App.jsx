@@ -1184,6 +1184,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [quantities, setQuantities] = useState({});   // { [rewardId]: number }
   const [familyPlan, setFamilyPlan] = useState("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [pendingReds, setPendingReds] = useState([]);
+  const [cancellingRed, setCancellingRed] = useState(null);
 
   const qty    = (rid) => quantities[rid] || 1;
   const setQty = (rid, delta, max) =>
@@ -1197,6 +1199,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   // Atualização otimista de coins — não depende do onRefresh() terminar
   const [localCoins, setLocalCoins] = useState(profile.kidcoins || 0);
   useEffect(() => { setLocalCoins(profile.kidcoins || 0); }, [profile.kidcoins]);
+
+  // Streak efetivo: 0 se last_active_date não for hoje nem ontem (BUG-16)
+  const effectiveStreak = (() => {
+    const lad = profile.last_active_date;
+    if (!lad) return profile.streak || 0;
+    return (lad === localDateStr(0) || lad === localDateStr(1)) ? (profile.streak || 0) : 0;
+  })();
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
@@ -1264,17 +1273,18 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     try {
       const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }] = await Promise.all([
+      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }, { data: pr }] = await Promise.all([
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("achievements").select("*").order("condition_val"),
         supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
         supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
         supabase.rpc("get_family_plan"),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at").eq("child_id", profile.id).eq("status", "pending").order("created_at", { ascending: false }),
       ]);
       setFamilyPlan(planData || "free");
       missionsRef.current = m || [];
-      setMissions(m || []); setRewards(r || []); setLogs(l || []);
+      setMissions(m || []); setRewards(r || []); setLogs(l || []); setPendingReds(pr || []);
       const activeDaysSet = new Set((sd || []).map(x => x.due_date));
       setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
       if (a) {
@@ -1405,6 +1415,18 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     if (onRefresh) onRefresh();
   };
 
+  const cancelChildRedemption = async (redId, cost) => {
+    setCancellingRed(redId);
+    setLocalCoins(prev => prev + cost); // otimista
+    const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redId });
+    setCancellingRed(null);
+    if (error) {
+      setLocalCoins(profile.kidcoins || 0); // rollback
+      return notify(error.message || "Erro ao cancelar", "error");
+    }
+    notify("🔄 Pedido cancelado. Coins devolvidos!"); load();
+  };
+
   const navTabs = [{ key:"home",icon:"🏠",label:"Início"},{key:"store",icon:"🏪",label:"Loja"},{key:"achievements",icon:"🏆",label:"Conquistas"},{key:"profile",icon:"👤",label:"Perfil"}];
 
   return (
@@ -1477,7 +1499,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ color: T.textMuted, fontSize: 10 }}>Streak</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span>🔥</span><span style={{ color: T.warning, fontWeight: 900, fontSize: 18 }}>{profile.streak || 0}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span>🔥</span><span style={{ color: T.warning, fontWeight: 900, fontSize: 18 }}>{effectiveStreak}</span></div>
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1621,6 +1643,28 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
               <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {localCoins}</span></div>
+
+              {/* Resgates pendentes do filho — BUG-13 */}
+              {pendingReds.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>⏳ Aguardando Entrega</div>
+                  {pendingReds.map(r => (
+                    <div key={r.id} style={{ background: `${T.secondary}0D`, borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: `1px solid ${T.secondary}22`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 24, flexShrink: 0 }}>{r.reward_emoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: T.text, fontWeight: 700, fontSize: 13 }}>{r.reward_title}</div>
+                        <div style={{ color: T.secondary, fontSize: 11, fontWeight: 700 }}>🪙 {r.coin_cost} · aguardando entrega</div>
+                      </div>
+                      <button
+                        onClick={() => cancelChildRedemption(r.id, r.coin_cost)}
+                        disabled={cancellingRed === r.id}
+                        style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.pink}55`, background: `${T.pink}15`, color: T.pink, fontWeight: 800, fontSize: 11, cursor: cancellingRed === r.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                        {cancellingRed === r.id ? "..." : "Cancelar"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {rewards.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
                 : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1665,7 +1709,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
               {achievements.map(a => {
                 const isStreak = a.condition_key === "streak_days";
-                const currentStreak = profile.streak || 0;
+                const currentStreak = effectiveStreak;
                 const streakPct = isStreak ? Math.min(1, currentStreak / a.condition_val) : 0;
                 const accentColor = a.earned ? T.secondary : (isStreak ? T.primary : T.accent);
                 return (
@@ -1728,7 +1772,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                   { label:"KidCoins", value:localCoins, icon:"🪙", color:T.secondary },
                   { label:"XP Total", value:profile.xp||0, icon:"⚡", color:T.accent },
                   { label:"Nível", value:lvl.level, icon:lvl.emoji, color:lvl.color },
-                  { label:"Streak", value:`${profile.streak||0}🔥`, icon:"", color:T.warning },
+                  { label:"Streak", value:`${effectiveStreak}🔥`, icon:"", color:T.warning },
                 ].map((s,i) => (
                   <div key={i} style={{ background: T.card, borderRadius: 14, padding: "12px 8px", border: `1px solid ${s.color}22`, textAlign: "center" }}>
                     <div style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</div>
