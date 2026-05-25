@@ -30,7 +30,7 @@ INSERT INTO public.achievements
   (emoji, name, description, condition_key, condition_val, bonus_coins)
 VALUES
   ('🔥', '1 Semana Incrível!',  '7 dias seguidos completando missões',   'streak_days',  7,   50),
-  ('⚡', '2 Semanas de Fogo!',  '14 dias seguidos completando missões',  'streak_days', 14,  100),
+  ('⚡', '2 Semanas Imparável!', '14 dias seguidos completando missões',  'streak_days', 14,  100),
   ('🌟', '3 Semanas Lendário!', '21 dias seguidos completando missões',  'streak_days', 21,  150),
   ('🏆', '1 Mês Campeão!',      '30 dias seguidos completando missões',  'streak_days', 30,  200),
   ('💎', '2 Meses Supremo!',    '60 dias seguidos completando missões',  'streak_days', 60,  400),

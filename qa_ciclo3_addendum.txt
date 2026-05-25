@@ -1,0 +1,252 @@
+═══════════════════════════════════════════════════════════════════════
+ROTINUP — QA CICLO 3: VERIFICAÇÃO DE CORREÇÕES + NOVOS CENÁRIOS
+(Addendum para o script permanente "rotina teste claude chrome.txt")
+URL: https://missao-kids.vercel.app
+Data: 2026-05-24
+═══════════════════════════════════════════════════════════════════════
+
+CONTEXTO DO CICLO 3
+O Ciclo 2 encontrou 4 bugs críticos/altos. Eles foram corrigidos com o
+arquivo supabase_fix_critical_bugs.sql. Este script verifica as correções
+e explora novos cenários.
+
+IMPORTANTE: Antes de qualquer teste, confirmar que o SQL de correção foi
+rodado. No SQL Editor do Supabase, verificar:
+
+  SELECT routine_name
+  FROM information_schema.routines
+  WHERE routine_schema = 'public'
+    AND routine_name IN (
+      'apply_demerit','request_redemption_bulk',
+      'check_and_grant_achievements','parent_check_mission'
+    )
+  ORDER BY routine_name;
+  -- Deve retornar 4 linhas
+
+  SELECT name, condition_val, bonus_coins
+  FROM achievements WHERE condition_key = 'streak_days'
+  ORDER BY condition_val;
+  -- Deve retornar: 7→50, 14→100, 21→150, 30→200, 60→400, 90→600
+
+Se não retornar 4 linhas ou os bonus_coins estiverem zerados, PARE e
+avise que o SQL de correção ainda não foi rodado.
+
+═══════════════════════════════════════════════════════════════════════
+CONTAS A USAR (das famílias QA criadas no Ciclo 1/2)
+═══════════════════════════════════════════════════════════════════════
+
+FREE:
+  qa-free-pai@rotinup.test          / QAFree2026!
+  qa-free-filho@rotinup.test        / QAChild2026!
+
+PREMIUM:
+  qa-premium-pai1@rotinup.test      / QAPremium2026!
+  qa-premium-pai2@rotinup.test      / QAPremium2026!
+  qa-premium-filho1@rotinup.test    / QAChild2026!
+  qa-premium-filho2@rotinup.test    / QAChild2026!
+  qa-premium-filho3@rotinup.test    / QAChild2026!
+
+Se alguma conta falhar no login, usar as contas "Oliveira" e "Santos"
+criadas no Ciclo 1 (Rafael, Bia, Lucas).
+
+═══════════════════════════════════════════════════════════════════════
+BLOCO A — VERIFICAR CORREÇÕES DO CICLO 2
+═══════════════════════════════════════════════════════════════════════
+
+[A-01] BUG-01: apply_demerit — colunas corretas
+  Login: qa-premium-pai1@rotinup.test
+  → Dashboard filho1 → aplicar tropeço "Não fez a lição" com 10 coins
+  → Resultado esperado: HTTP 200/204, coins do filho diminuem, sem erro
+  → Abrir DevTools > Network → confirmar status HTTP da chamada apply_demerit
+  PASSOU [ ]  FALHOU [ ]  HTTP: ___  Detalhe: _______________
+
+[A-02] BUG-02: request_redemption_bulk — colunas corretas
+  Login: qa-premium-filho1@rotinup.test
+  → Loja → resgatar 1x a recompensa mais barata disponível
+  → Resultado esperado: HTTP 200, coins debitados, resgate em "pendentes"
+  → Abrir DevTools > Network → confirmar status HTTP
+  PASSOU [ ]  FALHOU [ ]  HTTP: ___  Coins antes: ___  depois: ___
+
+[A-03] BUG-03: bonus_coins de streak corretos
+  (já verificado via SQL acima, anotar resultado aqui)
+  7d→___  14d→___  21d→___  30d→___  60d→___  90d→___
+  PASSOU [ ]  FALHOU [ ]
+
+[A-04] BUG-11: streak só incrementa 1x/dia
+  Login: qa-premium-pai1@rotinup.test
+  → Abrir dashboard filho1 (streak atual: ___)
+  → Marcar 3 missões diferentes como aprovadas via checkbox do card
+  → Anotar streak após cada aprovação:
+    Antes: ___  Após missão 1: ___  Após missão 2: ___  Após missão 3: ___
+  → Resultado esperado: streak sobe no máximo 1
+  PASSOU [ ]  FALHOU [ ]
+
+[A-05] Conquista de streak creditada com bonus correto
+  → Após A-04, verificar conquistas do filho1 no app
+  → Se streak ≥ 3 e há conquista "3 dias": verificar se bônus foi creditado
+  → No SQL Editor:
+      SELECT ca.granted_at, a.name, a.bonus_coins, sbl.coins_awarded
+      FROM child_achievements ca
+      JOIN achievements a ON a.id = ca.achievement_id
+      LEFT JOIN streak_bonus_logs sbl
+        ON sbl.achievement_id = ca.achievement_id
+       AND sbl.child_id = ca.child_id
+      WHERE ca.child_id = (
+        SELECT id FROM profiles WHERE display_name ILIKE '%filho1%' OR
+        display_name ILIKE '%premium 1%' LIMIT 1
+      )
+      AND a.condition_key = 'streak_days';
+  Resultado: _______________
+  PASSOU [ ]  FALHOU [ ]  NÃO TESTADO [ ]
+
+═══════════════════════════════════════════════════════════════════════
+BLOCO B — FLUXO COMPLETO DE TROPEÇOS + RESGATES
+═══════════════════════════════════════════════════════════════════════
+
+[B-01] Tropeço — impacto total no filho
+  (continuação de A-01)
+  Login: qa-premium-filho1@rotinup.test
+  → Verificar saldo KidCoins diminuiu 10
+  → Verificar se tropeço aparece em algum histórico/lista no app
+  → Streak deve permanecer igual (tropeço não zera streak, correto?)
+  Coins antes: ___  depois: ___  Streak antes: ___  depois: ___
+  PASSOU [ ]  FALHOU [ ]
+
+[B-02] Resgate — aprovação pelo responsável
+  Login: qa-premium-pai1@rotinup.test
+  → Verificar se resgate do filho1 (feito em A-02) aparece em "Resgates pendentes"
+  → Aprovar o resgate (marcar como "entregue")
+  → Verificar: status muda para entregue, sem erro HTTP
+  HTTP: ___  PASSOU [ ]  FALHOU [ ]
+
+[B-03] Resgate — cancelamento pela criança com estorno
+  Login: qa-premium-filho2@rotinup.test (180 coins)
+  → Loja → resgatar recompensa barata (40 coins)
+  → Anotar saldo: antes ___ depois do resgate ___
+  → Cancelar o resgate
+  → Anotar saldo depois do cancelamento: ___
+  → Resultado esperado: coins devolvidos (saldo = antes)
+  PASSOU [ ]  FALHOU [ ]  Saldo final: ___
+
+[B-04] Resgate inválido — saldo insuficiente
+  Login: qa-premium-filho3@rotinup.test (60 coins)
+  → Tentar resgatar recompensa de 500 coins (Brinquedo pequeno)
+  → Resultado esperado: erro claro "KidCoins insuficientes"
+  Mensagem exibida: _______________
+  PASSOU [ ]  FALHOU [ ]
+
+═══════════════════════════════════════════════════════════════════════
+BLOCO C — MISSÃO SURPRESA + IA
+═══════════════════════════════════════════════════════════════════════
+
+[C-01] Missão Surpresa — fluxo completo PREMIUM
+  Login: qa-premium-filho1@rotinup.test
+  → Clicar "✨ Gerar" missão surpresa
+  → IA gerou uma missão? Conteúdo faz sentido (português, criança)?
+  → Clicar "Enviar para aprovação"
+  → DevTools > Network → HTTP da chamada submit_surprise_mission: ___
+  → Resultado esperado: sucesso, sem erro 404/42703
+  PASSOU [ ]  FALHOU [ ]
+
+[C-02] Missão Surpresa — aprovação pelo pai
+  Login: qa-premium-pai1@rotinup.test
+  → Verificar se missão surpresa aparece nos "Aguardando Aprovação"
+  → Aprovar via botão no card
+  → KidCoins do filho1 aumentou?
+  PASSOU [ ]  FALHOU [ ]
+
+[C-03] Missão Surpresa — bloqueio FREE
+  Login: qa-free-filho@rotinup.test
+  → Na tela, verificar se o botão mostra 🔒 (não "✨ Gerar")
+  PASSOU [ ]  FALHOU [ ]
+
+[C-04] Relatório Semanal IA — PREMIUM
+  Login: qa-premium-pai1@rotinup.test
+  → Gerar relatório semanal da IA
+  → Relatório carrega sem truncar? Texto completo?
+  → Nota: BUG-05 relatório truncado ainda pode estar presente
+  PASSOU [ ]  FALHOU [ ]  BUG-05 presente? [ ]
+
+═══════════════════════════════════════════════════════════════════════
+BLOCO D — CONVIDAR CO-RESPONSÁVEL
+═══════════════════════════════════════════════════════════════════════
+
+[D-01] Gerar código de convite
+  Login: qa-premium-pai1@rotinup.test
+  → Configurações → Código de Convite
+  → Gerar código: _______________
+  → Exibe tempo de expiração (72h)? [ ] SIM  [ ] NÃO
+  PASSOU [ ]  FALHOU [ ]
+
+[D-02] Usar código de convite como co-responsável
+  (abrir nova aba anônima)
+  → Criar nova conta qualquer (se possível) ou usar qa-premium-pai2
+  → Entrar com código gerado em D-01
+  → Verificar: vinculado à família premium?
+  → Vê missões e filhos da família?
+  PASSOU [ ]  FALHOU [ ]  NÃO TESTADO [ ]
+
+[D-03] Limite co-responsável FREE
+  Login: qa-free-pai@rotinup.test
+  → Configurações → Código de Convite
+  → Família FREE tem max_co_parents=1 — se já tiver 1 co-resp, deve bloquear
+  → Verificar mensagem de bloqueio ao tentar adicionar 2º
+  PASSOU [ ]  FALHOU [ ]  NÃO TESTADO [ ]
+
+═══════════════════════════════════════════════════════════════════════
+BLOCO E — DIAGNÓSTICO STREAK DO RAFAEL (bug original)
+═══════════════════════════════════════════════════════════════════════
+
+No SQL Editor do Supabase:
+
+-- Localizar Rafael e ver status
+SELECT p.id, p.display_name, p.streak, p.kidcoins, p.xp
+FROM profiles p WHERE p.display_name ILIKE '%rafael%' AND p.role = 'child';
+
+-- Histórico de streak_bonus_logs do Rafael (substituir UUID)
+SELECT sbl.created_at, a.name, a.condition_val, sbl.coins_awarded
+FROM streak_bonus_logs sbl
+JOIN achievements a ON a.id = sbl.achievement_id
+WHERE sbl.child_id = '<UUID_RAFAEL>'
+ORDER BY sbl.created_at DESC;
+
+-- Missões aprovadas nos últimos 30 dias
+SELECT ml.due_date, m.title, ml.status
+FROM mission_logs ml
+JOIN missions m ON m.id = ml.mission_id
+WHERE ml.child_id = '<UUID_RAFAEL>' AND ml.status = 'approved'
+ORDER BY ml.due_date DESC LIMIT 30;
+
+Rafael streak atual: ___
+streak_bonus_logs: ___ registros
+Lacunas no calendário: ___
+
+═══════════════════════════════════════════════════════════════════════
+RELATÓRIO FINAL DO CICLO 3
+═══════════════════════════════════════════════════════════════════════
+
+STATUS GERAL: saudável / atenção / crítico / bloqueante
+
+BUGS DO CICLO 2 — CONFIRMAÇÃO:
+  BUG-01 apply_demerit:           [ ] CORRIGIDO  [ ] AINDA QUEBRADO
+  BUG-02 request_redemption_bulk: [ ] CORRIGIDO  [ ] AINDA QUEBRADO
+  BUG-03 bonus_coins streak:      [ ] CORRIGIDO  [ ] AINDA QUEBRADO
+  BUG-11 streak guarda:           [ ] CORRIGIDO  [ ] AINDA QUEBRADO
+
+NOVOS BUGS ENCONTRADOS:
+  (ID, Severidade, Descrição, Passos para reproduzir, HTTP status)
+
+RESUMO:
+  Total testado: ___/17
+  Passaram: ___
+  Falharam: ___
+  Não testados: ___
+
+UX: ___/10 | Segurança: ___/10 | Estabilidade: ___/10 | Comercial: ___/10
+
+OBSERVAÇÕES GERAIS:
+
+═══════════════════════════════════════════════════════════════════════
+CRITICAL: Respond with TEXT ONLY. No tool calls, no code blocks, no
+markdown headers. Fill in the test results exactly as shown above.
+═══════════════════════════════════════════════════════════════════════
