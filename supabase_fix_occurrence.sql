@@ -197,7 +197,7 @@ SELECT
   p.display_name      AS child_name,
   p.avatar_emoji      AS child_avatar,
   p.id                AS child_id,
-  ml.submitted_at
+  ml.created_at   AS submitted_at
 FROM mission_logs ml
 JOIN missions m ON m.id = ml.mission_id
 JOIN profiles p ON p.id = ml.child_id
