@@ -2648,7 +2648,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           name: c.display_name, age: c.age, xp: c.xp, kidcoins: c.kidcoins, streak: c.streak,
         })),
       });
-      const report = (rawReport || "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+      const report = (rawReport || "")
+        .replace(/^#{1,3}\s*/gm, "")
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/^-\s+/gm, "• ");
       setAiReport(report);
     } catch (e) {
       const msg = e.message || "";
