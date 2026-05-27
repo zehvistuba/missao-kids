@@ -1391,6 +1391,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     return logs.find(l => l.mission_id === mid && l.due_date >= cutoffStr);
   };
 
+  const countLogsInPeriod = (mid, frequency = "daily") => {
+    const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
+    const cutoffStr = localDateStr(cutoffDays);
+    return logs.filter(l => l.mission_id === mid && l.due_date >= cutoffStr && l.status !== "rejected").length;
+  };
+
   const submit = async (mid) => {
     setSubmitting(mid);
     const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid, p_due_date: localDateStr(0) });
@@ -1608,8 +1614,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                     const log = getLog(m.id, m.frequency);
                     const done = log?.status === "approved";
                     const pend = log?.status === "pending";
+                    const timesInPeriod = countLogsInPeriod(m.id, m.frequency);
                     return (
-                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}`, opacity: done ? 0.75 : 1 }}>
+                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                           <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 28, background: done ? `${T.accent}22` : iconGrad(mi), border: `1px solid ${done ? T.accent+"44" : iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: done ? "none" : `0 4px 12px rgba(0,0,0,0.2)` }}>{done ? "✅" : m.emoji}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1618,10 +1625,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                               <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
                               <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
                               {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
+                              {timesInPeriod > 1 && <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>🔁 {timesInPeriod}ª vez</span>}
                             </div>
                           </div>
                           {!done && !pend && <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>}
                           {pend && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>}
+                          {done && !pend && <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "7px 12px", borderRadius: 12, border: `1px solid ${T.warning}55`, background: `${T.warning}15`, color: T.warning, fontWeight: 800, fontSize: 11, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "🔁 Fiz de novo!"}</button>}
                         </div>
                       </div>
                     );
@@ -2520,6 +2529,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     return childLogs.find(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr);
   };
 
+  const countChildLogsInPeriod = (childId, missionId, frequency = "daily") => {
+    const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
+    const cutoffStr = localDateStr(cutoffDays);
+    return childLogs.filter(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr && l.status !== "rejected").length;
+  };
+
   const parentCheck = async (childId, missionId) => {
     const key = `${childId}-${missionId}`;
     setCheckingMission(key);
@@ -2797,9 +2812,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   {pending.map(p => (
                     <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${T.warning}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
+                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${p.occurrence > 1 ? T.warning+"88" : T.warning+"44"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</span>
+                            {p.occurrence > 1 && (
+                              <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}25`, borderRadius: 6, padding: "1px 7px", fontWeight: 900, flexShrink: 0 }}>
+                                🔁 {p.occurrence}ª vez {p.mission_frequency === "daily" ? "hoje" : p.mission_frequency === "weekly" ? "na semana" : "no período"}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                             <AvatarImg value={p.child_avatar} size={20} radius={6} />
                             <span style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward} KidCoins</span>
@@ -2862,17 +2884,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                               const done = log?.status === "approved";
                               const pend = log?.status === "pending";
                               const key = `${child.id}-${m.id}`;
+                              const timesInPeriod = countChildLogsInPeriod(child.id, m.id, m.frequency);
                               return (
-                                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, opacity: done ? 0.5 : 1 }}>
+                                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, opacity: pend ? 0.6 : 1 }}>
                                   <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✅" : m.emoji}</span>
-                                  <div style={{ flex: 1, color: done ? T.textMuted : T.text, fontSize: 13, fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
-                                  {done
-                                    ? <span style={{ fontSize: 10, color: T.accent, fontWeight: 800 }}>Feito</span>
-                                    : pend
-                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800 }}>⏳ Aguardando</span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ color: done ? T.textMuted : T.text, fontSize: 13, fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
+                                    {timesInPeriod > 1 && <div style={{ fontSize: 10, color: T.warning, fontWeight: 800, marginTop: 1 }}>🔁 {timesInPeriod}ª vez {m.frequency === "daily" ? "hoje" : "no período"}</div>}
+                                  </div>
+                                  {pend
+                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800, flexShrink: 0 }}>⏳ Aguardando</span>
                                     : <button onClick={() => parentCheck(child.id, m.id)} disabled={checkingMission === key}
-                                        style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: checkingMission === key ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                                        {checkingMission === key ? "..." : "✓ Marcar"}
+                                        style={{ padding: "5px 12px", borderRadius: 10, border: done ? `1px solid ${T.warning}55` : "none", background: done ? `${T.warning}15` : `${T.accent}22`, color: done ? T.warning : T.accent, fontWeight: 800, fontSize: 11, cursor: checkingMission === key ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
+                                        {checkingMission === key ? "..." : done ? "🔁 De novo" : "✓ Marcar"}
                                       </button>}
                                 </div>
                               );
