@@ -123,9 +123,6 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
           maxOutputTokens: isJson ? 2048 : 4096,
           ...(isJson ? { responseMimeType: "application/json" } : {}),
         },
-        // Desabilita thinking para modelos Gemini 2.5 — sem isso o thinking
-        // consome a maior parte dos tokens deixando a resposta truncada
-        thinkingConfig: { thinkingBudget: 0 },
       }),
     });
 
