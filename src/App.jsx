@@ -1713,38 +1713,96 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           )}
 
           {/* ACHIEVEMENTS */}
-          {tab === "achievements" && (
+          {tab === "achievements" && (() => {
+            const earned = achievements.filter(a => a.earned);
+            const inProgress = achievements.filter(a => !a.earned && a.condition_key === "streak_days");
+            const locked = achievements.filter(a => !a.earned && a.condition_key !== "streak_days");
+            const total = achievements.length;
+            const pct = total > 0 ? earned.length / total : 0;
+            return (
             <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
-              {achievements.map(a => {
-                const isStreak = a.condition_key === "streak_days";
-                const currentStreak = effectiveStreak;
-                const streakPct = isStreak ? Math.min(1, currentStreak / a.condition_val) : 0;
-                const accentColor = a.earned ? T.secondary : (isStreak ? T.primary : T.accent);
-                return (
-                  <div key={a.id} style={{ background: a.earned ? `${accentColor}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${a.earned ? accentColor+"44" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", gap: 16, opacity: a.earned ? 1 : 0.55 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 28, background: a.earned ? `${accentColor}22` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", filter: a.earned ? "none" : "grayscale(100%)", flexShrink: 0 }}>{a.emoji}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: a.earned ? T.text : T.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
-                      <div style={{ color: T.textMuted, fontSize: 12, marginTop: 3 }}>{a.description}</div>
-                      {isStreak && !a.earned && (
-                        <div style={{ marginTop: 6 }}>
-                          <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 3 }}>
-                            <div style={{ height: "100%", width: `${streakPct * 100}%`, background: T.primary, borderRadius: 999, transition: "width 0.5s" }} />
-                          </div>
-                          <div style={{ fontSize: 10, color: T.textMuted }}>🔥 {currentStreak}/{a.condition_val} dias</div>
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
-                        {a.earned && <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>✨ Desbloqueado</span>}
-                        {(a.bonus_coins > 0) && <span style={{ background: `${T.accent}18`, color: T.accent, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>+{a.bonus_coins}🪙 bônus</span>}
+              {/* Header com progresso geral */}
+              <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 22, padding: "18px 20px", marginBottom: 20, border: `1px solid ${T.purple}33` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>🏆 Conquistas</div>
+                  <div style={{ color: T.purple, fontWeight: 900, fontSize: 16 }}>{earned.length}<span style={{ color: T.textMuted, fontWeight: 500, fontSize: 13 }}>/{total}</span></div>
+                </div>
+                <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct * 100}%`, background: `linear-gradient(90deg, ${T.purple}, ${T.pink})`, borderRadius: 999, transition: "width 0.6s ease" }} />
+                </div>
+                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 6 }}>
+                  {earned.length === 0 ? "Complete missões para desbloquear conquistas!" : earned.length === total ? "🎉 Todas as conquistas desbloqueadas!" : `Faltam ${total - earned.length} para completar tudo!`}
+                </div>
+              </div>
+
+              {/* Desbloqueadas — grid visual */}
+              {earned.length > 0 && (
+                <>
+                  <div style={{ color: T.secondary, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>✨ DESBLOQUEADAS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                    {earned.map(a => (
+                      <div key={a.id} style={{ background: `linear-gradient(135deg, ${T.secondary}18, ${T.accent}10)`, borderRadius: 20, padding: 16, border: `1.5px solid ${T.secondary}44`, textAlign: "center", position: "relative", overflow: "hidden" }}>
+                        <div style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: T.secondary, fontWeight: 900 }}>✨</div>
+                        <div style={{ fontSize: 42, marginBottom: 8, filter: "drop-shadow(0 4px 12px rgba(255,211,63,0.4))" }}>{a.emoji}</div>
+                        <div style={{ color: T.text, fontWeight: 800, fontSize: 13, lineHeight: 1.3 }}>{a.name}</div>
+                        {a.bonus_coins > 0 && (
+                          <div style={{ marginTop: 8, display: "inline-block", background: `${T.accent}22`, color: T.accent, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>+{a.bonus_coins}🪙</div>
+                        )}
                       </div>
-                    </div>
+                    ))}
                   </div>
-                );
-              })}
+                </>
+              )}
+
+              {/* Em progresso — barras grandes */}
+              {inProgress.length > 0 && (
+                <>
+                  <div style={{ color: T.primary, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>🔥 EM PROGRESSO</div>
+                  {inProgress.map(a => {
+                    const pct = Math.min(1, effectiveStreak / a.condition_val);
+                    const remaining = a.condition_val - effectiveStreak;
+                    return (
+                      <div key={a.id} style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 10, border: `1px solid ${T.primary}33` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                          <div style={{ fontSize: 40 }}>{a.emoji}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>{a.name}</div>
+                            <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>{a.description}</div>
+                          </div>
+                          {a.bonus_coins > 0 && <div style={{ color: T.accent, fontWeight: 900, fontSize: 13, flexShrink: 0 }}>+{a.bonus_coins}🪙</div>}
+                        </div>
+                        <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 6 }}>
+                          <div style={{ height: "100%", width: `${pct * 100}%`, background: `linear-gradient(90deg, ${T.primary}, ${T.warning})`, borderRadius: 999, transition: "width 0.5s" }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                          <span style={{ color: T.primary, fontWeight: 800 }}>🔥 {effectiveStreak} dias</span>
+                          <span style={{ color: T.textMuted }}>faltam {remaining} dia{remaining !== 1 ? "s" : ""}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Bloqueadas — lista compacta */}
+              {locked.length > 0 && (
+                <>
+                  <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12, marginTop: 4 }}>🔒 BLOQUEADAS</div>
+                  {locked.map(a => (
+                    <div key={a.id} style={{ background: T.card, borderRadius: 16, padding: "12px 16px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 14, opacity: 0.45 }}>
+                      <div style={{ fontSize: 28, filter: "grayscale(100%)", flexShrink: 0 }}>{a.emoji}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13 }}>{a.name}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{a.description}</div>
+                      </div>
+                      {a.bonus_coins > 0 && <div style={{ color: T.textMuted, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>+{a.bonus_coins}🪙</div>}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* PROFILE */}
           {tab === "profile" && (
