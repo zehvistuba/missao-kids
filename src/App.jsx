@@ -158,6 +158,7 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
+  { key: "__themed__",  label: "🌟 Temático"    },
   { key: "__emoji__",   label: "🐾 Figurinha"   },
   { key: "adventurer",  label: "🧒 Aventureiro" },
   { key: "avataaars",   label: "🎨 Cartoon"     },
@@ -187,8 +188,90 @@ const DB_SEEDS = [
 const avatarUrl = (seed, style = "adventurer") =>
   `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,transparent`;
 
+// Gera SVG data URL local — sem API, sem rate limit
+const makeJerseySvg = ({ number, name, sub, bg, text, stripe }) => {
+  const s = stripe || "rgba(255,255,255,0.15)";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="18" fill="${bg}"/>
+    <rect x="0" y="0" width="100" height="28" rx="18" fill="${s}"/>
+    <rect x="0" y="14" width="100" height="14" fill="${s}"/>
+    <text x="50" y="62" text-anchor="middle" fill="${text}" font-family="Arial Black,sans-serif" font-size="34" font-weight="900">${number}</text>
+    <text x="50" y="78" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="10" font-weight="800" opacity="0.95">${name}</text>
+    <text x="50" y="92" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="8" opacity="0.65">${sub}</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+};
+const makeBadgeSvg = ({ symbol, name, sub, bg, text }) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="18" fill="${bg}"/>
+    <text x="50" y="56" text-anchor="middle" font-size="38">${symbol}</text>
+    <text x="50" y="76" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="10" font-weight="800">${name}</text>
+    <text x="50" y="91" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="8" opacity="0.65">${sub}</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+};
+
+const THEMED_AVATARS = {
+  "⚽ Futebol": [
+    { id:"cr7-mu",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Man. Utd",  bg:"#DA291C", text:"#FBE122", stripe:"rgba(0,0,0,0.2)" }) },
+    { id:"cr7-rm",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Real Madrid",bg:"#FEFEFE",text:"#7B1FA2" }) },
+    { id:"cr7-pt",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Portugal",  bg:"#006600", text:"#FFFFFF", stripe:"rgba(255,0,0,0.3)" }) },
+    { id:"messi-ar", v: makeJerseySvg({ number:"10", name:"Messi",   sub:"Argentina", bg:"#74ACDF", text:"#FFFFFF" }) },
+    { id:"messi-bc", v: makeJerseySvg({ number:"10", name:"Messi",   sub:"Barcelona", bg:"#A50044", text:"#FFFFFF", stripe:"rgba(0,77,152,0.5)" }) },
+    { id:"neymar-br",v: makeJerseySvg({ number:"10", name:"Neymar",  sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
+    { id:"vini-br",  v: makeJerseySvg({ number:"7",  name:"Vinicius",sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
+    { id:"mbappe-fr",v: makeJerseySvg({ number:"7",  name:"Mbappé",  sub:"França",    bg:"#002395", text:"#FFFFFF", stripe:"rgba(237,41,57,0.4)" }) },
+    { id:"haaland",  v: makeJerseySvg({ number:"9",  name:"Haaland", sub:"Man City",  bg:"#6CABDD", text:"#FFFFFF" }) },
+    { id:"benzema",  v: makeJerseySvg({ number:"9",  name:"Benzema", sub:"Real Madrid",bg:"#FEFEFE",text:"#7B1FA2" }) },
+    { id:"pele-br",  v: makeJerseySvg({ number:"10", name:"Pelé",    sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
+    { id:"ron10-br", v: makeJerseySvg({ number:"9",  name:"R9",      sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
+  ],
+  "🎌 Anime": [
+    { id:"naruto",   v: makeBadgeSvg({ symbol:"🍥", name:"Naruto",  sub:"Konoha",    bg:"#FF6B00", text:"#FFFFFF" }) },
+    { id:"goku",     v: makeBadgeSvg({ symbol:"⭐", name:"Goku",    sub:"Dragon Ball",bg:"#FF8C00",text:"#FFFFFF" }) },
+    { id:"luffy",    v: makeBadgeSvg({ symbol:"⚓", name:"Luffy",   sub:"One Piece", bg:"#CC0000", text:"#FFFFFF" }) },
+    { id:"pikachu",  v: makeBadgeSvg({ symbol:"⚡", name:"Pikachu", sub:"Pokémon",   bg:"#FFD700", text:"#5B3A00" }) },
+    { id:"sasuke",   v: makeBadgeSvg({ symbol:"🌀", name:"Sasuke",  sub:"Konoha",    bg:"#1A1A2E", text:"#8A2BE2" }) },
+    { id:"tanjiro",  v: makeBadgeSvg({ symbol:"🌊", name:"Tanjiro", sub:"Kimetsu",   bg:"#006994", text:"#FFFFFF" }) },
+    { id:"bakugo",   v: makeBadgeSvg({ symbol:"💥", name:"Bakugo",  sub:"My Hero",   bg:"#FF4500", text:"#FFFFFF" }) },
+    { id:"totoro",   v: makeBadgeSvg({ symbol:"🌿", name:"Totoro",  sub:"Ghibli",    bg:"#4A7C59", text:"#FFFFFF" }) },
+    { id:"zenitsu",  v: makeBadgeSvg({ symbol:"⚡", name:"Zenitsu", sub:"Kimetsu",   bg:"#FFD700", text:"#8B0000" }) },
+    { id:"levi",     v: makeBadgeSvg({ symbol:"⚔️",  name:"Levi",    sub:"AOT",       bg:"#2C3E50", text:"#FFFFFF" }) },
+    { id:"luffy2",   v: makeBadgeSvg({ symbol:"👒", name:"Luffy",   sub:"One Piece", bg:"#CC0000", text:"#FFFFFF" }) },
+    { id:"deku",     v: makeBadgeSvg({ symbol:"💚", name:"Deku",    sub:"My Hero",   bg:"#006400", text:"#FFFFFF" }) },
+  ],
+  "🦸 Heróis": [
+    { id:"spider",   v: makeBadgeSvg({ symbol:"🕷️",  name:"Homem-Aranha",sub:"Marvel",  bg:"#CC0000", text:"#FFFFFF" }) },
+    { id:"batman",   v: makeBadgeSvg({ symbol:"🦇", name:"Batman",  sub:"DC",        bg:"#1A1A1A", text:"#FFD700" }) },
+    { id:"superman", v: makeBadgeSvg({ symbol:"⚡", name:"Superman",sub:"DC",        bg:"#0033CC", text:"#CC0000" }) },
+    { id:"thor",     v: makeBadgeSvg({ symbol:"🔨", name:"Thor",    sub:"Marvel",    bg:"#1E3A5F", text:"#FFD700" }) },
+    { id:"hulk",     v: makeBadgeSvg({ symbol:"💪", name:"Hulk",    sub:"Marvel",    bg:"#228B22", text:"#8B0000" }) },
+    { id:"flash",    v: makeBadgeSvg({ symbol:"⚡", name:"Flash",   sub:"DC",        bg:"#CC0000", text:"#FFD700" }) },
+    { id:"capam",    v: makeBadgeSvg({ symbol:"🛡️",  name:"Cap. América",sub:"Marvel",bg:"#002868",text:"#FFFFFF" }) },
+    { id:"pantera",  v: makeBadgeSvg({ symbol:"🐾", name:"Pantera", sub:"Wakanda",   bg:"#1A1A2E", text:"#C0A000" }) },
+    { id:"deadpool", v: makeBadgeSvg({ symbol:"💬", name:"Deadpool",sub:"Marvel",    bg:"#CC0000", text:"#1A1A1A" }) },
+    { id:"ironman",  v: makeBadgeSvg({ symbol:"🔴", name:"Homem de Ferro",sub:"Marvel",bg:"#CC0000",text:"#FFD700"}) },
+    { id:"naruto2",  v: makeBadgeSvg({ symbol:"🔥", name:"Aquaman", sub:"DC",        bg:"#006994", text:"#FFD700" }) },
+    { id:"wanda",    v: makeBadgeSvg({ symbol:"🔮", name:"Wanda",   sub:"Marvel",    bg:"#8B0000", text:"#FFFFFF" }) },
+  ],
+  "🎬 Filmes": [
+    { id:"simba",    v: makeBadgeSvg({ symbol:"🦁", name:"Simba",   sub:"Rei Leão",  bg:"#FF8C00", text:"#FFFFFF" }) },
+    { id:"buzz",     v: makeBadgeSvg({ symbol:"🚀", name:"Buzz",    sub:"Toy Story", bg:"#4169E1", text:"#FFFFFF" }) },
+    { id:"woody",    v: makeBadgeSvg({ symbol:"🤠", name:"Woody",   sub:"Toy Story", bg:"#8B4513", text:"#FFD700" }) },
+    { id:"nemo",     v: makeBadgeSvg({ symbol:"🐠", name:"Nemo",    sub:"Nemo",      bg:"#FF6600", text:"#FFFFFF" }) },
+    { id:"elsa",     v: makeBadgeSvg({ symbol:"❄️",  name:"Elsa",    sub:"Frozen",    bg:"#4FC3F7", text:"#FFFFFF" }) },
+    { id:"moana",    v: makeBadgeSvg({ symbol:"🌊", name:"Moana",   sub:"Moana",     bg:"#006994", text:"#FFD700" }) },
+    { id:"panda",    v: makeBadgeSvg({ symbol:"🐼", name:"Po",      sub:"Kung Fu",   bg:"#1A1A1A", text:"#FFD700" }) },
+    { id:"stitch",   v: makeBadgeSvg({ symbol:"🛸", name:"Stitch",  sub:"Lilo",      bg:"#4169E1", text:"#FFFFFF" }) },
+    { id:"remy",     v: makeBadgeSvg({ symbol:"🍽️",  name:"Remy",    sub:"Ratatouille",bg:"#5B2333",text:"#FFFFFF"}) },
+    { id:"dash",     v: makeBadgeSvg({ symbol:"💨", name:"Dash",    sub:"Incríveis", bg:"#CC0000", text:"#FFFFFF" }) },
+    { id:"merida",   v: makeBadgeSvg({ symbol:"🏹", name:"Mérida",  sub:"Valente",   bg:"#006400", text:"#FFD700" }) },
+    { id:"gru",      v: makeBadgeSvg({ symbol:"🍌", name:"Gru",     sub:"Meu Malvado",bg:"#4A4A6A",text:"#FFDF00"}) },
+  ],
+};
+
 const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
-  if (value?.startsWith("http")) {
+  if (value?.startsWith("http") || value?.startsWith("data:")) {
     return <img src={value} alt="avatar" width={size} height={size} style={{ borderRadius: radius, objectFit: "cover", display: "block", background: "rgba(156,93,229,0.15)", ...css }} />;
   }
   return (
@@ -199,11 +282,13 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 };
 
 const DiceBearPicker = ({ value, onChange }) => {
-  const isEmoji = value && !value.startsWith("http");
+  const isEmoji = value && !value.startsWith("http") && !value.startsWith("data:");
+  const isThemed = value?.startsWith("data:");
   const [dbStyle, setDbStyle] = useState(
-    isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer")
+    isThemed ? "__themed__" : isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "__themed__")
   );
   const [emojiCat, setEmojiCat] = useState(Object.keys(AVATAR_EMOJI_CATS)[0]);
+  const [themedCat, setThemedCat] = useState(Object.keys(THEMED_AVATARS)[0]);
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 2 }}>
@@ -215,7 +300,25 @@ const DiceBearPicker = ({ value, onChange }) => {
         ))}
       </div>
 
-      {dbStyle === "__emoji__" ? (
+      {dbStyle === "__themed__" ? (
+        <div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
+            {Object.keys(THEMED_AVATARS).map(cat => (
+              <button key={cat} onClick={() => setThemedCat(cat)}
+                style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 20, fontSize: 11, border: "none", background: themedCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: themedCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+            {THEMED_AVATARS[themedCat].map(({ id, v }) => (
+              <div key={id} onClick={() => onChange(v)}
+                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${value === v ? T.purple : "transparent"}`, background: value === v ? `${T.purple}22` : "transparent", transition: "all 0.15s" }}>
+                <img src={v} alt={id} width="100%" style={{ borderRadius: 10, display: "block", aspectRatio: "1" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : dbStyle === "__emoji__" ? (
         <div>
           <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
             {Object.keys(AVATAR_EMOJI_CATS).map(cat => (
