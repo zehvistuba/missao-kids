@@ -158,6 +158,7 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
+  { key: "__emoji__",   label: "🐾 Figurinha"   },
   { key: "adventurer",  label: "🧒 Aventureiro" },
   { key: "avataaars",   label: "🎨 Cartoon"     },
   { key: "bottts",      label: "🤖 Robô"        },
@@ -165,6 +166,12 @@ const DB_STYLES = [
   { key: "micah",       label: "🌈 Colorido"    },
   { key: "pixel-art",   label: "🕹️ Pixel"       },
 ];
+const AVATAR_EMOJI_CATS = {
+  "🐾 Animais":  ["🐶","🐱","🦁","🐯","🐼","🐨","🦊","🐸","🦋","🦄","🐬","🦈","🦅","🐧","🦔","🐺","🦝","🐻","🐮","🐷","🐙","🐠","🐳","🦭","🦀","🐢"],
+  "⚽ Esportes": ["⚽","🏀","🎾","🏆","🥇","🥊","🎯","🏊","🚴","🤸","🛹","🏄","🎿","🏸","🥋","🎽","🏋️","🤾","⛹️","🏇"],
+  "🦸 Heróis":   ["🦸","🧙","👑","🧜","🧚","🐉","🔥","⚡","🌟","💫","🌈","🎆","🎭","🧨","🎊","🦋","🪄","🛡️","⚔️","🏰"],
+  "🎮 Diversão": ["🎮","🕹️","🎲","🎨","🎵","🎤","🎸","🎪","🎡","🎢","🍕","🍦","🍫","🚀","✈️","🎠"],
+};
 const DB_SEEDS = [
   // Nomes
   "Luna","Bento","Sofia","Pedro","Leo","Ana","Gabi","Rafa","Nina","Theo",
@@ -192,31 +199,54 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 };
 
 const DiceBearPicker = ({ value, onChange }) => {
+  const isEmoji = value && !value.startsWith("http");
   const [dbStyle, setDbStyle] = useState(
-    DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer"
+    isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer")
   );
+  const [emojiCat, setEmojiCat] = useState(Object.keys(AVATAR_EMOJI_CATS)[0]);
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 2 }}>
         {DB_STYLES.map(s => (
           <button key={s.key} onClick={() => setDbStyle(s.key)}
-            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
+            style={{ flexShrink: 0, padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
             {s.label}
           </button>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
-        {DB_SEEDS.map(seed => {
-          const url = avatarUrl(seed, dbStyle);
-          const sel = value === url;
-          return (
-            <div key={seed} onClick={() => onChange(url)}
-              style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
-            </div>
-          );
-        })}
-      </div>
+
+      {dbStyle === "__emoji__" ? (
+        <div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
+            {Object.keys(AVATAR_EMOJI_CATS).map(cat => (
+              <button key={cat} onClick={() => setEmojiCat(cat)}
+                style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 20, fontSize: 11, border: "none", background: emojiCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+            {AVATAR_EMOJI_CATS[emojiCat].map(e => (
+              <div key={e} onClick={() => onChange(e)}
+                style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === e ? T.purple : "transparent"}`, background: value === e ? `${T.purple}22` : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, transition: "all 0.15s" }}>
+                {e}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+          {DB_SEEDS.map(seed => {
+            const url = avatarUrl(seed, dbStyle);
+            const sel = value === url;
+            return (
+              <div key={seed} onClick={() => onChange(url)}
+                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
