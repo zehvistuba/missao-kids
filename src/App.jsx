@@ -2100,7 +2100,7 @@ const ExtratoModal = ({ child, onClose }) => {
       setLoading(true);
       const [{ data: missions }, { data: redemptions }, { data: demerits }, { data: streakBonuses }] = await Promise.all([
         supabase.from("mission_logs")
-          .select("id,coins_earned,due_date,missions(title,emoji)")
+          .select("id,coins_earned,due_date,missions(title,emoji,coins_reward)")
           .eq("child_id", child.id)
           .eq("status", "approved")
           .order("due_date", { ascending: false })
@@ -2116,7 +2116,7 @@ const ExtratoModal = ({ child, onClose }) => {
           .order("created_at", { ascending: false })
           .limit(30),
         supabase.from("streak_bonus_logs")
-          .select("id,coins_awarded,streak_days,created_at,achievements(emoji,name)")
+          .select("id,bonus_coins,streak_days,created_at")
           .eq("child_id", child.id)
           .order("created_at", { ascending: false })
           .limit(20),
@@ -2127,7 +2127,7 @@ const ExtratoModal = ({ child, onClose }) => {
           id: m.id, type: "mission",
           emoji: m.missions?.emoji || "✅",
           label: m.missions?.title || "Missão",
-          coins: +(m.coins_earned || 0),
+          coins: +(m.coins_earned || m.missions?.coins_reward || 0),
           date: m.due_date,
           sortKey: m.due_date,
         })),
@@ -2151,9 +2151,9 @@ const ExtratoModal = ({ child, onClose }) => {
         })),
         ...(streakBonuses || []).map(s => ({
           id: s.id, type: "streak",
-          emoji: s.achievements?.emoji || "🔥",
-          label: s.achievements?.name || `${s.streak_days} dias seguidos!`,
-          coins: +(s.coins_awarded || 0),
+          emoji: "🔥",
+          label: `Bônus sequência ${s.streak_days} dias!`,
+          coins: +(s.bonus_coins || 0),
           date: s.created_at?.slice(0, 10),
           sortKey: s.created_at,
         })),
