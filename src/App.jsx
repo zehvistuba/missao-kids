@@ -2116,9 +2116,9 @@ const ExtratoModal = ({ child, onClose }) => {
           .order("created_at", { ascending: false })
           .limit(30),
         supabase.from("streak_bonus_logs")
-          .select("id,bonus_coins,streak_days,created_at")
+          .select("id,bonus_coins,streak_days,granted_at")
           .eq("child_id", child.id)
-          .order("created_at", { ascending: false })
+          .order("granted_at", { ascending: false })
           .limit(20),
       ]);
 
@@ -2154,8 +2154,8 @@ const ExtratoModal = ({ child, onClose }) => {
           emoji: "🔥",
           label: `Bônus sequência ${s.streak_days} dias!`,
           coins: +(s.bonus_coins || 0),
-          date: s.created_at?.slice(0, 10),
-          sortKey: s.created_at,
+          date: s.granted_at?.slice(0, 10),
+          sortKey: s.granted_at,
         })),
       ].sort((a, b) => (b.sortKey || "").localeCompare(a.sortKey || ""));
 
