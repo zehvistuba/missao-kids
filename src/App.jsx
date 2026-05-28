@@ -158,7 +158,6 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
-  { key: "__multi__",   label: "🌟 Único"       },
   { key: "__emoji__",   label: "🐾 Figurinha"   },
   { key: "adventurer",  label: "🧒 Aventureiro" },
   { key: "avataaars",   label: "🎨 Cartoon"     },
@@ -167,16 +166,6 @@ const DB_STYLES = [
   { key: "micah",       label: "🌈 Colorido"    },
   { key: "pixel-art",   label: "🕹️ Pixel"       },
 ];
-const MULTI_SEEDS = {
-  "⚽ Futebol":  ["CR7","Messi","Neymar","Mbappe","Vinicius","Ronaldinho","Pele","Craque","Benzema","Haaland","Lewandowski","Salah"],
-  "🎌 Anime":    ["Naruto","Goku","Luffy","Sasuke","Mikasa","Pikachu","Totoro","Ichigo","Bakugo","Zenitsu","Levi","Nezuko"],
-  "🎬 Pixar":    ["Woody","Buzz","Nemo","Simba","Elsa","Moana","Remy","Walle","Merida","Dash","Lighting","Sulley"],
-  "🦸 Heróis":   ["Spiderman","Batman","Superman","Flash","Thor","Hulk","Capitao","Pantera","Deadpool","Venom","Aquaman","Shazam"],
-  "🎮 Games":    ["Mario","Luigi","Link","Sonic","Crash","Kirby","Yoshi","Samus","MegaMan","Banjo","Master","Kratos"],
-  "🌟 Especial": ["Dragon","Phoenix","Galaxy","Thunder","Storm","Nebula","Comet","Aurora","Eclipse","Titan","Nova","Cosmos"],
-};
-const multiAvatarUrl = (seed) =>
-  `https://api.multiavatar.com/${encodeURIComponent(seed)}.svg`;
 const AVATAR_EMOJI_CATS = {
   "🐾 Animais":  ["🐶","🐱","🦁","🐯","🐼","🐨","🦊","🐸","🦋","🦄","🐬","🦈","🦅","🐧","🦔","🐺","🦝","🐻","🐮","🐷","🐙","🐠","🐳","🦭","🦀","🐢"],
   "⚽ Esportes": ["⚽","🏀","🎾","🏆","🥇","🥊","🎯","🏊","🚴","🤸","🛹","🏄","🎿","🏸","🥋","🎽","🏋️","🤾","⛹️","🏇"],
@@ -211,12 +200,10 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 
 const DiceBearPicker = ({ value, onChange }) => {
   const isEmoji = value && !value.startsWith("http");
-  const isMulti = value?.includes("multiavatar.com");
   const [dbStyle, setDbStyle] = useState(
-    isMulti ? "__multi__" : isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "__multi__")
+    isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer")
   );
   const [emojiCat, setEmojiCat] = useState(Object.keys(AVATAR_EMOJI_CATS)[0]);
-  const [multiCat, setMultiCat] = useState(Object.keys(MULTI_SEEDS)[0]);
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 2 }}>
@@ -228,30 +215,7 @@ const DiceBearPicker = ({ value, onChange }) => {
         ))}
       </div>
 
-      {dbStyle === "__multi__" ? (
-        <div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-            {Object.keys(MULTI_SEEDS).map(cat => (
-              <button key={cat} onClick={() => setMultiCat(cat)}
-                style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 20, fontSize: 11, border: "none", background: multiCat === cat ? T.purple : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: multiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
-            {MULTI_SEEDS[multiCat].map(seed => {
-              const url = multiAvatarUrl(seed);
-              const sel = value === url;
-              return (
-                <div key={seed} onClick={() => onChange(url)}
-                  style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, transition: "all 0.15s" }}>
-                  <img src={url} alt={seed} width={56} height={56} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
-                  <span style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, textAlign: "center" }}>{seed}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : dbStyle === "__emoji__" ? (
+      {dbStyle === "__emoji__" ? (
         <div>
           <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
             {Object.keys(AVATAR_EMOJI_CATS).map(cat => (
