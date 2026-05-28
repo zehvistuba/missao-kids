@@ -158,18 +158,24 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
-  { key: "adventurer",  label: "Aventureiro" },
-  { key: "fun-emoji",   label: "Emoji Fun"   },
-  { key: "pixel-art",   label: "Pixel Art"   },
-  { key: "croodles",    label: "Doodle"      },
-  { key: "lorelei",     label: "Aquarela"    },
-  { key: "miniavs",     label: "Mini"        },
+  { key: "adventurer",  label: "🧒 Aventureiro" },
+  { key: "avataaars",   label: "🎨 Cartoon"     },
+  { key: "bottts",      label: "🤖 Robô"        },
+  { key: "fun-emoji",   label: "😄 Emoji"       },
+  { key: "micah",       label: "🌈 Colorido"    },
+  { key: "pixel-art",   label: "🕹️ Pixel"       },
 ];
 const DB_SEEDS = [
+  // Nomes
   "Luna","Bento","Sofia","Pedro","Leo","Ana","Gabi","Rafa","Nina","Theo",
   "Mia","Duda","Luca","Bia","Gui","Lara","Mel","Kaio","Isis","Teo",
-  "Turbo","Flash","Foguete","Ninja","Dragao","Estrela","Cometa","Neon",
-  "Pixel","Spark","Bolt","Nova","Sora","Kira","Zara","Ace","Max","Rex",
+  // Fantasia e aventura
+  "Dragao","Ninja","Foguete","Estrela","Pirata","Princesa","Cavaleiro",
+  "Astronauta","Mago","Sereia","Unicornio","Fada","Heroi","Vilao",
+  // Animais
+  "Leao","Panda","Lobo","Raposa","Gato","Cachorro","Coelho","Tigre","Urso","Golfinho",
+  // Esportes e ação
+  "Craque","Campeao","Flash","Turbo","Bolt","Spark","Nova","Ace","Max","Rex",
 ];
 const avatarUrl = (seed, style = "adventurer") =>
   `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,transparent`;
