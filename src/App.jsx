@@ -1986,7 +1986,7 @@ const UpgradeModal = ({ onClose }) => {
 };
 
 // ─── Mission Modal ────────────────────────────────────────
-const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
+const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose }) => {
   const [title, setTitle]     = useState(mission.title || "");
   const [emoji, setEmoji]     = useState(mission.emoji || "⭐");
   const [coins, setCoins]     = useState(mission.coins_reward ?? 20);
@@ -1994,6 +1994,7 @@ const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
   const [frequency, setFreq]  = useState(mission.frequency || "daily");
   const [saving, setSaving]   = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [emojiCat, setEmojiCat] = useState(Object.keys(emojiCategories)[0]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -2006,9 +2007,14 @@ const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Missão</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginBottom: 16 }}>
-          {emojis.map(e => (
-            <button key={e} onClick={() => setEmoji(e)} style={{ width: 40, height: 40, borderRadius: 10, fontSize: 20, border: `2px solid ${emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
+          {Object.keys(emojiCategories).map(cat => (
+            <button key={cat} onClick={() => setEmojiCat(cat)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 20, fontSize: 12, border: "none", background: emojiCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-start", marginBottom: 16, maxHeight: 160, overflowY: "auto", padding: "4px 0" }}>
+          {(emojiCategories[emojiCat] || []).map(e => (
+            <button key={e} onClick={() => setEmoji(e)} style={{ width: 42, height: 42, borderRadius: 10, fontSize: 22, border: `2px solid ${emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
           ))}
         </div>
         <Inp icon={emoji} placeholder="Nome da missão" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
@@ -2048,12 +2054,13 @@ const MissionModal = ({ mission, emojis, onSave, onDeactivate, onClose }) => {
 };
 
 // ─── Reward Modal ─────────────────────────────────────────
-const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
+const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose }) => {
   const [title, setTitle]   = useState(reward.title || "");
   const [emoji, setEmoji]   = useState(reward.emoji || "🎁");
   const [cost, setCost]     = useState(reward.coin_cost ?? 50);
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [emojiCat, setEmojiCat] = useState(Object.keys(emojiCategories)[0]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -2066,9 +2073,14 @@ const RewardModal = ({ reward, emojis, onSave, onDeactivate, onClose }) => {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Recompensa</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginBottom: 16 }}>
-          {emojis.map(e => (
-            <button key={e} onClick={() => setEmoji(e)} style={{ width: 40, height: 40, borderRadius: 10, fontSize: 20, border: `2px solid ${emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
+          {Object.keys(emojiCategories).map(cat => (
+            <button key={cat} onClick={() => setEmojiCat(cat)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 20, fontSize: 12, border: "none", background: emojiCat === cat ? T.secondary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-start", marginBottom: 16, maxHeight: 160, overflowY: "auto", padding: "4px 0" }}>
+          {(emojiCategories[emojiCat] || []).map(e => (
+            <button key={e} onClick={() => setEmoji(e)} style={{ width: 42, height: 42, borderRadius: 10, fontSize: 22, border: `2px solid ${emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
           ))}
         </div>
         <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
@@ -2729,11 +2741,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       {/* Modal editar missão */}
       {editingMission && (() => {
         const m = editingMission;
-        const MISSION_EMOJIS = ["⭐","🎯","📚","🏃","🧹","🛁","🍽️","🐕","🌱","🎨","🎮","📖","💪","🎵","✏️","🦷","🛏️","🧺","🗓️","🌍"];
+        const MISSION_EMOJI_CATS = {
+          "⭐ Destaque":   ["⭐","🌟","💪","🔥","🏆","🥇","🎯","✅","💫","🆙","🎖️","🚀"],
+          "🏠 Casa":       ["🧹","🍽️","🛁","🛏️","🧺","🗑️","🧽","🪣","🫧","🚿","🪴","🔧","🪟","🧴","🫙","🥘","🍳","🫕"],
+          "📚 Escola":     ["📚","✏️","📖","🔬","🎒","📝","🖊️","📐","📏","💻","🔭","🧮","📓","🗂️","🖋️","📌"],
+          "⚽ Esportes":   ["⚽","🏀","🎾","🏊","🚴","🤸","🥊","🏋️","🏃","🥋","🛹","🎽","🤾","🏄","⛹️","🧗","🏇","🎿","🏸","🥅"],
+          "🐾 Animais":    ["🐕","🐈","🐠","🐇","🐢","🦜","🐾","🐱","🐶","🦁","🐯","🦊","🐻","🐼","🐨","🦋","🐸","🦮","🐹","🐰","🐧","🦅","🦔","🐬","🦈"],
+          "🥗 Saúde":      ["🥗","🥤","💊","🦷","😴","🧘","🌻","💧","🥦","🍎","🥕","🌿","🫀","🏃‍♂️","🧴","🛌","🫁"],
+          "🎨 Arte":       ["🎨","🎵","🎸","🖌️","🎭","🎬","🎤","✂️","🧩","🎻","🥁","🎹","📸","🎼","🖍️","🎪"],
+        };
         return (
           <MissionModal
             mission={m}
-            emojis={MISSION_EMOJIS}
+            emojiCategories={MISSION_EMOJI_CATS}
             onSave={async (data) => {
               const { error } = await supabase.rpc("update_mission", {
                 p_mission_id: m.id, p_title: data.title, p_emoji: data.emoji,
@@ -2755,11 +2775,18 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       {/* Modal editar recompensa */}
       {editingReward && (() => {
         const r = editingReward;
-        const REWARD_EMOJIS = ["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🎭","🏆","🛍️","🎲","🧸","🎸","🍫","🌟","💫"];
+        const REWARD_EMOJI_CATS = {
+          "🎁 Geral":      ["🎁","🏆","🥇","🌟","✨","🎊","🎉","👑","💎","🎀","🎖️","🌈"],
+          "🍕 Comida":     ["🍕","🍦","🍫","🧁","🍿","🥤","🍔","🍟","🌮","🍰","🎂","🍩","🍪","🥐","🍜","🍣","🧇","🥞","🍉","🍓"],
+          "🎮 Diversão":   ["🎮","🎬","🎡","🎠","🎪","🎢","🎲","🃏","🧸","🎳","🎯","🕹️","🎭","🎟️","🎈","🎆"],
+          "⚽ Esportes":   ["⚽","🏀","🎾","🏊","🚴","⛸️","🎽","🏖️","🧗","🤿","🥋","🎿","🏸","🛹","🤸","🏄"],
+          "🛍️ Compras":    ["🛍️","👟","👕","🎒","📱","⌚","🎧","📚","🖊️","🎨","🧢","👗","🕶️","🎠","💄","🧣"],
+          "🌟 Especial":   ["🚀","✈️","🏕️","🎤","🎸","🎻","🧳","🗺️","🎆","🎇","🌅","🎠","🛳️","🏰","🎡","🌃"],
+        };
         return (
           <RewardModal
             reward={r}
-            emojis={REWARD_EMOJIS}
+            emojiCategories={REWARD_EMOJI_CATS}
             onSave={async (data) => {
               const { error } = await supabase.rpc("update_reward", {
                 p_reward_id: r.id, p_title: data.title, p_emoji: data.emoji, p_coin_cost: data.coin_cost,
