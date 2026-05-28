@@ -2524,7 +2524,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",false),
         supabase.from("pending_approvals").select("*"),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
-        supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
+        supabase.from("mission_logs").select("mission_id, child_id, status, due_date, missions(coins_reward, xp_reward)").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
       ]);
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
@@ -2545,6 +2545,26 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
     const cutoffStr = localDateStr(cutoffDays);
     return childLogs.filter(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr && l.status !== "rejected").length;
+  };
+
+  const getWeeklyStats = (childId) => {
+    const DAY_LABELS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+    const days = Array.from({length: 7}, (_, i) => localDateStr(6 - i)); // oldest→newest
+    const approved = childLogs.filter(l => l.child_id === childId && l.status === "approved");
+    const perDay = days.map(d => ({
+      date: d,
+      label: DAY_LABELS[new Date(d + "T12:00:00").getDay()],
+      count: approved.filter(l => l.due_date === d).length,
+      isToday: d === localDateStr(0),
+    }));
+    const weekApproved = approved.filter(l => days.includes(l.due_date));
+    return {
+      perDay,
+      maxCount: Math.max(...perDay.map(d => d.count), 1),
+      totalMissions: weekApproved.length,
+      totalCoins: weekApproved.reduce((s, l) => s + (l.missions?.coins_reward || 0), 0),
+      totalXP: weekApproved.reduce((s, l) => s + (l.missions?.xp_reward || 0), 0),
+    };
   };
 
   const parentCheck = async (childId, missionId) => {
@@ -3181,16 +3201,84 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* STATS */}
           {tab === "stats" && (
             <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.length, icon:"🎁", color:T.pink }].map((s,i) => (
-                  <div key={i} style={{ background: T.card, borderRadius: 20, padding: 18, border: `1px solid ${s.color}22` }}>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26 }}>{s.value}</div>
-                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Desempenho da Semana</div>
+
+              {/* Resumo familiar */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                {[
+                  { label:"Filhos", value:children.length, icon:"👶", color:T.accent },
+                  { label:"Missões ativas", value:missions.length, icon:"🎯", color:T.primary },
+                  { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning },
+                  { label:"Missões esta semana", value:childLogs.filter(l => l.status==="approved" && l.due_date >= localDateStr(6)).length, icon:"✅", color:T.blue },
+                ].map((s,i) => (
+                  <div key={i} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", border: `1px solid ${s.color}22` }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 24 }}>{s.value}</div>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
+
+              {/* Gráfico semanal por filho */}
+              {children.map(child => {
+                const ws = getWeeklyStats(child.id);
+                const lvl = getLvl(child.xp || 0);
+                return (
+                  <div key={child.id} style={{ background: T.card, borderRadius: 22, padding: 18, marginBottom: 14, border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <AvatarImg value={child.avatar_emoji} size={38} radius={12} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{child.display_name}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11 }}>{lvl.name} · {child.streak || 0}🔥 dias seguidos</div>
+                      </div>
+                    </div>
+
+                    {/* Barras dos 7 dias */}
+                    <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 64, marginBottom: 6 }}>
+                      {ws.perDay.map((d, i) => (
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+                          <div style={{ width: "100%", display: "flex", alignItems: "flex-end", height: 48 }}>
+                            <div style={{
+                              width: "100%",
+                              height: d.count === 0 ? 4 : `${Math.round((d.count / ws.maxCount) * 100)}%`,
+                              minHeight: d.count > 0 ? 8 : 4,
+                              borderRadius: 6,
+                              background: d.count === 0
+                                ? "rgba(255,255,255,0.07)"
+                                : d.isToday
+                                  ? `linear-gradient(180deg, ${T.primary}, ${T.pink})`
+                                  : `linear-gradient(180deg, ${T.accent}, ${T.blue})`,
+                              transition: "height 0.3s ease",
+                            }} />
+                          </div>
+                          <div style={{ color: d.isToday ? T.primary : T.textMuted, fontSize: 9, fontWeight: d.isToday ? 900 : 500, marginTop: 4 }}>{d.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pills de totais da semana */}
+                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                      {[
+                        { icon: "✅", value: ws.totalMissions, label: "missões", color: T.accent },
+                        { icon: "🪙", value: ws.totalCoins, label: "KidCoins", color: T.secondary },
+                        { icon: "⭐", value: ws.totalXP, label: "XP", color: T.purple },
+                      ].map((s, i) => (
+                        <div key={i} style={{ flex: 1, background: `${s.color}14`, borderRadius: 12, padding: "8px 6px", textAlign: "center", border: `1px solid ${s.color}25` }}>
+                          <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.icon} {s.value}</div>
+                          <div style={{ color: T.textMuted, fontSize: 9, marginTop: 2 }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {children.length === 0 && (
+                <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
+                  Adicione filhos para ver o desempenho semanal.
+                </div>
+              )}
 
               {/* Assistente IA */}
               <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 24, padding: 20, marginBottom: 20, border: `1px solid ${T.purple}44` }}>
