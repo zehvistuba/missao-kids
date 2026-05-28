@@ -158,120 +158,24 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
-  { key: "__themed__",  label: "🌟 Temático"    },
-  { key: "__emoji__",   label: "🐾 Figurinha"   },
-  { key: "adventurer",  label: "🧒 Aventureiro" },
-  { key: "avataaars",   label: "🎨 Cartoon"     },
-  { key: "bottts",      label: "🤖 Robô"        },
-  { key: "fun-emoji",   label: "😄 Emoji"       },
-  { key: "micah",       label: "🌈 Colorido"    },
-  { key: "pixel-art",   label: "🕹️ Pixel"       },
+  { key: "adventurer",  label: "Aventureiro" },
+  { key: "fun-emoji",   label: "Emoji Fun"   },
+  { key: "pixel-art",   label: "Pixel Art"   },
+  { key: "croodles",    label: "Doodle"      },
+  { key: "lorelei",     label: "Aquarela"    },
+  { key: "miniavs",     label: "Mini"        },
 ];
-const AVATAR_EMOJI_CATS = {
-  "🐾 Animais":  ["🐶","🐱","🦁","🐯","🐼","🐨","🦊","🐸","🦋","🦄","🐬","🦈","🦅","🐧","🦔","🐺","🦝","🐻","🐮","🐷","🐙","🐠","🐳","🦭","🦀","🐢"],
-  "⚽ Esportes": ["⚽","🏀","🎾","🏆","🥇","🥊","🎯","🏊","🚴","🤸","🛹","🏄","🎿","🏸","🥋","🎽","🏋️","🤾","⛹️","🏇"],
-  "🦸 Heróis":   ["🦸","🧙","👑","🧜","🧚","🐉","🔥","⚡","🌟","💫","🌈","🎆","🎭","🧨","🎊","🦋","🪄","🛡️","⚔️","🏰"],
-  "🎮 Diversão": ["🎮","🕹️","🎲","🎨","🎵","🎤","🎸","🎪","🎡","🎢","🍕","🍦","🍫","🚀","✈️","🎠"],
-};
 const DB_SEEDS = [
-  // Nomes
   "Luna","Bento","Sofia","Pedro","Leo","Ana","Gabi","Rafa","Nina","Theo",
   "Mia","Duda","Luca","Bia","Gui","Lara","Mel","Kaio","Isis","Teo",
-  // Fantasia e aventura
-  "Dragao","Ninja","Foguete","Estrela","Pirata","Princesa","Cavaleiro",
-  "Astronauta","Mago","Sereia","Unicornio","Fada","Heroi","Vilao",
-  // Animais
-  "Leao","Panda","Lobo","Raposa","Gato","Cachorro","Coelho","Tigre","Urso","Golfinho",
-  // Esportes e ação
-  "Craque","Campeao","Flash","Turbo","Bolt","Spark","Nova","Ace","Max","Rex",
+  "Turbo","Flash","Foguete","Ninja","Dragao","Estrela","Cometa","Neon",
+  "Pixel","Spark","Bolt","Nova","Sora","Kira","Zara","Ace","Max","Rex",
 ];
 const avatarUrl = (seed, style = "adventurer") =>
   `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,transparent`;
 
-// Gera SVG data URL local — sem API, sem rate limit
-const makeJerseySvg = ({ number, name, sub, bg, text, stripe }) => {
-  const s = stripe || "rgba(255,255,255,0.15)";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <rect width="100" height="100" rx="18" fill="${bg}"/>
-    <rect x="0" y="0" width="100" height="28" rx="18" fill="${s}"/>
-    <rect x="0" y="14" width="100" height="14" fill="${s}"/>
-    <text x="50" y="62" text-anchor="middle" fill="${text}" font-family="Arial Black,sans-serif" font-size="34" font-weight="900">${number}</text>
-    <text x="50" y="78" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="10" font-weight="800" opacity="0.95">${name}</text>
-    <text x="50" y="92" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="8" opacity="0.65">${sub}</text>
-  </svg>`;
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-};
-const makeBadgeSvg = ({ symbol, name, sub, bg, text }) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <rect width="100" height="100" rx="18" fill="${bg}"/>
-    <text x="50" y="56" text-anchor="middle" font-size="38">${symbol}</text>
-    <text x="50" y="76" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="10" font-weight="800">${name}</text>
-    <text x="50" y="91" text-anchor="middle" fill="${text}" font-family="Arial,sans-serif" font-size="8" opacity="0.65">${sub}</text>
-  </svg>`;
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-};
-
-const THEMED_AVATARS = {
-  "⚽ Futebol": [
-    { id:"cr7-mu",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Man. Utd",  bg:"#DA291C", text:"#FBE122", stripe:"rgba(0,0,0,0.2)" }) },
-    { id:"cr7-rm",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Real Madrid",bg:"#FEFEFE",text:"#7B1FA2" }) },
-    { id:"cr7-pt",   v: makeJerseySvg({ number:"7",  name:"CR7",     sub:"Portugal",  bg:"#006600", text:"#FFFFFF", stripe:"rgba(255,0,0,0.3)" }) },
-    { id:"messi-ar", v: makeJerseySvg({ number:"10", name:"Messi",   sub:"Argentina", bg:"#74ACDF", text:"#FFFFFF" }) },
-    { id:"messi-bc", v: makeJerseySvg({ number:"10", name:"Messi",   sub:"Barcelona", bg:"#A50044", text:"#FFFFFF", stripe:"rgba(0,77,152,0.5)" }) },
-    { id:"neymar-br",v: makeJerseySvg({ number:"10", name:"Neymar",  sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
-    { id:"vini-br",  v: makeJerseySvg({ number:"7",  name:"Vinicius",sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
-    { id:"mbappe-fr",v: makeJerseySvg({ number:"7",  name:"Mbappé",  sub:"França",    bg:"#002395", text:"#FFFFFF", stripe:"rgba(237,41,57,0.4)" }) },
-    { id:"haaland",  v: makeJerseySvg({ number:"9",  name:"Haaland", sub:"Man City",  bg:"#6CABDD", text:"#FFFFFF" }) },
-    { id:"benzema",  v: makeJerseySvg({ number:"9",  name:"Benzema", sub:"Real Madrid",bg:"#FEFEFE",text:"#7B1FA2" }) },
-    { id:"pele-br",  v: makeJerseySvg({ number:"10", name:"Pelé",    sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
-    { id:"ron10-br", v: makeJerseySvg({ number:"9",  name:"R9",      sub:"Brasil",    bg:"#009C3B", text:"#FFDF00" }) },
-  ],
-  "🎌 Anime": [
-    { id:"naruto",   v: makeBadgeSvg({ symbol:"🍥", name:"Naruto",  sub:"Konoha",    bg:"#FF6B00", text:"#FFFFFF" }) },
-    { id:"goku",     v: makeBadgeSvg({ symbol:"⭐", name:"Goku",    sub:"Dragon Ball",bg:"#FF8C00",text:"#FFFFFF" }) },
-    { id:"luffy",    v: makeBadgeSvg({ symbol:"⚓", name:"Luffy",   sub:"One Piece", bg:"#CC0000", text:"#FFFFFF" }) },
-    { id:"pikachu",  v: makeBadgeSvg({ symbol:"⚡", name:"Pikachu", sub:"Pokémon",   bg:"#FFD700", text:"#5B3A00" }) },
-    { id:"sasuke",   v: makeBadgeSvg({ symbol:"🌀", name:"Sasuke",  sub:"Konoha",    bg:"#1A1A2E", text:"#8A2BE2" }) },
-    { id:"tanjiro",  v: makeBadgeSvg({ symbol:"🌊", name:"Tanjiro", sub:"Kimetsu",   bg:"#006994", text:"#FFFFFF" }) },
-    { id:"bakugo",   v: makeBadgeSvg({ symbol:"💥", name:"Bakugo",  sub:"My Hero",   bg:"#FF4500", text:"#FFFFFF" }) },
-    { id:"totoro",   v: makeBadgeSvg({ symbol:"🌿", name:"Totoro",  sub:"Ghibli",    bg:"#4A7C59", text:"#FFFFFF" }) },
-    { id:"zenitsu",  v: makeBadgeSvg({ symbol:"⚡", name:"Zenitsu", sub:"Kimetsu",   bg:"#FFD700", text:"#8B0000" }) },
-    { id:"levi",     v: makeBadgeSvg({ symbol:"⚔️",  name:"Levi",    sub:"AOT",       bg:"#2C3E50", text:"#FFFFFF" }) },
-    { id:"luffy2",   v: makeBadgeSvg({ symbol:"👒", name:"Luffy",   sub:"One Piece", bg:"#CC0000", text:"#FFFFFF" }) },
-    { id:"deku",     v: makeBadgeSvg({ symbol:"💚", name:"Deku",    sub:"My Hero",   bg:"#006400", text:"#FFFFFF" }) },
-  ],
-  "🦸 Heróis": [
-    { id:"spider",   v: makeBadgeSvg({ symbol:"🕷️",  name:"Homem-Aranha",sub:"Marvel",  bg:"#CC0000", text:"#FFFFFF" }) },
-    { id:"batman",   v: makeBadgeSvg({ symbol:"🦇", name:"Batman",  sub:"DC",        bg:"#1A1A1A", text:"#FFD700" }) },
-    { id:"superman", v: makeBadgeSvg({ symbol:"⚡", name:"Superman",sub:"DC",        bg:"#0033CC", text:"#CC0000" }) },
-    { id:"thor",     v: makeBadgeSvg({ symbol:"🔨", name:"Thor",    sub:"Marvel",    bg:"#1E3A5F", text:"#FFD700" }) },
-    { id:"hulk",     v: makeBadgeSvg({ symbol:"💪", name:"Hulk",    sub:"Marvel",    bg:"#228B22", text:"#8B0000" }) },
-    { id:"flash",    v: makeBadgeSvg({ symbol:"⚡", name:"Flash",   sub:"DC",        bg:"#CC0000", text:"#FFD700" }) },
-    { id:"capam",    v: makeBadgeSvg({ symbol:"🛡️",  name:"Cap. América",sub:"Marvel",bg:"#002868",text:"#FFFFFF" }) },
-    { id:"pantera",  v: makeBadgeSvg({ symbol:"🐾", name:"Pantera", sub:"Wakanda",   bg:"#1A1A2E", text:"#C0A000" }) },
-    { id:"deadpool", v: makeBadgeSvg({ symbol:"💬", name:"Deadpool",sub:"Marvel",    bg:"#CC0000", text:"#1A1A1A" }) },
-    { id:"ironman",  v: makeBadgeSvg({ symbol:"🔴", name:"Homem de Ferro",sub:"Marvel",bg:"#CC0000",text:"#FFD700"}) },
-    { id:"naruto2",  v: makeBadgeSvg({ symbol:"🔥", name:"Aquaman", sub:"DC",        bg:"#006994", text:"#FFD700" }) },
-    { id:"wanda",    v: makeBadgeSvg({ symbol:"🔮", name:"Wanda",   sub:"Marvel",    bg:"#8B0000", text:"#FFFFFF" }) },
-  ],
-  "🎬 Filmes": [
-    { id:"simba",    v: makeBadgeSvg({ symbol:"🦁", name:"Simba",   sub:"Rei Leão",  bg:"#FF8C00", text:"#FFFFFF" }) },
-    { id:"buzz",     v: makeBadgeSvg({ symbol:"🚀", name:"Buzz",    sub:"Toy Story", bg:"#4169E1", text:"#FFFFFF" }) },
-    { id:"woody",    v: makeBadgeSvg({ symbol:"🤠", name:"Woody",   sub:"Toy Story", bg:"#8B4513", text:"#FFD700" }) },
-    { id:"nemo",     v: makeBadgeSvg({ symbol:"🐠", name:"Nemo",    sub:"Nemo",      bg:"#FF6600", text:"#FFFFFF" }) },
-    { id:"elsa",     v: makeBadgeSvg({ symbol:"❄️",  name:"Elsa",    sub:"Frozen",    bg:"#4FC3F7", text:"#FFFFFF" }) },
-    { id:"moana",    v: makeBadgeSvg({ symbol:"🌊", name:"Moana",   sub:"Moana",     bg:"#006994", text:"#FFD700" }) },
-    { id:"panda",    v: makeBadgeSvg({ symbol:"🐼", name:"Po",      sub:"Kung Fu",   bg:"#1A1A1A", text:"#FFD700" }) },
-    { id:"stitch",   v: makeBadgeSvg({ symbol:"🛸", name:"Stitch",  sub:"Lilo",      bg:"#4169E1", text:"#FFFFFF" }) },
-    { id:"remy",     v: makeBadgeSvg({ symbol:"🍽️",  name:"Remy",    sub:"Ratatouille",bg:"#5B2333",text:"#FFFFFF"}) },
-    { id:"dash",     v: makeBadgeSvg({ symbol:"💨", name:"Dash",    sub:"Incríveis", bg:"#CC0000", text:"#FFFFFF" }) },
-    { id:"merida",   v: makeBadgeSvg({ symbol:"🏹", name:"Mérida",  sub:"Valente",   bg:"#006400", text:"#FFD700" }) },
-    { id:"gru",      v: makeBadgeSvg({ symbol:"🍌", name:"Gru",     sub:"Meu Malvado",bg:"#4A4A6A",text:"#FFDF00"}) },
-  ],
-};
-
 const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
-  if (value?.startsWith("http") || value?.startsWith("data:")) {
+  if (value?.startsWith("http")) {
     return <img src={value} alt="avatar" width={size} height={size} style={{ borderRadius: radius, objectFit: "cover", display: "block", background: "rgba(156,93,229,0.15)", ...css }} />;
   }
   return (
@@ -282,74 +186,31 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 };
 
 const DiceBearPicker = ({ value, onChange }) => {
-  const isEmoji = value && !value.startsWith("http") && !value.startsWith("data:");
-  const isThemed = value?.startsWith("data:");
   const [dbStyle, setDbStyle] = useState(
-    isThemed ? "__themed__" : isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "__themed__")
+    DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer"
   );
-  const [emojiCat, setEmojiCat] = useState(Object.keys(AVATAR_EMOJI_CATS)[0]);
-  const [themedCat, setThemedCat] = useState(Object.keys(THEMED_AVATARS)[0]);
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 2 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
         {DB_STYLES.map(s => (
           <button key={s.key} onClick={() => setDbStyle(s.key)}
-            style={{ flexShrink: 0, padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
+            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
             {s.label}
           </button>
         ))}
       </div>
-
-      {dbStyle === "__themed__" ? (
-        <div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-            {Object.keys(THEMED_AVATARS).map(cat => (
-              <button key={cat} onClick={() => setThemedCat(cat)}
-                style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 20, fontSize: 11, border: "none", background: themedCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: themedCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-            {THEMED_AVATARS[themedCat].map(({ id, v }) => (
-              <div key={id} onClick={() => onChange(v)}
-                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${value === v ? T.purple : "transparent"}`, background: value === v ? `${T.purple}22` : "transparent", transition: "all 0.15s" }}>
-                <img src={v} alt={id} width="100%" style={{ borderRadius: 10, display: "block", aspectRatio: "1" }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : dbStyle === "__emoji__" ? (
-        <div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-            {Object.keys(AVATAR_EMOJI_CATS).map(cat => (
-              <button key={cat} onClick={() => setEmojiCat(cat)}
-                style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 20, fontSize: 11, border: "none", background: emojiCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
-            {AVATAR_EMOJI_CATS[emojiCat].map(e => (
-              <div key={e} onClick={() => onChange(e)}
-                style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === e ? T.purple : "transparent"}`, background: value === e ? `${T.purple}22` : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, transition: "all 0.15s" }}>
-                {e}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
-          {DB_SEEDS.map(seed => {
-            const url = avatarUrl(seed, dbStyle);
-            const sel = value === url;
-            return (
-              <div key={seed} onClick={() => onChange(url)}
-                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+        {DB_SEEDS.map(seed => {
+          const url = avatarUrl(seed, dbStyle);
+          const sel = value === url;
+          return (
+            <div key={seed} onClick={() => onChange(url)}
+              style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -1852,96 +1713,38 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           )}
 
           {/* ACHIEVEMENTS */}
-          {tab === "achievements" && (() => {
-            const earned = achievements.filter(a => a.earned);
-            const inProgress = achievements.filter(a => !a.earned && a.condition_key === "streak_days");
-            const locked = achievements.filter(a => !a.earned && a.condition_key !== "streak_days");
-            const total = achievements.length;
-            const pct = total > 0 ? earned.length / total : 0;
-            return (
+          {tab === "achievements" && (
             <div>
-              {/* Header com progresso geral */}
-              <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 22, padding: "18px 20px", marginBottom: 20, border: `1px solid ${T.purple}33` }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>🏆 Conquistas</div>
-                  <div style={{ color: T.purple, fontWeight: 900, fontSize: 16 }}>{earned.length}<span style={{ color: T.textMuted, fontWeight: 500, fontSize: 13 }}>/{total}</span></div>
-                </div>
-                <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct * 100}%`, background: `linear-gradient(90deg, ${T.purple}, ${T.pink})`, borderRadius: 999, transition: "width 0.6s ease" }} />
-                </div>
-                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 6 }}>
-                  {earned.length === 0 ? "Complete missões para desbloquear conquistas!" : earned.length === total ? "🎉 Todas as conquistas desbloqueadas!" : `Faltam ${total - earned.length} para completar tudo!`}
-                </div>
-              </div>
-
-              {/* Desbloqueadas — grid visual */}
-              {earned.length > 0 && (
-                <>
-                  <div style={{ color: T.secondary, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>✨ DESBLOQUEADAS</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                    {earned.map(a => (
-                      <div key={a.id} style={{ background: `linear-gradient(135deg, ${T.secondary}18, ${T.accent}10)`, borderRadius: 20, padding: 16, border: `1.5px solid ${T.secondary}44`, textAlign: "center", position: "relative", overflow: "hidden" }}>
-                        <div style={{ position: "absolute", top: 6, right: 8, fontSize: 10, color: T.secondary, fontWeight: 900 }}>✨</div>
-                        <div style={{ fontSize: 42, marginBottom: 8, filter: "drop-shadow(0 4px 12px rgba(255,211,63,0.4))" }}>{a.emoji}</div>
-                        <div style={{ color: T.text, fontWeight: 800, fontSize: 13, lineHeight: 1.3 }}>{a.name}</div>
-                        {a.bonus_coins > 0 && (
-                          <div style={{ marginTop: 8, display: "inline-block", background: `${T.accent}22`, color: T.accent, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>+{a.bonus_coins}🪙</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Em progresso — barras grandes */}
-              {inProgress.length > 0 && (
-                <>
-                  <div style={{ color: T.primary, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>🔥 EM PROGRESSO</div>
-                  {inProgress.map(a => {
-                    const pct = Math.min(1, effectiveStreak / a.condition_val);
-                    const remaining = a.condition_val - effectiveStreak;
-                    return (
-                      <div key={a.id} style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 10, border: `1px solid ${T.primary}33` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                          <div style={{ fontSize: 40 }}>{a.emoji}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>{a.name}</div>
-                            <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>{a.description}</div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
+              {achievements.map(a => {
+                const isStreak = a.condition_key === "streak_days";
+                const currentStreak = effectiveStreak;
+                const streakPct = isStreak ? Math.min(1, currentStreak / a.condition_val) : 0;
+                const accentColor = a.earned ? T.secondary : (isStreak ? T.primary : T.accent);
+                return (
+                  <div key={a.id} style={{ background: a.earned ? `${accentColor}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${a.earned ? accentColor+"44" : "rgba(255,255,255,0.06)"}`, display: "flex", alignItems: "center", gap: 16, opacity: a.earned ? 1 : 0.55 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 16, fontSize: 28, background: a.earned ? `${accentColor}22` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", filter: a.earned ? "none" : "grayscale(100%)", flexShrink: 0 }}>{a.emoji}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: a.earned ? T.text : T.textMuted, fontWeight: 700, fontSize: 14 }}>{a.name}</div>
+                      <div style={{ color: T.textMuted, fontSize: 12, marginTop: 3 }}>{a.description}</div>
+                      {isStreak && !a.earned && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 3 }}>
+                            <div style={{ height: "100%", width: `${streakPct * 100}%`, background: T.primary, borderRadius: 999, transition: "width 0.5s" }} />
                           </div>
-                          {a.bonus_coins > 0 && <div style={{ color: T.accent, fontWeight: 900, fontSize: 13, flexShrink: 0 }}>+{a.bonus_coins}🪙</div>}
+                          <div style={{ fontSize: 10, color: T.textMuted }}>🔥 {currentStreak}/{a.condition_val} dias</div>
                         </div>
-                        <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 6 }}>
-                          <div style={{ height: "100%", width: `${pct * 100}%`, background: `linear-gradient(90deg, ${T.primary}, ${T.warning})`, borderRadius: 999, transition: "width 0.5s" }} />
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
-                          <span style={{ color: T.primary, fontWeight: 800 }}>🔥 {effectiveStreak} dias</span>
-                          <span style={{ color: T.textMuted }}>faltam {remaining} dia{remaining !== 1 ? "s" : ""}</span>
-                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                        {a.earned && <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>✨ Desbloqueado</span>}
+                        {(a.bonus_coins > 0) && <span style={{ background: `${T.accent}18`, color: T.accent, borderRadius: 999, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>+{a.bonus_coins}🪙 bônus</span>}
                       </div>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* Bloqueadas — lista compacta */}
-              {locked.length > 0 && (
-                <>
-                  <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12, marginTop: 4 }}>🔒 BLOQUEADAS</div>
-                  {locked.map(a => (
-                    <div key={a.id} style={{ background: T.card, borderRadius: 16, padding: "12px 16px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 14, opacity: 0.45 }}>
-                      <div style={{ fontSize: 28, filter: "grayscale(100%)", flexShrink: 0 }}>{a.emoji}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13 }}>{a.name}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{a.description}</div>
-                      </div>
-                      {a.bonus_coins > 0 && <div style={{ color: T.textMuted, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>+{a.bonus_coins}🪙</div>}
                     </div>
-                  ))}
-                </>
-              )}
+                  </div>
+                );
+              })}
             </div>
-            );
-          })()}
+          )}
 
           {/* PROFILE */}
           {tab === "profile" && (
@@ -2721,7 +2524,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",false),
         supabase.from("pending_approvals").select("*"),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
-        supabase.from("mission_logs").select("mission_id, child_id, status, due_date, missions(coins_reward, xp_reward)").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
+        supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
       ]);
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
@@ -2742,26 +2545,6 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
     const cutoffStr = localDateStr(cutoffDays);
     return childLogs.filter(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr && l.status !== "rejected").length;
-  };
-
-  const getWeeklyStats = (childId) => {
-    const DAY_LABELS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-    const days = Array.from({length: 7}, (_, i) => localDateStr(6 - i)); // oldest→newest
-    const approved = childLogs.filter(l => l.child_id === childId && l.status === "approved");
-    const perDay = days.map(d => ({
-      date: d,
-      label: DAY_LABELS[new Date(d + "T12:00:00").getDay()],
-      count: approved.filter(l => l.due_date === d).length,
-      isToday: d === localDateStr(0),
-    }));
-    const weekApproved = approved.filter(l => days.includes(l.due_date));
-    return {
-      perDay,
-      maxCount: Math.max(...perDay.map(d => d.count), 1),
-      totalMissions: weekApproved.length,
-      totalCoins: weekApproved.reduce((s, l) => s + (l.missions?.coins_reward || 0), 0),
-      totalXP: weekApproved.reduce((s, l) => s + (l.missions?.xp_reward || 0), 0),
-    };
   };
 
   const parentCheck = async (childId, missionId) => {
@@ -3398,84 +3181,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* STATS */}
           {tab === "stats" && (
             <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Desempenho da Semana</div>
-
-              {/* Resumo familiar */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                {[
-                  { label:"Filhos", value:children.length, icon:"👶", color:T.accent },
-                  { label:"Missões ativas", value:missions.length, icon:"🎯", color:T.primary },
-                  { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning },
-                  { label:"Missões esta semana", value:childLogs.filter(l => l.status==="approved" && l.due_date >= localDateStr(6)).length, icon:"✅", color:T.blue },
-                ].map((s,i) => (
-                  <div key={i} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", border: `1px solid ${s.color}22` }}>
-                    <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                    <div style={{ color: s.color, fontWeight: 900, fontSize: 24 }}>{s.value}</div>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{s.label}</div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.length, icon:"🎁", color:T.pink }].map((s,i) => (
+                  <div key={i} style={{ background: T.card, borderRadius: 20, padding: 18, border: `1px solid ${s.color}22` }}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26 }}>{s.value}</div>
+                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Gráfico semanal por filho */}
-              {children.map(child => {
-                const ws = getWeeklyStats(child.id);
-                const lvl = getLvl(child.xp || 0);
-                return (
-                  <div key={child.id} style={{ background: T.card, borderRadius: 22, padding: 18, marginBottom: 14, border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                      <AvatarImg value={child.avatar_emoji} size={38} radius={12} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{child.display_name}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11 }}>{lvl.name} · {child.streak || 0}🔥 dias seguidos</div>
-                      </div>
-                    </div>
-
-                    {/* Barras dos 7 dias */}
-                    <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 64, marginBottom: 6 }}>
-                      {ws.perDay.map((d, i) => (
-                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-                          <div style={{ width: "100%", display: "flex", alignItems: "flex-end", height: 48 }}>
-                            <div style={{
-                              width: "100%",
-                              height: d.count === 0 ? 4 : `${Math.round((d.count / ws.maxCount) * 100)}%`,
-                              minHeight: d.count > 0 ? 8 : 4,
-                              borderRadius: 6,
-                              background: d.count === 0
-                                ? "rgba(255,255,255,0.07)"
-                                : d.isToday
-                                  ? `linear-gradient(180deg, ${T.primary}, ${T.pink})`
-                                  : `linear-gradient(180deg, ${T.accent}, ${T.blue})`,
-                              transition: "height 0.3s ease",
-                            }} />
-                          </div>
-                          <div style={{ color: d.isToday ? T.primary : T.textMuted, fontSize: 9, fontWeight: d.isToday ? 900 : 500, marginTop: 4 }}>{d.label}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Pills de totais da semana */}
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                      {[
-                        { icon: "✅", value: ws.totalMissions, label: "missões", color: T.accent },
-                        { icon: "🪙", value: ws.totalCoins, label: "KidCoins", color: T.secondary },
-                        { icon: "⭐", value: ws.totalXP, label: "XP", color: T.purple },
-                      ].map((s, i) => (
-                        <div key={i} style={{ flex: 1, background: `${s.color}14`, borderRadius: 12, padding: "8px 6px", textAlign: "center", border: `1px solid ${s.color}25` }}>
-                          <div style={{ color: s.color, fontWeight: 900, fontSize: 16 }}>{s.icon} {s.value}</div>
-                          <div style={{ color: T.textMuted, fontSize: 9, marginTop: 2 }}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {children.length === 0 && (
-                <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
-                  Adicione filhos para ver o desempenho semanal.
-                </div>
-              )}
 
               {/* Assistente IA */}
               <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 24, padding: 20, marginBottom: 20, border: `1px solid ${T.purple}44` }}>
