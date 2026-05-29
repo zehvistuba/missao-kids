@@ -158,12 +158,12 @@ const Btn = ({ children, onClick, gradient, disabled, outline, small }) => (
 
 // ─── DiceBear Avatar System ────────────────────────────────
 const DB_STYLES = [
-  { key: "adventurer",  label: "Aventureiro" },
-  { key: "fun-emoji",   label: "Emoji Fun"   },
-  { key: "pixel-art",   label: "Pixel Art"   },
-  { key: "croodles",    label: "Doodle"      },
-  { key: "lorelei",     label: "Aquarela"    },
-  { key: "miniavs",     label: "Mini"        },
+  { key: "__emoji__",   label: "🐾 Figurinha"   },
+  { key: "adventurer",  label: "🧒 Cartoon"     },
+  { key: "avataaars",   label: "🎨 Personagem"  },
+  { key: "bottts",      label: "🤖 Robô"        },
+  { key: "micah",       label: "🌈 Colorido"    },
+  { key: "pixel-art",   label: "🕹️ Pixel"       },
 ];
 const DB_SEEDS = [
   "Luna","Bento","Sofia","Pedro","Leo","Ana","Gabi","Rafa","Nina","Theo",
@@ -171,8 +171,15 @@ const DB_SEEDS = [
   "Turbo","Flash","Foguete","Ninja","Dragao","Estrela","Cometa","Neon",
   "Pixel","Spark","Bolt","Nova","Sora","Kira","Zara","Ace","Max","Rex",
 ];
+const EMOJI_AVATARS = [
+  "🐶","🐱","🐼","🦁","🐯","🦊","🐻","🐨","🐸","🐧","🦋","🦄",
+  "🐬","🦈","🦅","🦜","🐢","🐠","🦔","🐰","🐹","🐭","🦮","🐕‍🦺",
+  "⚽","🏀","🎾","🏊","🚴","🤸","🥊","🏋️","🛹","🎽","🏄","🧗",
+  "🚀","⭐","🌟","💫","🔥","⚡","🌈","🎯","🏆","🥇","💎","🎮",
+  "🦸","🦹","🧙","🧝","🧜","🧚","🦸‍♂️","🧑‍🚀","🧑‍🎨","🧑‍🔬","🧑‍🍳","🧑‍🎤",
+];
 const avatarUrl = (seed, style = "adventurer") =>
-  `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,transparent`;
+  `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&radius=50&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 
 const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
   if (value?.startsWith("http")) {
@@ -186,31 +193,43 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
 };
 
 const DiceBearPicker = ({ value, onChange }) => {
+  const isEmoji = value && !value.startsWith("http");
   const [dbStyle, setDbStyle] = useState(
-    DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "adventurer"
+    isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "__emoji__")
   );
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
         {DB_STYLES.map(s => (
           <button key={s.key} onClick={() => setDbStyle(s.key)}
-            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
+            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5, whiteSpace: "nowrap", flexShrink: 0 }}>
             {s.label}
           </button>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
-        {DB_SEEDS.map(seed => {
-          const url = avatarUrl(seed, dbStyle);
-          const sel = value === url;
-          return (
-            <div key={seed} onClick={() => onChange(url)}
-              style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
+      {dbStyle === "__emoji__" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+          {EMOJI_AVATARS.map(em => (
+            <div key={em} onClick={() => onChange(em)}
+              style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === em ? T.purple : "transparent"}`, background: value === em ? `${T.purple}22` : "rgba(255,255,255,0.04)", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>
+              {em}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
+          {DB_SEEDS.map(seed => {
+            const url = avatarUrl(seed, dbStyle);
+            const sel = value === url;
+            return (
+              <div key={seed} onClick={() => onChange(url)}
+                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -1219,6 +1238,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const missionsRef = useRef([]);
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
     load();
@@ -1269,6 +1289,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   }, []);
 
   const load = async () => {
+    const myId = ++loadIdRef.current;
     setLoading(true);
     try {
       const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
@@ -1282,6 +1303,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.rpc("get_family_plan"),
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at").eq("child_id", profile.id).eq("status", "pending").order("created_at", { ascending: false }),
       ]);
+      if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setFamilyPlan(planData || "free");
       missionsRef.current = m || [];
       setMissions(m || []); setRewards(r || []); setLogs(l || []); setPendingReds(pr || []);
@@ -1295,7 +1317,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     } catch {
       // queries failed — don't leave screen stuck in loading
     } finally {
-      setLoading(false);
+      if (myId === loadIdRef.current) setLoading(false);
     }
   };
 
