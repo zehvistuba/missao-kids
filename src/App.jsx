@@ -264,7 +264,22 @@ async function subscribePush(userId) {
 
 function NotifyToggle({ userId }) {
   const [status, setStatus] = useState(Notification.permission);
+  const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    // Verifica se há subscrição VAPID real (não só permissão do browser)
+    navigator.serviceWorker.ready.then(reg =>
+      reg.pushManager.getSubscription()
+    ).then(sub => {
+      setSubscribed(!!sub);
+      // Se tem permissão mas não tem sub, tenta registrar automaticamente
+      if (Notification.permission === "granted" && !sub && userId) {
+        subscribePush(userId).then(s => setSubscribed(!!s));
+      }
+    }).catch(() => {});
+  }, [userId]);
 
   if (!("Notification" in window) || !VAPID_PUBLIC_KEY) return null;
 
@@ -272,11 +287,14 @@ function NotifyToggle({ userId }) {
     setLoading(true);
     const perm = await Notification.requestPermission();
     setStatus(perm);
-    if (perm === "granted") await subscribePush(userId);
+    if (perm === "granted") {
+      const sub = await subscribePush(userId);
+      setSubscribed(!!sub);
+    }
     setLoading(false);
   };
 
-  if (status === "granted") {
+  if (status === "granted" && subscribed) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: `${T.accent}11`, borderRadius: 14, border: `1px solid ${T.accent}33`, marginBottom: 12 }}>
         <span style={{ fontSize: 20 }}>🔔</span>
@@ -856,6 +874,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
     if (msg.includes("Unable to validate email") || msg.includes("invalid email")) return "Email inválido";
     if (msg.includes("rate limit") || msg.includes("too_many_requests")) return "Muitas tentativas. Aguarde alguns minutos";
     if (msg.includes("network") || msg.includes("fetch")) return "Erro de conexão. Verifique sua internet";
+    if (msg.includes("sending confirmation email") || msg.includes("unexpected_failure")) return "Problema no envio do email de confirmação. Tente entrar com Google ou fale com o suporte.";
     return "Erro ao autenticar. Tente novamente";
   };
 
