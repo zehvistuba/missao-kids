@@ -800,18 +800,20 @@ const TermsModal = ({ onClose }) => (
       </div>
 
       {[
-        { title: "1. Sobre o RotinUp", body: "O RotinUp é um aplicativo de gamificação de rotinas infantis desenvolvido por JV Digital (CNPJ em processo de abertura). Ao usar o app, você concorda com estes Termos de Uso e Política de Privacidade." },
-        { title: "2. Uso do Serviço", body: "O RotinUp destina-se a responsáveis legais e suas crianças para organização e acompanhamento de rotinas diárias. É proibido usar o serviço para fins ilegais, compartilhar credenciais ou tentar burlar os controles do sistema." },
+        { title: "1. Sobre o RotinUp", body: "O RotinUp é um aplicativo de gamificação de rotinas infantis desenvolvido por JV Digital (CNPJ em processo de abertura). Ao usar o app, você concorda com estes Termos de Uso e Política de Privacidade, em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD) e o Estatuto da Criança e do Adolescente (Lei 8.069/1990 — ECA)." },
+        { title: "2. Uso do Serviço e Responsabilidade Parental", body: "O RotinUp destina-se exclusivamente a responsáveis legais (pais, tutores ou guardiões) que criam e gerenciam as contas de seus filhos menores de 18 anos.\n\nAo se cadastrar, o responsável declara:\n• Ter 18 anos ou mais;\n• Ser o responsável legal pelas crianças cadastradas;\n• Autorizar expressamente o uso do app pelo menor sob sua supervisão;\n• Monitorar e supervisionar o uso do app pela criança.\n\nCrianças não criam contas próprias — o acesso é sempre configurado e controlado pelo responsável. É proibido usar o serviço para fins ilegais ou compartilhar credenciais." },
         { title: "3. Planos e Pagamento", body: "O plano gratuito permite 1 filho e acesso às funcionalidades básicas. O plano Premium é cobrado mensalmente via Hotmart e pode ser cancelado a qualquer momento. Valores sujeitos a alteração com aviso prévio de 30 dias." },
-        { title: "4. Dados coletados (LGPD — Lei 13.709/18)", body: "Coletamos: e-mail e nome do responsável; nome, idade e avatar dos filhos cadastrados; registros de missões, recompensas e tropeços; dados de uso e autenticação.\n\nNão coletamos fotos, localização ou documentos de identificação." },
-        { title: "5. Finalidade do tratamento", body: "Os dados são usados exclusivamente para: operar as funcionalidades do app; personalizar a experiência; processar pagamentos (via Hotmart); enviar notificações do serviço." },
-        { title: "6. Compartilhamento de dados", body: "Seus dados podem ser processados por:\n• Supabase (banco de dados e autenticação — EUA)\n• Hotmart (processamento de pagamentos — Brasil)\n• Google (autenticação OAuth opcional — EUA)\n\nNão vendemos dados a terceiros." },
-        { title: "7. Dados de menores", body: "Dados de crianças (nome, idade, avatar, progresso no app) são cadastrados pelo responsável legal com consentimento explícito. O responsável pode excluir o perfil da criança a qualquer momento pelo app." },
-        { title: "8. Retenção e exclusão", body: "Dados ficam armazenados enquanto a conta estiver ativa. Ao excluir a conta, os dados são removidos em até 30 dias. Para solicitar exclusão antecipada, envie e-mail para privacidade@jvdigital.com.br." },
-        { title: "9. Direitos do titular", body: "Você tem direito a: acessar seus dados; corrigir informações incorretas; solicitar exclusão; revogar consentimento; receber seus dados em formato portável.\n\nContato: privacidade@jvdigital.com.br" },
-        { title: "10. Segurança", body: "Utilizamos criptografia em trânsito (HTTPS/TLS) e em repouso. Senhas nunca são armazenadas em texto puro. Em caso de incidente de segurança, notificaremos os usuários afetados no prazo legal." },
-        { title: "11. Alterações", body: "Podemos atualizar estes termos. Alterações relevantes serão comunicadas por e-mail ou notificação no app com antecedência mínima de 15 dias." },
-        { title: "12. Contato", body: "JV Digital\nE-mail: contato@jvdigital.com.br\nPrivacidade/LGPD: privacidade@jvdigital.com.br\nWhatsApp: (44) 99114-1555" },
+        { title: "4. Dados coletados (LGPD — Lei 13.709/18)", body: "Coletamos: e-mail e nome do responsável; nome, idade e avatar dos filhos cadastrados; registros de missões, recompensas e tropeços; dados de uso e autenticação.\n\nNão coletamos fotos, localização, documentos de identificação ou qualquer dado sensível de crianças." },
+        { title: "5. Finalidade do tratamento", body: "Os dados são usados exclusivamente para: operar as funcionalidades do app; personalizar a experiência; processar pagamentos (via Hotmart); enviar notificações do serviço.\n\nBase legal: execução de contrato (Art. 7º, V — LGPD) e legítimo interesse do responsável no desenvolvimento do filho (Art. 7º, IX — LGPD)." },
+        { title: "6. Compartilhamento de dados", body: "Seus dados podem ser processados por:\n• Supabase (banco de dados e autenticação — EUA)\n• Hotmart (processamento de pagamentos — Brasil)\n• Google (autenticação OAuth opcional — EUA)\n• Google Gemini (IA para sugestões de missões — EUA)\n\nNão vendemos, alugamos ou compartilhamos dados com terceiros para fins publicitários." },
+        { title: "7. Proteção de dados de menores (LGPD Art. 14)", body: "Em conformidade com o Art. 14 da LGPD, o tratamento de dados pessoais de crianças e adolescentes:\n\n• É realizado exclusivamente com consentimento específico dado pelo responsável legal;\n• Limita-se ao mínimo necessário (nome, idade, avatar, progresso de tarefas);\n• Não é utilizado para fins comerciais, publicitários ou de perfilamento;\n• Pode ser revogado a qualquer momento pelo responsável, que pode excluir o perfil da criança diretamente pelo app.\n\nO responsável legal responde pelas informações cadastradas sobre o menor." },
+        { title: "8. Limitação de responsabilidade", body: "O RotinUp é uma ferramenta de apoio à rotina familiar e não substitui orientação médica, psicológica ou pedagógica.\n\nA JV Digital não se responsabiliza por:\n• Decisões de criação ou conteúdo das missões definidas pelo responsável;\n• Consequências do uso inadequado por parte do responsável ou da criança;\n• Falhas de conectividade, interrupções do serviço ou perda de dados por motivos de força maior.\n\nO responsável assume integral responsabilidade pelo uso do app e pelo conteúdo configurado." },
+        { title: "9. Retenção e exclusão", body: "Dados ficam armazenados enquanto a conta estiver ativa. Ao excluir a conta, os dados são removidos em até 30 dias. Para solicitar exclusão antecipada, envie e-mail para privacidade@jvdigital.com.br." },
+        { title: "10. Direitos do titular (LGPD Arts. 17–22)", body: "Você tem direito a: acessar seus dados; corrigir informações incorretas; solicitar exclusão; revogar consentimento; receber seus dados em formato portável; opor-se ao tratamento.\n\nPara exercer seus direitos: privacidade@jvdigital.com.br\nPrazo de resposta: até 15 dias úteis." },
+        { title: "11. Segurança", body: "Utilizamos criptografia em trânsito (HTTPS/TLS) e em repouso. Senhas nunca são armazenadas em texto puro. Em caso de incidente de segurança com risco aos titulares, notificaremos a ANPD e os usuários afetados no prazo legal (72 horas)." },
+        { title: "12. Alterações", body: "Podemos atualizar estes termos. Alterações relevantes serão comunicadas por e-mail ou notificação no app com antecedência mínima de 15 dias. O uso continuado após a vigência das alterações implica aceitação." },
+        { title: "13. Foro e legislação aplicável", body: "Estes termos são regidos pela legislação brasileira. Fica eleito o foro da comarca de Maringá/PR para dirimir quaisquer controvérsias, com renúncia a qualquer outro, por mais privilegiado que seja." },
+        { title: "14. Contato", body: "JV Digital\nE-mail: contato@jvdigital.com.br\nPrivacidade/LGPD: privacidade@jvdigital.com.br\nWhatsApp: (44) 99114-1555" },
       ].map((s, i) => (
         <div key={i} style={{ marginBottom: 24 }}>
           <div style={{ color: T.primary, fontWeight: 800, fontSize: 14, marginBottom: 8 }}>{s.title}</div>
@@ -820,7 +822,7 @@ const TermsModal = ({ onClose }) => (
       ))}
 
       <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 }}>
-        Última atualização: maio de 2026
+        Última atualização: 28 de maio de 2026 · v2.0
       </div>
       <button onClick={onClose} style={{ width: "100%", marginTop: 24, padding: "14px", borderRadius: 16, border: "none", background: T.primary, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
         ✅ Entendido
@@ -2431,12 +2433,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const loadInviteCode = async () => {
     const { data } = await supabase.rpc("get_invite_code");
-    if (data && typeof data === "object") {
-      setInviteCode(data.code || null);
+    if (data && typeof data === "object" && data.code) {
+      setInviteCode(data.code);
       setInviteExpiresAt(data.expires_at || null);
     } else {
-      setInviteCode(null);
-      setInviteExpiresAt(null);
+      // Sem código — gera automaticamente na primeira abertura
+      const { data: newCode } = await supabase.rpc("generate_invite_code");
+      if (newCode) {
+        setInviteCode(newCode);
+        setInviteExpiresAt(new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString());
+      }
     }
   };
 
