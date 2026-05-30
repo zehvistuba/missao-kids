@@ -1427,6 +1427,10 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setSubmitting(null);
     if (error) return notify("Erro ao enviar missão", "error");
     notify("✅ Missão enviada para aprovação!"); load();
+    const mission = missions.find(m => m.id === mid);
+    supabase.functions.invoke("push-notify", {
+      body: { family_id: profile.family_id, title: "Nova missão para aprovar! 📋", body: `${mission?.emoji || "✅"} ${mission?.title || "Missão"} foi enviada por ${profile.display_name}` },
+    }).catch(() => {});
   };
 
   const redeem = async (rid, cost) => {
@@ -2594,6 +2598,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     return childLogs.filter(l => l.child_id === childId && l.mission_id === missionId && l.due_date >= cutoffStr && l.status !== "rejected").length;
   };
 
+  const pushNotify = (userIds, title, body) => {
+    supabase.functions.invoke("push-notify", {
+      body: { user_ids: userIds, title, body },
+    }).catch(() => {}); // fire-and-forget, falha silenciosa
+  };
+
   const parentCheck = async (childId, missionId) => {
     const key = `${childId}-${missionId}`;
     setCheckingMission(key);
@@ -2601,14 +2611,18 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setCheckingMission(null);
     if (error) return notify(error.message || "Erro ao marcar missão", "error");
     notify("✅ Missão marcada como concluída!"); load();
+    const child = children.find(c => c.id === childId);
+    pushNotify([childId], "Missão concluída! 🎉", `Parabéns${child ? `, ${child.display_name}` : ""}! Continue assim! 🚀`);
   };
 
   const confirmDelivery = async (redemptionId) => {
     setConfirmingRed(redemptionId);
+    const red = redemptions.find(r => r.id === redemptionId);
     const { error } = await supabase.rpc("confirm_redemption", { p_log_id: redemptionId });
     setConfirmingRed(null);
     if (error) return notify(error.message || "Erro ao confirmar entrega", "error");
     notify("✅ Entrega confirmada!"); load();
+    if (red?.child_id) pushNotify([red.child_id], "Recompensa entregue! 🎁", `${red.reward_emoji || "🎁"} ${red.reward_title} foi entregue!`);
   };
 
   const cancelRedemption = async (redemptionId) => {
@@ -2633,10 +2647,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const review = async (logId, approve) => {
+    const log = pending.find(p => p.log_id === logId);
     const { error } = await supabase.rpc("review_mission", { p_log_id: logId, p_approve: approve, p_note: approve ? "Ótimo trabalho! 🎉" : "Tente novamente!" });
     if (error) return notify("Erro ao revisar", "error");
     notify(approve ? "✅ Aprovado! KidCoins liberados!" : "❌ Missão rejeitada");
     load();
+    if (approve && log?.child_id) {
+      pushNotify([log.child_id], "Missão aprovada! ⭐", `${log.mission_emoji || "✅"} ${log.mission_title} foi aprovada! Você ganhou KidCoins!`);
+    }
   };
 
   const isLimitError = (msg = "") => msg.includes("Limite") || msg.includes("upgrade") || msg.includes("ilimitad");
