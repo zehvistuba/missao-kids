@@ -2124,47 +2124,63 @@ const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose })
   );
 };
 
+// coins_earned=0 no banco significa "não gravado" — trata como ausente
+const nullif0 = v => (v === 0 || v === null || v === undefined) ? null : v;
+
 // ─── Extrato Modal ────────────────────────────────────────
 const ExtratoModal = ({ child, onClose }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [freshKidcoins, setFreshKidcoins] = useState(null);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const [{ data: missions }, { data: redemptions }, { data: demerits }, { data: streakBonuses }] = await Promise.all([
+      const [
+        { data: profileData },
+        { data: missions },
+        { data: redemptions },
+        { data: demerits },
+        { data: streakBonuses },
+      ] = await Promise.all([
+        // B2: busca saldo atualizado diretamente do banco (não usa child.kidcoins stale)
+        supabase.from("profiles").select("kidcoins").eq("id", child.id).single(),
+        // B1: sem LIMIT — mostra todo o histórico
         supabase.from("mission_logs")
-          .select("id,coins_earned,due_date,missions(title,emoji,coins_reward)")
+          .select("id,coins_earned,due_date,reviewed_at,missions(title,emoji,coins_reward,xp_reward)")
           .eq("child_id", child.id)
           .eq("status", "approved")
-          .order("due_date", { ascending: false })
-          .limit(30),
+          .order("due_date", { ascending: false }),
         supabase.from("redemption_logs")
           .select("id,reward_title,reward_emoji,coin_cost,status,created_at")
           .eq("child_id", child.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
+          .order("created_at", { ascending: false }),
         supabase.from("demerit_logs")
           .select("id,title,emoji,coins_deducted,created_at")
           .eq("child_id", child.id)
-          .order("created_at", { ascending: false })
-          .limit(30),
+          .order("created_at", { ascending: false }),
         supabase.from("streak_bonus_logs")
           .select("id,bonus_coins,streak_days,granted_at")
           .eq("child_id", child.id)
-          .order("granted_at", { ascending: false })
-          .limit(20),
+          .order("granted_at", { ascending: false }),
       ]);
 
+      setFreshKidcoins(profileData?.kidcoins ?? child.kidcoins ?? 0);
+
+      // B3: sortKey uniformizado — missões usam reviewed_at se disponível, senão due_date+'T23:59:59'
       const all = [
-        ...(missions || []).map(m => ({
-          id: m.id, type: "mission",
-          emoji: m.missions?.emoji || "✅",
-          label: m.missions?.title || "Missão",
-          coins: +(m.coins_earned || m.missions?.coins_reward || 0),
-          date: m.due_date,
-          sortKey: m.due_date,
-        })),
+        ...(missions || []).map(m => {
+          const coins = +(nullif0(m.coins_earned) ?? m.missions?.coins_reward ?? 0);
+          const sortKey = m.reviewed_at || (m.due_date + "T23:59:59");
+          return {
+            id: m.id, type: "mission",
+            emoji: m.missions?.emoji || "✅",
+            label: m.missions?.title || "Missão",
+            coins,
+            date: m.due_date,
+            sortKey,
+          };
+        }),
         ...(redemptions || []).map(r => ({
           id: r.id, type: "redemption",
           emoji: r.reward_emoji || "🎁",
@@ -2196,13 +2212,15 @@ const ExtratoModal = ({ child, onClose }) => {
       setItems(all);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [child.id]);
 
   const typeColor = { mission: T.accent, redemption: T.secondary, demerit: T.pink, streak: T.primary };
-  const typeLabel = { mission: "Bônus", redemption: "Resgate", demerit: "Tropeço", streak: "Sequência" };
+  const typeLabel = { mission: "Missão", redemption: "Resgate", demerit: "Tropeço", streak: "Sequência" };
 
-  const total = items.reduce((sum, i) => sum + i.coins, 0);
+  const saldoAtual = freshKidcoins !== null ? freshKidcoins : (child.kidcoins || 0);
+  const totalGanhos = items.filter(i => i.coins > 0).reduce((s, i) => s + i.coins, 0);
+  const totalGastos = items.filter(i => i.coins < 0).reduce((s, i) => s + i.coins, 0);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -2212,17 +2230,17 @@ const ExtratoModal = ({ child, onClose }) => {
           <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
           <div style={{ flex: 1 }}>
             <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>📋 Extrato de {child.display_name}</div>
-            <div style={{ color: T.textMuted, fontSize: 12 }}>Bônus, resgates e tropeços</div>
+            <div style={{ color: T.textMuted, fontSize: 12 }}>{items.length} movimentações · histórico completo</div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Saldo do extrato */}
+        {/* Saldo */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16, flexShrink: 0 }}>
           {[
-            { label: "Ganhos", value: items.filter(i=>i.coins>0).reduce((s,i)=>s+i.coins,0), color: T.accent, sign: "+" },
-            { label: "Gastos", value: items.filter(i=>i.coins<0).reduce((s,i)=>s+i.coins,0), color: T.pink, sign: "" },
-            { label: "Saldo atual", value: child.kidcoins || 0, color: T.secondary, sign: "" },
+            { label: "Ganhos", value: totalGanhos, color: T.accent, sign: "+" },
+            { label: "Gastos", value: totalGastos, color: T.pink, sign: "" },
+            { label: "Saldo atual", value: saldoAtual, color: T.secondary, sign: "" },
           ].map((s, i) => (
             <div key={i} style={{ background: T.darker, borderRadius: 14, padding: "10px 8px", textAlign: "center", border: `1px solid ${s.color}22` }}>
               <div style={{ color: s.color, fontWeight: 900, fontSize: 15 }}>{s.sign}{Math.abs(s.value)}</div>
@@ -2241,6 +2259,7 @@ const ExtratoModal = ({ child, onClose }) => {
             </div>
           ) : items.map((item, i) => {
             const positive = item.coins > 0;
+            const cancelled = item.status === "cancelled";
             const color = typeColor[item.type];
             return (
               <div key={`${item.type}-${item.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -2250,12 +2269,12 @@ const ExtratoModal = ({ child, onClose }) => {
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
                     <span style={{ fontSize: 10, color: color, fontWeight: 800, background: `${color}18`, borderRadius: 6, padding: "1px 6px" }}>{typeLabel[item.type]}</span>
                     <span style={{ fontSize: 10, color: T.textMuted }}>{item.date}</span>
-                    {item.type === "redemption" && item.status === "pending" && <span style={{ fontSize: 10, color: T.secondary, fontWeight: 700 }}>⏳ aguardando entrega</span>}
-                    {item.type === "redemption" && item.status === "cancelled" && <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 700 }}>❌ cancelado</span>}
+                    {item.type === "redemption" && item.status === "pending" && <span style={{ fontSize: 10, color: T.secondary, fontWeight: 700 }}>⏳ aguardando</span>}
+                    {cancelled && <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 700 }}>❌ cancelado</span>}
                   </div>
                 </div>
-                <div style={{ color: item.status === "cancelled" ? T.textMuted : positive ? T.accent : T.pink, fontWeight: 900, fontSize: 14, flexShrink: 0, textDecoration: item.status === "cancelled" ? "line-through" : "none", opacity: item.status === "cancelled" ? 0.5 : 1 }}>
-                  {item.status === "cancelled" ? `-${item.rawCost || 0}🪙` : `${positive ? "+" : ""}${item.coins}🪙`}
+                <div style={{ color: cancelled ? T.textMuted : positive ? T.accent : T.pink, fontWeight: 900, fontSize: 14, flexShrink: 0, textDecoration: cancelled ? "line-through" : "none", opacity: cancelled ? 0.5 : 1 }}>
+                  {cancelled ? `-${item.rawCost || 0}🪙` : `${positive ? "+" : ""}${item.coins}🪙`}
                 </div>
               </div>
             );
