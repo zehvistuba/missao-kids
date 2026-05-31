@@ -269,14 +269,16 @@ function NotifyToggle({ userId }) {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    // Verifica se há subscrição VAPID real (não só permissão do browser)
     navigator.serviceWorker.ready.then(reg =>
       reg.pushManager.getSubscription()
-    ).then(sub => {
+    ).then(async sub => {
       setSubscribed(!!sub);
-      // Se tem permissão mas não tem sub, tenta registrar automaticamente
-      if (Notification.permission === "granted" && !sub && userId) {
-        subscribePush(userId).then(s => setSubscribed(!!s));
+      if (sub && userId) {
+        // Sempre sincroniza endpoint atual com o banco (evita endpoint expirado)
+        await subscribePush(userId);
+      } else if (Notification.permission === "granted" && !sub && userId) {
+        const newSub = await subscribePush(userId);
+        setSubscribed(!!newSub);
       }
     }).catch(() => {});
   }, [userId]);
