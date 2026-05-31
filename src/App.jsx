@@ -2441,6 +2441,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [notif, setNotif]         = useState(null);
   const [notifType, setNotifType] = useState("success");
   const [showMission, setShowMission]   = useState(false);
+  const [dragMissionId, setDragMissionId] = useState(null);
+  const [localMissions, setLocalMissions] = useState([]);
   const [showReward, setShowReward]     = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" });
@@ -2481,6 +2483,30 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
+
+  useEffect(() => {
+    setLocalMissions([...missions].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+  }, [missions]);
+
+  const handleDragOver = (e, overId) => {
+    e.preventDefault();
+    if (!dragMissionId || overId === dragMissionId) return;
+    setLocalMissions(prev => {
+      const arr = [...prev];
+      const from = arr.findIndex(m => m.id === dragMissionId);
+      const to   = arr.findIndex(m => m.id === overId);
+      if (from < 0 || to < 0) return prev;
+      arr.splice(to, 0, arr.splice(from, 1)[0]);
+      return arr;
+    });
+  };
+
+  const saveMissionOrder = async () => {
+    setDragMissionId(null);
+    const orders = localMissions.map((m, i) => ({ id: m.id, sort_order: i }));
+    await supabase.rpc("reorder_missions", { p_orders: orders });
+    setMissions([...localMissions]);
+  };
 
   const loadInviteCode = async () => {
     const { data } = await supabase.rpc("get_invite_code");
@@ -3173,11 +3199,18 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                 </div>
               )}
-              {missions.length === 0
+              {localMissions.length === 0
                 ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>Nenhuma missão ainda!</div>
-                : missions.map((m, mi) => (
-                    <div key={m.id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+                : localMissions.map((m, mi) => (
+                    <div key={m.id}
+                      data-mission-id={m.id}
+                      draggable
+                      onDragStart={() => setDragMissionId(m.id)}
+                      onDragOver={e => handleDragOver(e, m.id)}
+                      onDragEnd={saveMissionOrder}
+                      style={{ background: dragMissionId === m.id ? `${T.purple}22` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${dragMissionId === m.id ? T.purple+"66" : "rgba(255,255,255,0.06)"}`, transition: "all 0.15s", cursor: "grab" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ color: T.textMuted, fontSize: 18, cursor: "grab", flexShrink: 0, userSelect: "none", padding: "0 2px" }}>⠿</div>
                         <div style={{ width: 48, height: 48, borderRadius: 14, background: iconGrad(mi), border: `1px solid ${iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>{m.emoji}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
