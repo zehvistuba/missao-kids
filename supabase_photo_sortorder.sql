@@ -5,6 +5,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- 1. Remover photo_url da mission_logs (dado sensível de menores)
+-- IMPORTANTE: dropar a view antes da coluna (a view depende dela)
+DROP VIEW IF EXISTS public.pending_approvals;
 ALTER TABLE public.mission_logs DROP COLUMN IF EXISTS photo_url;
 
 -- 2. Recriar pending_approvals sem photo_url
