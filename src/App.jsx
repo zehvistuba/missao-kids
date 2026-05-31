@@ -2503,9 +2503,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const saveMissionOrder = async () => {
     setDragMissionId(null);
-    const orders = localMissions.map((m, i) => ({ id: m.id, sort_order: i }));
-    await supabase.rpc("reorder_missions", { p_orders: orders });
-    setMissions([...localMissions]);
+    // Atualiza sort_order nos objetos para que o useEffect re-ordene corretamente
+    const withOrder = localMissions.map((m, i) => ({ ...m, sort_order: i }));
+    await supabase.rpc("reorder_missions", { p_orders: withOrder.map(m => ({ id: m.id, sort_order: m.sort_order })) });
+    setMissions(withOrder);
   };
 
   const loadInviteCode = async () => {
