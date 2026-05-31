@@ -1629,30 +1629,58 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 )}
               </div>
 
-              {/* Streak Calendar — 7 dias */}
-              {streakDays.length === 7 && (
-                <div style={{ background: T.card, borderRadius: 20, padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>ÚLTIMOS 7 DIAS</div>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
-                    {(() => {
-                      const dayLabels = ["D","S","T","Q","Q","S","S"];
-                      return streakDays.map((active, i) => {
-                        const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                        const label = dayLabels[d.getDay()];
-                        const isToday = i === 6;
+              {/* Progresso semanal — gráfico de barras + streak */}
+              {streakDays.length === 7 && (() => {
+                const DAY_LABELS = ["D","S","T","Q","Q","S","S"];
+                const days = Array.from({length: 7}, (_, i) => {
+                  const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                  return localDateStr(6 - i);
+                });
+                const approvedLogs = logs.filter(l => l.status === "approved");
+                const perDay = days.map((date, i) => {
+                  const d = new Date(date + "T12:00:00");
+                  const count = approvedLogs.filter(l => l.due_date === date).length;
+                  const xpDay = approvedLogs.filter(l => l.due_date === date)
+                    .reduce((s, l) => s + (missions.find(m => m.id === l.mission_id)?.xp_reward || 0), 0);
+                  return { date, label: DAY_LABELS[d.getDay()], count, xpDay, active: streakDays[i], isToday: i === 6 };
+                });
+                const maxCount = Math.max(...perDay.map(d => d.count), 1);
+                const totalWeek = perDay.reduce((s, d) => s + d.count, 0);
+                const totalXP   = perDay.reduce((s, d) => s + d.xpDay, 0);
+                return (
+                  <div style={{ background: T.card, borderRadius: 20, padding: "16px 16px 12px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>ESTA SEMANA</div>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <span style={{ fontSize: 11, color: T.accent, fontWeight: 800 }}>✅ {totalWeek} missões</span>
+                        <span style={{ fontSize: 11, color: T.purple, fontWeight: 800 }}>⭐ {totalXP} XP</span>
+                      </div>
+                    </div>
+                    {/* Barras */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 64, marginBottom: 6 }}>
+                      {perDay.map((d, i) => {
+                        const pct = d.count / maxCount;
+                        const color = d.isToday ? T.primary : d.active ? T.accent : "rgba(255,255,255,0.12)";
                         return (
-                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                            <div style={{ fontSize: 10, color: isToday ? T.primary : T.textMuted, fontWeight: isToday ? 800 : 600 }}>{label}</div>
-                            <div style={{ width: 32, height: 32, borderRadius: 10, background: active ? `linear-gradient(135deg, ${T.warning}, ${T.primary})` : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, border: isToday && !active ? `2px solid ${T.primary}44` : "none", boxShadow: active ? `0 0 8px ${T.warning}55` : "none" }}>
-                              {active ? "🔥" : "⚪"}
-                            </div>
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, height: "100%", justifyContent: "flex-end" }}>
+                            {d.count > 0 && <div style={{ fontSize: 9, color: d.isToday ? T.primary : T.textMuted, fontWeight: 800 }}>{d.count}</div>}
+                            <div style={{ width: "100%", height: `${Math.max(pct * 52, d.count > 0 ? 10 : 4)}px`, borderRadius: 6, background: d.count > 0 ? `linear-gradient(180deg, ${color}, ${color}99)` : "rgba(255,255,255,0.06)", transition: "height 0.4s", boxShadow: d.isToday && d.count > 0 ? `0 0 8px ${T.primary}66` : "none" }} />
                           </div>
                         );
-                      });
-                    })()}
+                      })}
+                    </div>
+                    {/* Labels + streak */}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {perDay.map((d, i) => (
+                        <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                          <div style={{ fontSize: 10, color: d.isToday ? T.primary : T.textMuted, fontWeight: d.isToday ? 800 : 600 }}>{d.label}</div>
+                          <div style={{ fontSize: 13, marginTop: 2 }}>{d.active ? "🔥" : "⚪"}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões</div>
               {missions.length === 0
