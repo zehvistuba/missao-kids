@@ -248,18 +248,22 @@ async function subscribePush(userId) {
   if (!VAPID_PUBLIC_KEY) return null;
   try {
     const reg = await navigator.serviceWorker.ready;
-    const existing = await reg.pushManager.getSubscription();
-    if (existing) {
-      await supabase.from("push_subscriptions").upsert({ user_id: userId, subscription: existing }, { onConflict: "user_id" });
-      return existing;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
     }
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-    await supabase.from("push_subscriptions").upsert({ user_id: userId, subscription: sub }, { onConflict: "user_id" });
-    return sub;
-  } catch { return null; }
+    if (sub) {
+      await supabase.from("push_subscriptions")
+        .upsert({ user_id: userId, subscription: sub.toJSON() }, { onConflict: "user_id" });
+    }
+    return sub || null;
+  } catch (err) {
+    console.warn("[push] subscribePush falhou:", err?.message || err);
+    return null;
+  }
 }
 
 function NotifyToggle({ userId }) {
