@@ -80,10 +80,12 @@ Deno.serve(async (req) => {
         try {
           await webPush.sendNotification(subscription, payload);
         } catch (err: unknown) {
-          // FCM 410 = subscription expirada — remove do banco automaticamente
-          const status = (err as { statusCode?: number })?.statusCode;
-          if (status === 410 || status === 404) {
+          const e = err as { statusCode?: number; body?: string; message?: string };
+          console.error(`[push] falhou user=${user_id} status=${e?.statusCode} body=${e?.body} msg=${e?.message}`);
+          // FCM 410/404 = subscription expirada — remove do banco automaticamente
+          if (e?.statusCode === 410 || e?.statusCode === 404) {
             await supabase.from("push_subscriptions").delete().eq("user_id", user_id);
+            console.log(`[push] subscription expirada removida: ${user_id}`);
           }
           throw err;
         }
