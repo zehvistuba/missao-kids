@@ -76,9 +76,18 @@ Deno.serve(async (req) => {
 
     const payload = JSON.stringify({ title: notifTitle, body: notifBody, url: notifUrl, tag: "rotinup" });
     const results = await Promise.allSettled(
-      (subs || []).map(({ subscription }) =>
-        webPush.sendNotification(subscription, payload)
-      )
+      (subs || []).map(async ({ subscription, user_id }) => {
+        try {
+          await webPush.sendNotification(subscription, payload);
+        } catch (err: unknown) {
+          // FCM 410 = subscription expirada — remove do banco automaticamente
+          const status = (err as { statusCode?: number })?.statusCode;
+          if (status === 410 || status === 404) {
+            await supabase.from("push_subscriptions").delete().eq("user_id", user_id);
+          }
+          throw err;
+        }
+      })
     );
 
     const sent   = results.filter(r => r.status === "fulfilled").length;
