@@ -2486,6 +2486,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showArchivedRewards, setShowArchivedRewards]   = useState(false);
   const [reactivating, setReactivating]       = useState(null);
   const pendingRef = useRef(null);
+  const loadIdRef = useRef(0);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -2646,6 +2647,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   }, []);
 
   const load = async () => {
+    const myId = ++loadIdRef.current;
     setLoading(true);
     try {
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
@@ -2658,11 +2660,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
       ]);
+      if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
     } catch {
       // queries failed — don't leave screen stuck in loading
     } finally {
-      setLoading(false);
+      if (myId === loadIdRef.current) setLoading(false);
     }
   };
 
