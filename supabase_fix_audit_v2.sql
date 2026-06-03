@@ -18,8 +18,16 @@
 --        rodam como 'postgres' → passam (crédito legítimo continua funcionando).
 -- Independe de qualquer assinatura de função.
 -- ───────────────────────────────────────────────────────────────────────────
+-- ATENÇÃO: SECURITY INVOKER (default — NÃO usar SECURITY DEFINER aqui).
+--   Com SECURITY DEFINER, current_user vira 'postgres' DENTRO do trigger e a guarda
+--   nunca dispara (escalada não bloqueada). Com SECURITY INVOKER, current_user
+--   reflete quem disparou o UPDATE:
+--     • REST direto do cliente → 'authenticated'/'anon' → BLOQUEIA
+--     • RPC SECURITY DEFINER (review_mission, apply_demerit...) → 'postgres' → LIBERA
+--   NÃO usar session_user: ele é sempre 'authenticator' em qualquer requisição
+--   PostgREST, então bloquearia também o crédito legítimo dos RPCs.
 CREATE OR REPLACE FUNCTION public.protect_profile_columns()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   IF current_user IN ('authenticated', 'anon') THEN
     IF NEW.role IS DISTINCT FROM OLD.role THEN
