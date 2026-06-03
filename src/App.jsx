@@ -905,6 +905,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
     if (!isValidEmail(email)) { setInlineErr("Email inválido"); return; }
     if (!password) { setInlineErr("Digite sua senha"); return; }
     setLoading(true);
+    setInlineErr("");
     try {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -919,9 +920,13 @@ const AuthScreen = ({ initialMode = "login" }) => {
         setTimeout(() => setMode("login"), 2500);
       }
     } catch (err) {
-      notify(authErrPT(err.message), "error");
+      // Erro persistente (inline) + toast — o toast some em 3.5s e pode passar batido
+      const msg = authErrPT(err?.message);
+      setInlineErr(msg);
+      notify(msg, "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -3449,11 +3454,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 14 }}>{cp.display_name}</div>
                         <div style={{ color: T.textMuted, fontSize: 11 }}>{cp.role === "admin" ? "Admin" : "Responsável"}</div>
                       </div>
-                      {cp.role !== "admin" && (
+                      {cp.role !== "admin" && cp.id !== profile.id && (
                         <button onClick={() => removeCoParent(cp.id)} disabled={removingCoParent === cp.id}
                           style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
                           {removingCoParent === cp.id ? "..." : "Remover"}
                         </button>
+                      )}
+                      {cp.id === profile.id && (
+                        <span style={{ color: T.textMuted, fontSize: 10, fontStyle: "italic" }}>você</span>
                       )}
                     </div>
                   ))}
