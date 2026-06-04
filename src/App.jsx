@@ -2737,7 +2737,16 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const review = async (logId, approve) => {
     const log = pending.find(p => p.log_id === logId);
     const { error } = await supabase.rpc("review_mission", { p_log_id: logId, p_approve: approve, p_note: approve ? "Ótimo trabalho! 🎉" : "Tente novamente!" });
-    if (error) return notify("Erro ao revisar", "error");
+    if (error) {
+      // Ex.: "Log já foi revisado" (outra aba/co-responsável já aprovou) — recarrega
+      // a fila pra remover o item obsoleto em vez de deixar reclicar.
+      const msg = /já foi revisad/i.test(error.message || "")
+        ? "Esta missão já foi revisada. Atualizando a lista…"
+        : (error.message || "Erro ao revisar");
+      notify(msg, "error");
+      load();
+      return;
+    }
     notify(approve ? "✅ Aprovado! KidCoins liberados!" : "❌ Missão rejeitada");
     load();
     if (approve && log?.child_id) {
