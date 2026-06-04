@@ -3,6 +3,12 @@ import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { clientsClaim } from 'workbox-core';
+
+// Cache-busting: o SW novo assume o controle IMEDIATAMENTE, sem esperar todas as
+// abas fecharem. Sem isto, o build velho persistia (usuários presos em versão antiga).
+self.skipWaiting();
+clientsClaim();
 
 // Injected by VitePWA
 precacheAndRoute(self.__WB_MANIFEST);
