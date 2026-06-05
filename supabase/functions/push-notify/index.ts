@@ -21,14 +21,21 @@ Deno.serve(async (req) => {
     const SUPABASE_URL      = Deno.env.get("SUPABASE_URL")       ?? "";
     const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const SUPABASE_ANON_KEY    = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const CRON_SECRET          = Deno.env.get("CRON_SECRET") ?? "";
 
-    // Authenticate caller — user JWT or service role key (for cron/internal calls)
+    // Authenticate caller — user JWT, service role key, OU cron (header x-cron-secret).
+    // O cron (pg_cron/pg_net) manda a anon key no Authorization (passa pelo gateway) e o
+    // segredo em x-cron-secret — evita depender do formato da service key (legado vs novo).
     const authHeader = req.headers.get("Authorization") ?? "";
     const callerJwt  = authHeader.replace(/^Bearer\s+/i, "");
-    if (!callerJwt) return respond({ error: "Não autenticado" }, 401);
+    const cronHeader = req.headers.get("x-cron-secret") ?? "";
 
-    const isServiceCall = SUPABASE_SERVICE_KEY && callerJwt === SUPABASE_SERVICE_KEY;
+    const isServiceCall =
+      (SUPABASE_SERVICE_KEY && callerJwt === SUPABASE_SERVICE_KEY) ||
+      (CRON_SECRET && cronHeader === CRON_SECRET);
+
     if (!isServiceCall) {
+      if (!callerJwt) return respond({ error: "Não autenticado" }, 401);
       const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         global: { headers: { Authorization: `Bearer ${callerJwt}` } },
         auth: { autoRefreshToken: false, persistSession: false },
