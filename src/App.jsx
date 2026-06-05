@@ -3706,10 +3706,22 @@ const AdminPanel = ({ onBack }) => {
   );
 };
 
+// Detecta viewport desktop (para o enquadramento "card" no PC, sem mexer no mobile)
+function useIsDesktop(bp = 768) {
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" && window.innerWidth >= bp);
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= bp);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [bp]);
+  return isDesktop;
+}
+
 // ═══════════════════════════════════════════════════════════
 // APP ROOT
 // ═══════════════════════════════════════════════════════════
 export default function App() {
+  const isDesktop = useIsDesktop();
   const [screen, setScreen]   = useState("splash");
   const [splashDone, setSplashDone] = useState(false);
   const [user, setUser]       = useState(null);
@@ -3791,8 +3803,8 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "#080810" }}>
-        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh" }}>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
+        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {screen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
