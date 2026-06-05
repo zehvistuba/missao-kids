@@ -2443,6 +2443,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
 const ParentDash = ({ profile, onSignOut, onRefresh }) => {
+  const isDesktop = useIsDesktop();
   const [tab, setTab]             = useState("home");
   const [children, setChildren]   = useState([]);
   const [missions, setMissions]   = useState([]);
@@ -2859,7 +2860,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"}];
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: isDesktop ? "row" : "column" }}>
       <Notif msg={notif} type={notifType} />
 
       {/* Modal upgrade */}
@@ -2966,6 +2967,31 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         );
       })()}
 
+      {/* Sidebar de navegação — APENAS desktop (mobile usa o menu inferior original) */}
+      {isDesktop && (
+        <div style={{ width: 248, flexShrink: 0, height: "100vh", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", padding: "24px 16px", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px 24px" }}>
+            <div style={{ fontSize: 26 }}>🚀</div>
+            <div style={{ color: T.text, fontWeight: 900, fontSize: 20 }}>RotinUp</div>
+          </div>
+          {navTabs.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", marginBottom: 6, borderRadius: 14, border: "none", cursor: "pointer", background: tab===t.key ? `${T.primary}1F` : "transparent", color: tab===t.key ? T.primary : T.textMuted, fontWeight: 800, fontSize: 15, fontFamily: "'Nunito', sans-serif", textAlign: "left", transition: "all 0.15s" }}>
+              <span style={{ fontSize: 20, filter: tab===t.key ? "none" : "grayscale(60%)" }}>{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
+          {pending.length > 0 && (
+            <div onClick={() => { setTab("home"); setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} style={{ marginTop: 10, padding: "10px 14px", borderRadius: 12, background: T.warning, color: T.darker, fontWeight: 900, fontSize: 13, cursor: "pointer", textAlign: "center", animation: "pulse 2s infinite" }}>
+              ⏳ {pending.length} pendente{pending.length > 1 ? "s" : ""}
+            </div>
+          )}
+          <div style={{ flex: 1 }} />
+        </div>
+      )}
+
+      {/* Área principal (header + conteúdo). display:contents no mobile = idêntico ao original */}
+      <div style={{ display: isDesktop ? "flex" : "contents", flexDirection: "column", flex: 1, minWidth: 0, height: isDesktop ? "100vh" : "auto" }}>
+
       {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px", background: `linear-gradient(135deg, ${T.primary}18, ${T.pink}0A)`, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2992,7 +3018,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 100px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isDesktop ? "24px 32px 48px" : "20px 20px 100px" }}>
         {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
 
           {/* HOME */}
@@ -3506,7 +3532,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           )}
         </>}
       </div>
+      </div>{/* fecha área principal (header + conteúdo) */}
 
+      {!isDesktop && (
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 430, margin: "0 auto", background: `${T.darker}EE`, backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", padding: "12px 0 24px" }}>
         {navTabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer" }}>
@@ -3515,6 +3543,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           </button>
         ))}
       </div>
+      )}
     </div>
   );
 };
@@ -3804,7 +3833,7 @@ export default function App() {
     <>
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : (screen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {screen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
