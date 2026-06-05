@@ -2443,6 +2443,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
 const ParentDash = ({ profile, onSignOut, onRefresh }) => {
+  const isDesktop = useIsDesktop();
   const [tab, setTab]             = useState("home");
   const [children, setChildren]   = useState([]);
   const [missions, setMissions]   = useState([]);
