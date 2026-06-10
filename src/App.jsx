@@ -300,15 +300,69 @@ function NotifyToggle({ userId }) {
     setLoading(false);
   };
 
-  if (status === "granted" && subscribed) {
+  // Reativar/atualizar: troca a inscrição velha por uma nova com a chave VAPID atual
+  // (resolve o caso "ativadas mas não recebe" sem precisar de console).
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const old = await reg.pushManager.getSubscription();
+      if (old) await old.unsubscribe();
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      await supabase.from("push_subscriptions")
+        .upsert({ user_id: userId, subscription: sub.toJSON() }, { onConflict: "user_id" });
+      setSubscribed(true);
+    } catch (err) {
+      console.warn("[push] reativar falhou:", err?.message || err);
+    }
+    setLoading(false);
+  };
+
+  // Desativar: remove a inscrição do navegador e do banco.
+  const handleDisable = async () => {
+    setLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+      setSubscribed(false);
+    } catch (err) {
+      console.warn("[push] desativar falhou:", err?.message || err);
+    }
+    setLoading(false);
+  };
+
+  if (status === "granted") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: `${T.accent}11`, borderRadius: 14, border: `1px solid ${T.accent}33`, marginBottom: 12 }}>
-        <span style={{ fontSize: 20 }}>🔔</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ color: T.accent, fontWeight: 800, fontSize: 13 }}>Notificações ativadas</div>
-          <div style={{ color: T.textMuted, fontSize: 11 }}>Você receberá lembretes de missões</div>
+      <div style={{ padding: "12px 16px", background: `${T.accent}11`, borderRadius: 14, border: `1px solid ${T.accent}33`, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 20 }}>🔔</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: subscribed ? T.accent : T.textMuted, fontWeight: 800, fontSize: 13 }}>
+              {subscribed ? "Notificações ativadas" : "Notificações pausadas"}
+            </div>
+            <div style={{ color: T.textMuted, fontSize: 11 }}>
+              {subscribed ? "Você receberá lembretes de missões" : "Toque em reativar para voltar a receber"}
+            </div>
+          </div>
+          <span style={{ fontSize: 18 }}>{subscribed ? "✅" : "⏸️"}</span>
         </div>
-        <span style={{ fontSize: 18 }}>✅</span>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button onClick={handleRefresh} disabled={loading}
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+            {loading ? "..." : "🔄 Reativar / atualizar"}
+          </button>
+          {subscribed && (
+            <button onClick={handleDisable} disabled={loading}
+              style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+              Desativar
+            </button>
+          )}
+        </div>
       </div>
     );
   }
