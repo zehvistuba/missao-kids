@@ -1305,6 +1305,65 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [localCoins, setLocalCoins] = useState(profile.kidcoins || 0);
   useEffect(() => { setLocalCoins(profile.kidcoins || 0); }, [profile.kidcoins]);
 
+  // ─── Capitão Rotina: saudação + incentivo na home (IA bounded, via única) ───
+  const [companion, setCompanion] = useState(null);
+  const companionTriedRef = useRef(false);
+
+  const buildCompanionContext = () => {
+    const cutoff = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 };
+    const isDone = (m) => {
+      const c = localDateStr(cutoff[m.frequency] ?? 0);
+      return logs.some(l => l.mission_id === m.id && l.due_date >= c && l.status !== "rejected");
+    };
+    const pend = missions.filter(m => !isDone(m));
+    const aspir = rewards.filter(r => (r.coin_cost || 0) > localCoins)
+      .sort((a, b) => (a.coin_cost || 0) - (b.coin_cost || 0))[0];
+    const avg = missions.length
+      ? Math.max(1, Math.round(missions.reduce((s, m) => s + (m.coins_reward || 0), 0) / missions.length)) : 20;
+    const gap = aspir ? (aspir.coin_cost || 0) - localCoins : 0;
+    return {
+      childName: profile.display_name, age: profile.age,
+      level: lvl.level, levelName: lvl.name, streak: profile.streak || 0,
+      missionsLeftToday: pend.length, nextMissionTitle: pend[0]?.title || "",
+      goalRewardTitle: aspir?.title || "", goalRewardGap: gap,
+      goalRewardMissions: aspir ? Math.max(1, Math.ceil(gap / avg)) : 0,
+    };
+  };
+
+  const companionFallback = (c) => {
+    if (c.missionsLeftToday === 0) return `Mandou bem, ${c.childName}! Tudo em dia hoje 🌟`;
+    let m = `Oi, ${c.childName}! `;
+    if (c.streak > 0) m += `Sua sequência está em ${c.streak} dia${c.streak > 1 ? "s" : ""} 🔥 `;
+    m += c.missionsLeftToday === 1 ? "Falta 1 missão hoje" : `Faltam ${c.missionsLeftToday} missões hoje`;
+    m += c.nextMissionTitle ? ` — que tal "${c.nextMissionTitle}"? 🚀` : "! 🚀";
+    return m;
+  };
+
+  const loadCompanion = async () => {
+    const key = `companion-${profile.id}-${localDateStr(0)}`;
+    const cached = localStorage.getItem(key);
+    if (cached) { setCompanion(cached); return; }
+    if (companionTriedRef.current) return;          // 1 tentativa por sessão (evita spam no Gemini)
+    companionTriedRef.current = true;
+    const ctx = buildCompanionContext();
+    setCompanion(companionFallback(ctx));            // mostra já, sem travar a tela
+    try {
+      const msg = await callAI("companion", ctx);
+      if (msg && msg.trim()) {
+        const finalMsg = msg.trim();
+        setCompanion(finalMsg);
+        localStorage.setItem(key, finalMsg);          // cacheia o sucesso só por hoje
+      }
+    } catch {
+      // mantém o fallback templado; tenta a IA de novo na próxima abertura
+    }
+  };
+
+  useEffect(() => {
+    if (!loading) loadCompanion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   // Streak efetivo: 0 se last_active_date não for hoje nem ontem (BUG-16)
   const effectiveStreak = (() => {
     const lad = profile.last_active_date;
@@ -1634,6 +1693,17 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Capitão Rotina — saudação + incentivo do dia */}
+              {companion && (
+                <div style={{ background: `linear-gradient(135deg, ${T.blue}22, ${T.purple}1A)`, borderRadius: 20, padding: "14px 16px", marginBottom: 16, border: `1px solid ${T.blue}33`, display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ fontSize: 32, flexShrink: 0 }}>🚀</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: T.blue, fontWeight: 900, fontSize: 11, letterSpacing: 0.5, marginBottom: 3 }}>CAPITÃO ROTINA</div>
+                    <div style={{ color: T.text, fontSize: 14, lineHeight: 1.45, fontWeight: 600 }}>{companion}</div>
+                  </div>
+                </div>
+              )}
+
               {/* Missão Surpresa IA */}
               <div style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, borderRadius: 22, padding: 20, marginBottom: 20, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", right: -16, top: -16, fontSize: 72, opacity: 0.12, pointerEvents: "none" }}>🎲</div>
