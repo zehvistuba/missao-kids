@@ -95,6 +95,24 @@ ${context.childName ?? "A criança"} (${context.age ?? "?"}anos, nível ${contex
 
 Escreva uma mensagem motivacional CURTA (máx 25 palavras) em português, com emojis, bem animada e adequada para crianças. Use o nome da criança. Retorne APENAS a mensagem, sem aspas ou formatação extra.`;
 
+    } else if (action === "companion") {
+      // Capitão Rotina falando direto com a criança na home: saudação + 1 incentivo.
+      // Mensagem gerada, de via única (NUNCA chat aberto). Contexto só são dados da própria criança.
+      const streak       = Number(context.streak ?? 0);
+      const left         = Number(context.missionsLeftToday ?? 0);
+      const nextMission  = (context.nextMissionTitle as string) || "";
+      const goalTitle    = (context.goalRewardTitle as string) || "";
+      const goalGap      = Number(context.goalRewardGap ?? 0);
+      const goalMissions = Number(context.goalRewardMissions ?? 0);
+
+      prompt = `Você é o Capitão Rotina, mascote amigável do app RotinUp, falando direto com a criança.
+
+Criança: ${context.childName ?? "Aventureiro(a)"} (${context.age ?? "?"} anos, nível ${context.level ?? 1} ${context.levelName ?? ""}). Sequência atual: ${streak} dias.
+Hoje ainda faltam ${left} missão(ões)${nextMission ? `, a próxima sugerida é "${nextMission}"` : ""}.
+${goalTitle ? `Está juntando para a recompensa "${goalTitle}" — faltam ${goalGap} moedas (cerca de ${goalMissions} missões).` : ""}
+
+Escreva UMA mensagem curta (máximo 30 palavras), calorosa e encorajadora, em português do Brasil, com 1-2 emojis, na 2ª pessoa, usando o nome da criança. Adapte o tom à idade (mais simples e fofo se pequena; mais maduro e respeitoso se 13+). NÃO faça perguntas abertas, NÃO peça que ela responda, NÃO invente dados. Retorne APENAS a mensagem, sem aspas.`;
+
     } else if (action === "surprise_mission") {
       isJson = true;
       prompt = `Você é especialista em gamificação para crianças. App RotinUp.
