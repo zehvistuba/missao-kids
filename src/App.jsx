@@ -1446,7 +1446,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("mission_logs").select("*").eq("child_id", profile.id).in("due_date", last30).in("status", ["pending","approved"]),
         supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
         supabase.rpc("get_family_plan"),
-        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at").eq("child_id", profile.id).eq("status", "pending").order("created_at", { ascending: false }),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at,status").eq("child_id", profile.id).in("status", ["requested","approved"]).order("created_at", { ascending: false }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setFamilyPlan(planData || "free");
@@ -1866,13 +1866,15 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Resgates pendentes do filho — BUG-13 */}
               {pendingReds.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>⏳ Aguardando Entrega</div>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>🎁 Meus resgates</div>
                   {pendingReds.map(r => (
                     <div key={r.id} style={{ background: `${T.secondary}0D`, borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: `1px solid ${T.secondary}22`, display: "flex", alignItems: "center", gap: 12 }}>
                       <span style={{ fontSize: 24, flexShrink: 0 }}>{r.reward_emoji}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 13 }}>{r.reward_title}</div>
-                        <div style={{ color: T.secondary, fontSize: 11, fontWeight: 700 }}>🪙 {r.coin_cost} · aguardando entrega</div>
+                        <div style={{ color: r.status === "approved" ? T.accent : T.secondary, fontSize: 11, fontWeight: 700 }}>
+                          🪙 {r.coin_cost} · {r.status === "approved" ? "✅ aprovado, aguardando entrega" : "⏳ aguardando aprovação"}
+                        </div>
                       </div>
                       <button
                         onClick={() => cancelChildRedemption(r.id, r.coin_cost)}
@@ -2788,7 +2790,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("pending_approvals").select("*"),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
-        supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).eq("status","pending").order("created_at", { ascending: false }),
+        supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).in("status",["requested","approved"]).order("created_at", { ascending: false }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
@@ -2843,7 +2845,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redemptionId });
     setCancellingRed(null);
     if (error) return notify(error.message || "Erro ao cancelar", "error");
-    notify("🔄 Solicitação cancelada. Coins devolvidos."); load();
+    notify("🔄 Resgate cancelado. Coins devolvidos."); load();
+  };
+
+  const approveRedemption = async (redemptionId) => {
+    setConfirmingRed(redemptionId);
+    const red = redemptions.find(r => r.id === redemptionId);
+    const { error } = await supabase.rpc("approve_redemption", { p_log_id: redemptionId });
+    setConfirmingRed(null);
+    if (error) return notify(error.message || "Erro ao aprovar", "error");
+    notify("✅ Resgate aprovado! Aguardando entrega."); load();
+    if (red?.child_id) pushNotify([red.child_id], "Resgate aprovado! ✅", `${red.reward_emoji || "🎁"} ${red.reward_title} foi aprovado! Em breve você recebe.`);
   };
 
   const applyDemerit = async ({ childId, title, emoji, coins }) => {
@@ -3148,41 +3160,78 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
-              {/* Aguardando entrega — resgates já feitos, ainda não entregues (todos os filhos) */}
-              {redemptions.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                    🎁 Aguardando entrega
-                    <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{redemptions.length}</span>
+              {/* Resgates em 2 filas: aprovação (requested) e entrega (approved) */}
+              {(() => {
+                const pedidos  = redemptions.filter(r => r.status === "requested");
+                const entregas = redemptions.filter(r => r.status === "approved");
+                const tempo = (r) => {
+                  const d = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000);
+                  return d <= 0 ? "hoje" : d === 1 ? "ontem" : `há ${d} dias`;
+                };
+                const nome = (r) => r.child_name || children.find(c => c.id === r.child_id)?.display_name || "";
+                const infoRow = (r, accent) => (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: `${accent}1A`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{r.reward_emoji || "🎁"}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.reward_title}</div>
+                      <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{nome(r) ? nome(r) + " · " : ""}resgatado {tempo(r)} · 🪙 {r.coin_cost}</div>
+                    </div>
                   </div>
-                  {redemptions.map(r => {
-                    const dias = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000);
-                    const quando = dias <= 0 ? "hoje" : dias === 1 ? "ontem" : `há ${dias} dias`;
-                    const childName = r.child_name || children.find(c => c.id === r.child_id)?.display_name || "";
-                    return (
-                      <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.secondary}33` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 42, height: 42, borderRadius: 12, background: `${T.secondary}1A`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{r.reward_emoji || "🎁"}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.reward_title}</div>
-                            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{childName ? childName + " · " : ""}resgatado {quando} · 🪙 {r.coin_cost}</div>
+                );
+                return (
+                  <>
+                    {/* Etapa 2 — Aguardando sua aprovação */}
+                    {pedidos.length > 0 && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                          🙋 Aguardando sua aprovação
+                          <span style={{ background: `${T.purple}22`, color: T.purple, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{pedidos.length}</span>
+                        </div>
+                        {pedidos.map(r => (
+                          <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.purple}33` }}>
+                            {infoRow(r, T.purple)}
+                            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                              <button onClick={() => approveRedemption(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
+                                style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                                {confirmingRed === r.id ? "..." : "✅ Aprovar"}
+                              </button>
+                              <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
+                                style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                                {cancellingRed === r.id ? "..." : "Recusar"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                          <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
-                            style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                            {confirmingRed === r.id ? "..." : "✅ Entreguei"}
-                          </button>
-                          <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
-                            style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                            {cancellingRed === r.id ? "..." : "Cancelar"}
-                          </button>
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+
+                    {/* Etapa 3 — Aguardando entrega */}
+                    {entregas.length > 0 && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                          🎁 Aguardando entrega
+                          <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{entregas.length}</span>
+                        </div>
+                        {entregas.map(r => (
+                          <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.secondary}33` }}>
+                            {infoRow(r, T.secondary)}
+                            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                              <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
+                                style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                                {confirmingRed === r.id ? "..." : "✅ Entreguei"}
+                              </button>
+                              <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
+                                style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                                {cancellingRed === r.id ? "..." : "Cancelar"}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Pendentes — mostrar no topo quando há missões aguardando aprovação */}
               {pending.length > 0 && (
@@ -3282,27 +3331,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                             })}
                           </div>
                         )}
-                        {/* Resgates pendentes de entrega */}
-                        {redemptions.filter(r => r.child_id === child.id).length > 0 && (
-                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>🎁 RESGATES AGUARDANDO ENTREGA</div>
-                            {redemptions.filter(r => r.child_id === child.id).map(r => (
-                              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, background: `${T.secondary}0A`, borderRadius: 12, padding: "8px 10px" }}>
-                                <span style={{ fontSize: 20, flexShrink: 0 }}>{r.reward_emoji}</span>
-                                <div style={{ flex: 1, color: T.text, fontSize: 13, fontWeight: 600 }}>{r.reward_title}</div>
-                                <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>🪙 {r.coin_cost}</span>
-                                <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
-                                  style={{ padding: "5px 10px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                                  {confirmingRed === r.id ? "..." : "✅ Entreguei"}
-                                </button>
-                                <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
-                                  style={{ padding: "5px 10px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                                  {cancellingRed === r.id ? "..." : "❌"}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        {/* Resgates (aprovação + entrega) movidos para as filas do topo da Início */}
                       </div>
                     );
                   })
