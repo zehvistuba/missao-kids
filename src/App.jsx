@@ -1260,6 +1260,25 @@ const Onboarding = ({ user, onDone }) => {
 // ═══════════════════════════════════════════════════════════
 // CHILD DASHBOARD
 // ═══════════════════════════════════════════════════════════
+// Contagem regressiva ao vivo (recompensa de tempo). Tica a cada segundo.
+function Countdown({ endsAt }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const ms = new Date(endsAt).getTime() - now;
+  const over = ms <= 0;
+  const mm = Math.max(0, Math.floor(ms / 60000));
+  const ss = Math.max(0, Math.floor((ms % 60000) / 1000));
+  const low = ms > 0 && ms <= 5 * 60000;
+  return (
+    <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", color: over ? T.pink : low ? T.warning : T.accent }}>
+      {over ? "⏱️ acabou" : `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`}
+    </span>
+  );
+}
+
 const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [tab, setTab]         = useState("home");
   const [missions, setMissions] = useState([]);
@@ -1290,6 +1309,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [familyPlan, setFamilyPlan] = useState("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pendingReds, setPendingReds] = useState([]);
+  const [activeTimers, setActiveTimers] = useState([]);
   const [cancellingRed, setCancellingRed] = useState(null);
 
   const qty    = (rid) => quantities[rid] || 1;
@@ -1439,7 +1459,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     try {
       const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }, { data: pr }] = await Promise.all([
+      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }, { data: pr }, { data: td }] = await Promise.all([
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("achievements").select("*").order("condition_val"),
@@ -1447,11 +1467,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
         supabase.rpc("get_family_plan"),
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at,status").eq("child_id", profile.id).in("status", ["requested","approved"]).order("created_at", { ascending: false }),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,timer_ends_at").eq("child_id", profile.id).eq("status","delivered").not("timer_ends_at","is",null).gt("timer_ends_at", new Date().toISOString()).order("timer_ends_at", { ascending: true }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setFamilyPlan(planData || "free");
       missionsRef.current = m || [];
-      setMissions(m || []); setRewards(r || []); setLogs(l || []); setPendingReds(pr || []);
+      setMissions(m || []); setRewards(r || []); setLogs(l || []); setPendingReds(pr || []); setActiveTimers(td || []);
       const activeDaysSet = new Set((sd || []).map(x => x.due_date));
       setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
       if (a) {
@@ -1862,6 +1883,23 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
               <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {localCoins}</span></div>
+
+              {/* Cronômetros em andamento — recompensas de tempo entregues */}
+              {activeTimers.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginBottom: 10 }}>⏱️ Em andamento</div>
+                  {activeTimers.map(t => (
+                    <div key={t.id} style={{ background: `linear-gradient(135deg, ${T.accent}14, ${T.blue}0C)`, borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: `1px solid ${T.accent}33`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontSize: 30, flexShrink: 0 }}>{t.reward_emoji || "🎮"}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>aproveite o seu tempo!</div>
+                      </div>
+                      <div style={{ fontSize: 22 }}><Countdown endsAt={t.timer_ends_at} /></div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Resgates pendentes do filho — BUG-13 */}
               {pendingReds.length > 0 && (
@@ -2584,7 +2622,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showReward, setShowReward]     = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" });
-  const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50 });
+  const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 });
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
@@ -2605,6 +2643,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [childLogs, setChildLogs]           = useState([]);
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
+  const [activeTimers, setActiveTimers]       = useState([]);
   const [confirmingRed, setConfirmingRed]     = useState(null);
   const [cancellingRed, setCancellingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
@@ -2783,7 +2822,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setLoading(true);
     try {
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: ch }, { data: m }, { data: mi }, { data: p }, { data: r }, { data: cl }, { data: rd }] = await Promise.all([
+      const [{ data: ch }, { data: m }, { data: mi }, { data: p }, { data: r }, { data: cl }, { data: rd }, { data: td }] = await Promise.all([
         supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",false),
@@ -2791,9 +2830,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).in("status",["requested","approved"]).order("created_at", { ascending: false }),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,child_id,child_name,timer_ends_at").eq("family_id", profile.family_id).eq("status","delivered").not("timer_ends_at","is",null).gt("timer_ends_at", new Date().toISOString()).order("timer_ends_at", { ascending: true }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
-      setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]);
+      setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
     } catch {
       // queries failed — don't leave screen stuck in loading
     } finally {
@@ -2923,7 +2963,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (isLimitError(data.error || "")) { setShowReward(false); setShowUpgrade(true); return; }
       return notify(data.error || "Erro ao criar recompensa", "error");
     }
-    notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50 }); load();
+    // Recompensa de tempo: grava a duração (não toca no create_reward)
+    if (data?.id && newR.duration_minutes > 0) {
+      await supabase.rpc("set_reward_duration", { p_reward_id: data.id, p_minutes: newR.duration_minutes });
+    }
+    notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 }); load();
   };
 
   const suggestMissions = async () => {
@@ -3160,6 +3204,26 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Cronômetros em andamento (recompensas de tempo entregues) */}
+              {activeTimers.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    ⏱️ Em andamento
+                    <span style={{ background: `${T.accent}22`, color: T.accent, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{activeTimers.length}</span>
+                  </div>
+                  {activeTimers.map(t => (
+                    <div key={t.id} style={{ background: `linear-gradient(135deg, ${T.accent}12, ${T.blue}0C)`, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.accent}33`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontSize: 26, flexShrink: 0 }}>{t.reward_emoji || "🎮"}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
+                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{t.child_name || children.find(c => c.id === t.child_id)?.display_name || ""}</div>
+                      </div>
+                      <div style={{ fontSize: 20 }}><Countdown endsAt={t.timer_ends_at} /></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Resgates em 2 filas: aprovação (requested) e entrega (approved) */}
               {(() => {
                 const pedidos  = redemptions.filter(r => r.status === "requested");
@@ -3517,6 +3581,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
                     <input type="number" value={newR.coin_cost === 0 ? "" : newR.coin_cost} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewR(p=>({...p,coin_cost: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>⏱️ Duração em minutos <span style={{ opacity: 0.7 }}>(opcional — pra recompensa de tempo, ex: 60 = 1h de videogame)</span></div>
+                    <input type="number" value={newR.duration_minutes === 0 ? "" : newR.duration_minutes} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewR(p=>({...p,duration_minutes: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Btn onClick={createReward} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`} small>Criar</Btn>
