@@ -2244,11 +2244,11 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
             <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
-            <input type="number" value={coins} onChange={e => setCoins(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+            <input type="number" value={coins === 0 ? "" : coins} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setCoins(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
           </div>
           <div>
             <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
-            <input type="number" value={xp} onChange={e => setXp(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+            <input type="number" value={xp === 0 ? "" : xp} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setXp(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
@@ -2298,7 +2298,7 @@ const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose })
         <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
         <div style={{ marginBottom: 16 }}>
           <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
-          <input type="number" value={cost} onChange={e => setCost(+e.target.value)} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+          <input type="number" value={cost === 0 ? "" : cost} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setCost(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
         </div>
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
           <Btn onClick={handleSave} disabled={saving || !title.trim()} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`}>
@@ -3425,11 +3425,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                     <div>
                       <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
-                      <input type="number" value={newM.coins_reward} onChange={e => setNewM(p=>({...p,coins_reward:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                      <input type="number" value={newM.coins_reward === 0 ? "" : newM.coins_reward} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,coins_reward: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                     </div>
                     <div>
                       <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
-                      <input type="number" value={newM.xp_reward} onChange={e => setNewM(p=>({...p,xp_reward:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                      <input type="number" value={newM.xp_reward === 0 ? "" : newM.xp_reward} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,xp_reward: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
@@ -3516,7 +3516,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon={newR.emoji} maxLength={60} />
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
-                    <input type="number" value={newR.coin_cost} onChange={e => setNewR(p=>({...p,coin_cost:+e.target.value}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                    <input type="number" value={newR.coin_cost === 0 ? "" : newR.coin_cost} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewR(p=>({...p,coin_cost: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Btn onClick={createReward} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`} small>Criar</Btn>
