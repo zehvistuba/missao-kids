@@ -3148,6 +3148,42 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Aguardando entrega — resgates já feitos, ainda não entregues (todos os filhos) */}
+              {redemptions.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    🎁 Aguardando entrega
+                    <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{redemptions.length}</span>
+                  </div>
+                  {redemptions.map(r => {
+                    const dias = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000);
+                    const quando = dias <= 0 ? "hoje" : dias === 1 ? "ontem" : `há ${dias} dias`;
+                    const childName = r.child_name || children.find(c => c.id === r.child_id)?.display_name || "";
+                    return (
+                      <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.secondary}33` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 42, height: 42, borderRadius: 12, background: `${T.secondary}1A`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{r.reward_emoji || "🎁"}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.reward_title}</div>
+                            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{childName ? childName + " · " : ""}resgatado {quando} · 🪙 {r.coin_cost}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
+                            style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                            {confirmingRed === r.id ? "..." : "✅ Entreguei"}
+                          </button>
+                          <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
+                            style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                            {cancellingRed === r.id ? "..." : "Cancelar"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Pendentes — mostrar no topo quando há missões aguardando aprovação */}
               {pending.length > 0 && (
                 <div ref={pendingRef} style={{ marginBottom: 20 }}>
