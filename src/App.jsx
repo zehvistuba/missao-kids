@@ -1312,6 +1312,56 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [activeTimers, setActiveTimers] = useState([]);
   const [cancellingRed, setCancellingRed] = useState(null);
 
+  // ── Fase 2B: missões de duração (▶️ Iniciar). Cronômetro local por criança.
+  // runs = { [missionId]: endsAtMs }. Persistido em localStorage p/ sobreviver a
+  // recarregar a página. Ao zerar, a missão é enviada sozinha p/ aprovação.
+  const runsKey = `rotinup_mruns_${profile.id}`;
+  const loadRuns = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(runsKey) || "{}");
+      const t = Date.now();
+      const clean = {};
+      // mantém em andamento, ou recém-terminado (até 5min) p/ auto-enviar ao reabrir
+      for (const [mid, endsAt] of Object.entries(raw)) {
+        if (typeof endsAt === "number" && endsAt > t - 5 * 60000) clean[mid] = endsAt;
+      }
+      return clean;
+    } catch { return {}; }
+  };
+  const [runs, setRuns] = useState(loadRuns);
+  const [nowTick, setNowTick] = useState(Date.now());
+  const firedRef = useRef(new Set());
+  const persistRuns = (next) => {
+    setRuns(next);
+    try { localStorage.setItem(runsKey, JSON.stringify(next)); } catch {}
+  };
+  const startRun = (m) => {
+    const mins = m.duration_minutes || 0;
+    if (mins <= 0) return;
+    firedRef.current.delete(m.id);
+    persistRuns({ ...runs, [m.id]: Date.now() + mins * 60000 });
+    setNowTick(Date.now());
+  };
+  const cancelRun = (mid) => {
+    firedRef.current.delete(mid);
+    const next = { ...runs }; delete next[mid]; persistRuns(next);
+  };
+  // tica de 1s só quando há cronômetro de missão rodando
+  useEffect(() => {
+    if (Object.keys(runs).length === 0) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [runs]);
+  // ao terminar a contagem, envia a missão sozinha para aprovação
+  useEffect(() => {
+    const expired = Object.entries(runs).filter(([mid, e]) => e <= Date.now() && !firedRef.current.has(mid));
+    if (expired.length === 0) return;
+    const next = { ...runs };
+    expired.forEach(([mid]) => { firedRef.current.add(mid); delete next[mid]; submit(mid); });
+    try { localStorage.setItem(runsKey, JSON.stringify(next)); } catch {}
+    setRuns(next);
+  }, [nowTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const qty    = (rid) => quantities[rid] || 1;
   const setQty = (rid, delta, max) =>
     setQuantities(prev => ({ ...prev, [rid]: Math.min(max, Math.max(1, (prev[rid] || 1) + delta)) }));
@@ -1856,12 +1906,31 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                               <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
                               <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
                               {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
+                              {m.duration_minutes > 0 && <span style={{ fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>⏱️ {m.duration_minutes}min</span>}
                               {timesInPeriod > 1 && <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>🔁 {timesInPeriod}ª vez</span>}
                             </div>
                           </div>
-                          {!done && !pend && <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>}
-                          {pend && <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>}
-                          {done && !pend && <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "7px 12px", borderRadius: 12, border: `1px solid ${T.warning}55`, background: `${T.warning}15`, color: T.warning, fontWeight: 800, fontSize: 11, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "🔁 Fiz de novo!"}</button>}
+                          {(() => {
+                            if (pend) return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>;
+                            const endsAt = runs[m.id];
+                            if (endsAt) {
+                              const rem = endsAt - nowTick;
+                              if (rem > 0) {
+                                const mm = Math.floor(rem / 60000), ss = Math.floor((rem % 60000) / 1000);
+                                const low = rem <= 60000;
+                                return (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                    <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 15, color: low ? T.warning : T.accent }}>⏱️ {String(mm).padStart(2,"0")}:{String(ss).padStart(2,"0")}</span>
+                                    <button onClick={() => cancelRun(m.id)} title="Cancelar" style={{ padding: "5px 9px", borderRadius: 10, border: `1px solid ${T.pink}55`, background: `${T.pink}15`, color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
+                                  </div>
+                                );
+                              }
+                              return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>enviando…</span>;
+                            }
+                            if (m.duration_minutes > 0) return <button onClick={() => startRun(m)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>▶️ {done ? "De novo" : "Iniciar"}</button>;
+                            if (!done) return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>;
+                            return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "7px 12px", borderRadius: 12, border: `1px solid ${T.warning}55`, background: `${T.warning}15`, color: T.warning, fontWeight: 800, fontSize: 11, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "🔁 Fiz de novo!"}</button>;
+                          })()}
                         </div>
                       </div>
                     );
@@ -2621,7 +2690,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [localMissions, setLocalMissions] = useState([]);
   const [showReward, setShowReward]     = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
-  const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" });
+  const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 });
   const [newR, setNewR] = useState({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 });
   const [aiLoading, setAiLoading] = useState(null); // "missions" | "report" | null
   const [aiMissions, setAiMissions] = useState([]);
@@ -2947,7 +3016,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (isLimitError(data.error || "")) { setShowMission(false); setShowUpgrade(true); return; }
       return notify(data.error || "Erro ao criar missão", "error");
     }
-    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily" }); load();
+    // Missão de duração: grava os minutos (não toca no create_mission vivo).
+    // create_mission RETURNS UUID → data é a própria string do id.
+    const newMissionId = typeof data === "string" ? data : data?.id;
+    if (newMissionId && newM.duration_minutes > 0) {
+      await supabase.rpc("set_mission_duration", { p_mission_id: newMissionId, p_minutes: newM.duration_minutes });
+    }
+    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 }); load();
   };
 
   const createReward = async () => {
@@ -2963,9 +3038,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (isLimitError(data.error || "")) { setShowReward(false); setShowUpgrade(true); return; }
       return notify(data.error || "Erro ao criar recompensa", "error");
     }
-    // Recompensa de tempo: grava a duração (não toca no create_reward)
-    if (data?.id && newR.duration_minutes > 0) {
-      await supabase.rpc("set_reward_duration", { p_reward_id: data.id, p_minutes: newR.duration_minutes });
+    // Recompensa de tempo: grava a duração (não toca no create_reward).
+    // create_reward RETURNS UUID → data é a própria string do id.
+    const newRewardId = typeof data === "string" ? data : data?.id;
+    if (newRewardId && newR.duration_minutes > 0) {
+      await supabase.rpc("set_reward_duration", { p_reward_id: newRewardId, p_minutes: newR.duration_minutes });
     }
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 }); load();
   };
@@ -3495,6 +3572,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                       <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
                       <input type="number" value={newM.xp_reward === 0 ? "" : newM.xp_reward} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,xp_reward: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                     </div>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>⏱️ Duração em minutos (opcional — vira ▶️ Iniciar com cronômetro)</div>
+                    <input type="number" value={newM.duration_minutes === 0 ? "" : newM.duration_minutes} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,duration_minutes: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Btn onClick={createMission} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`} small>Criar</Btn>
