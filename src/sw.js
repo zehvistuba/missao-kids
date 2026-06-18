@@ -45,8 +45,8 @@ self.addEventListener('push', (event) => {
   const title   = data.title  || 'RotinUp 🚀';
   const options = {
     body:    data.body    || 'Você tem missões esperando por você!',
-    icon:    '/icon.svg',
-    badge:   '/icon.svg',
+    icon:    '/icon.png',
+    badge:   '/icon.png',
     tag:     data.tag     || 'rotinup-notification',
     data:    { url: data.url || '/' },
     vibrate: [200, 100, 200, 100, 200],
