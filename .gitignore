@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI binário + temporários (não versionar)
+supabase.exe
+supabase/.temp/
