@@ -1967,8 +1967,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           {/* STORE */}
           {tab === "store" && (
             <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>🏪 Loja</div>
-              <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20 }}>Saldo: <span style={{ color: T.secondary, fontWeight: 800 }}>🪙 {localCoins}</span></div>
+              {/* Saldo — card destaque */}
+              <div style={{ background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, borderRadius: 22, padding: "18px 20px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: -8, top: -10, fontSize: 78, opacity: 0.18, pointerEvents: "none" }}>🪙</div>
+                <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 11, fontWeight: 900, letterSpacing: 1 }}>🏪 LOJA · SEU SALDO</div>
+                <div style={{ color: "#1A1200", fontWeight: 900, fontSize: 32, marginTop: 2 }}>🪙 {localCoins}</div>
+                <div style={{ color: "rgba(0,0,0,0.6)", fontWeight: 700, fontSize: 12, marginTop: 2 }}>KidCoins pra trocar por recompensas!</div>
+              </div>
 
               {/* Cronômetros em andamento — recompensas de tempo entregues */}
               {activeTimers.length > 0 && (
@@ -2052,6 +2057,23 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           {tab === "achievements" && (
             <div>
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🏆 Conquistas</div>
+              {/* Resumo — quantas desbloqueadas */}
+              {achievements.length > 0 && (() => {
+                const earned = achievements.filter(a => a.earned).length;
+                const total = achievements.length;
+                const pct = total ? earned / total : 0;
+                return (
+                  <div style={{ background: `linear-gradient(135deg, ${T.secondary}1A, ${T.primary}10)`, borderRadius: 18, padding: "16px 18px", marginBottom: 16, border: `1px solid ${T.secondary}33` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ color: T.secondary, fontSize: 11, fontWeight: 900, letterSpacing: 1 }}>✨ DESBLOQUEADAS</span>
+                      <span style={{ color: T.text, fontSize: 15, fontWeight: 900 }}>{earned}/{total}</span>
+                    </div>
+                    <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 6, background: `linear-gradient(90deg, ${T.secondary}, ${T.primary})`, transition: "width 0.5s ease" }} />
+                    </div>
+                  </div>
+                );
+              })()}
               {achievements.map(a => {
                 const isStreak = a.condition_key === "streak_days";
                 const currentStreak = effectiveStreak;
@@ -2102,10 +2124,12 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Avatar + nome */}
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <div onClick={() => setEditingAvatar(true)} style={{ position: "relative", display: "inline-block", cursor: "pointer", marginBottom: 12 }}>
-                  <div style={{ width: 100, height: 100, borderRadius: 30, background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                    <AvatarImg value={avatarEmoji} size={100} radius={28} />
-                  </div>
-                  <div style={{ position: "absolute", bottom: -4, right: -4, width: 28, height: 28, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `2px solid ${T.darker}` }}>✏️</div>
+                  <XPRing size={116} stroke={6} pct={xpFor ? xpIn / xpFor : 0} color={lvl.color}>
+                    <div style={{ width: 96, height: 96, borderRadius: "50%", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      <AvatarImg value={avatarEmoji} size={96} radius={48} />
+                    </div>
+                  </XPRing>
+                  <div style={{ position: "absolute", bottom: 2, right: 2, width: 28, height: 28, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `2px solid ${T.darker}`, zIndex: 1 }}>✏️</div>
                 </div>
                 <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
                 <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{profile.age ? `${profile.age} anos · ` : ""}{lvl.name} {lvl.emoji}</div>
