@@ -1780,13 +1780,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                 const pct = total ? doneToday / total : 0;
                 const allDone = doneToday === total;
                 return (
-                  <div style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 16, border: `1px solid ${allDone ? T.accent + "44" : "rgba(255,255,255,0.06)"}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1 }}>HOJE</span>
-                      <span style={{ color: allDone ? T.accent : T.text, fontSize: 13, fontWeight: 900 }}>{doneToday}/{total} {allDone ? "✅" : "missões"}</span>
+                  <div style={{ background: `linear-gradient(135deg, ${T.accent}1A, ${T.blue}10)`, borderRadius: 18, padding: "16px 18px", marginBottom: 16, border: `1px solid ${allDone ? T.accent + "66" : T.accent + "22"}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ color: T.accent, fontSize: 11, fontWeight: 900, letterSpacing: 1 }}>🎯 MISSÕES DE HOJE</span>
+                      <span style={{ color: allDone ? T.accent : T.text, fontSize: 15, fontWeight: 900 }}>{doneToday}/{total} {allDone ? "✅" : ""}</span>
                     </div>
-                    <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 6, background: `linear-gradient(90deg, ${T.accent}, ${T.blue})`, transition: "width 0.5s ease" }} />
+                    <div style={{ height: 12, borderRadius: 7, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 7, background: `linear-gradient(90deg, ${T.accent}, ${T.blue})`, transition: "width 0.5s ease", boxShadow: pct > 0 ? `0 0 10px ${T.accent}66` : "none" }} />
                     </div>
                   </div>
                 );
@@ -3315,6 +3315,32 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           {/* HOME */}
           {tab === "home" && (
             <div>
+              {/* Hoje na família — resumo colorido do dia */}
+              {children.length > 0 && (() => {
+                const total = children.length * missions.length;
+                const done = children.reduce((s, c) => s + missions.filter(m => getChildLog(c.id, m.id, m.frequency)?.status === "approved").length, 0);
+                const pct = total ? done / total : 0;
+                const leader = [...children].sort((a, b) => (b.streak || 0) - (a.streak || 0))[0];
+                const famCoins = children.reduce((s, c) => s + (c.kidcoins || 0), 0);
+                return (
+                  <div style={{ background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 22, padding: "18px 20px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", right: -10, top: -12, fontSize: 80, opacity: 0.12, pointerEvents: "none" }}>👨‍👩‍👧</div>
+                    <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, fontWeight: 800, letterSpacing: 1 }}>HOJE NA FAMÍLIA</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+                      <span style={{ color: "#fff", fontWeight: 900, fontSize: 30 }}>{done}<span style={{ fontSize: 18, opacity: 0.7 }}>/{total}</span></span>
+                      <span style={{ color: "rgba(255,255,255,0.92)", fontWeight: 700, fontSize: 14 }}>missões feitas hoje</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 5, background: "rgba(255,255,255,0.25)", overflow: "hidden", marginTop: 10 }}>
+                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 5, background: "#fff", transition: "width 0.5s ease" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                      {leader && (leader.streak || 0) > 0 && <span style={{ background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>🔥 {leader.display_name} · {leader.streak}d</span>}
+                      <span style={{ background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>🪙 {famCoins} na família</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Cronômetros em andamento (recompensas de tempo entregues) */}
               {activeTimers.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
@@ -3461,7 +3487,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     const l = getLvl(child.xp||0); const n = getNext(child.xp||0);
                     const age = child.birth_date ? calcAge(child.birth_date) : child.age;
                     return (
-                      <div key={child.id} style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div key={child.id} style={{ background: `linear-gradient(135deg, ${l.color}14, ${T.card} 60%)`, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${l.color}33` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                           <XPRing size={62} stroke={4} pct={(n.xpNeeded - l.xpNeeded) ? ((child.xp || 0) - l.xpNeeded) / (n.xpNeeded - l.xpNeeded) : 0} color={l.color}>
                             <div style={{ width: 48, height: 48, borderRadius: "50%", overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
