@@ -1279,6 +1279,22 @@ function Countdown({ endsAt }) {
   );
 }
 
+// Anel circular de progresso de XP (em volta do avatar na home da criança).
+function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(1, pct || 0));
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.12)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p)} style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{children}</div>
+    </div>
+  );
+}
+
 const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [tab, setTab]         = useState("home");
   const [missions, setMissions] = useState([]);
@@ -1720,41 +1736,23 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
       {/* Header com saudação personalizada */}
       <div style={{ padding: "16px 20px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <AvatarImg value={profile.avatar_emoji} size={48} radius={14} />
+        {/* Hero: avatar com anel de XP + nível + chips (🔥 streak · 🪙 coins · ⚡ XP) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 22, padding: "14px 16px", border: `1px solid ${lvl.color}33`, marginBottom: 4 }}>
+          <XPRing size={76} stroke={5} pct={xpFor ? xpIn / xpFor : 0} color={lvl.color}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AvatarImg value={profile.avatar_emoji} size={60} radius={30} />
             </div>
-            <div>
-              <div style={{ color: T.textMuted, fontSize: 11 }}>{getSaudacao()},</div>
-              <div style={{ color: T.text, fontSize: 17, fontWeight: 900 }}>👋 {profile.display_name}!</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, borderRadius: 14, padding: "8px 14px", border: `1px solid ${T.secondary}33` }}>
-            <span>🪙</span><span style={{ color: T.secondary, fontWeight: 900, fontSize: 16 }}>{localCoins}</span>
-          </div>
-        </div>
-
-        {/* Level card */}
-        <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 20, padding: "16px 20px", border: `1px solid ${lvl.color}33`, marginBottom: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 28 }}>{lvl.emoji}</span>
-              <div>
-                <div style={{ color: lvl.color, fontWeight: 900, fontSize: 11, letterSpacing: 1 }}>NÍVEL {lvl.level}</div>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>{lvl.name}</div>
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: T.textMuted, fontSize: 10 }}>Streak</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span>🔥</span><span style={{ color: T.warning, fontWeight: 900, fontSize: 18 }}>{effectiveStreak}</span></div>
+          </XPRing>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: T.textMuted, fontSize: 11 }}>{getSaudacao()},</div>
+            <div style={{ color: T.text, fontSize: 18, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.display_name} {lvl.emoji}</div>
+            <div style={{ color: lvl.color, fontWeight: 900, fontSize: 11, letterSpacing: 0.5, marginTop: 1 }}>NÍVEL {lvl.level} · {lvl.name}</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 7, flexWrap: "wrap" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 3, background: `${T.warning}1A`, borderRadius: 9, padding: "3px 9px", fontSize: 12, fontWeight: 900, color: T.warning }}>🔥 {effectiveStreak}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 3, background: `${T.secondary}1A`, borderRadius: 9, padding: "3px 9px", fontSize: 12, fontWeight: 900, color: T.secondary }}>🪙 {localCoins}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 3, background: `${lvl.color}1A`, borderRadius: 9, padding: "3px 9px", fontSize: 12, fontWeight: 900, color: lvl.color }}>⚡ {xpIn}/{xpFor}</span>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: T.textMuted }}>XP: {xpIn}/{xpFor}</span>
-            <span style={{ fontSize: 11, color: lvl.color }}>→ {next.name}</span>
-          </div>
-          <XPBar current={xpIn} max={xpFor} color={lvl.color} />
         </div>
       </div>
 
@@ -1774,6 +1772,135 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                 </div>
               )}
+
+              {/* HOJE — progresso das missões do dia */}
+              {missions.length > 0 && (() => {
+                const doneToday = missions.filter(m => getLog(m.id, m.frequency)?.status === "approved").length;
+                const total = missions.length;
+                const pct = total ? doneToday / total : 0;
+                const allDone = doneToday === total;
+                return (
+                  <div style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 16, border: `1px solid ${allDone ? T.accent + "44" : "rgba(255,255,255,0.06)"}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1 }}>HOJE</span>
+                      <span style={{ color: allDone ? T.accent : T.text, fontSize: 13, fontWeight: 900 }}>{doneToday}/{total} {allDone ? "✅" : "missões"}</span>
+                    </div>
+                    <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 6, background: `linear-gradient(90deg, ${T.accent}, ${T.blue})`, transition: "width 0.5s ease" }} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões</div>
+              {missions.length === 0
+                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
+                : missions.map((m, mi) => {
+                    const log = getLog(m.id, m.frequency);
+                    const done = log?.status === "approved";
+                    const pend = log?.status === "pending";
+                    const timesInPeriod = countLogsInPeriod(m.id, m.frequency);
+                    return (
+                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 28, background: done ? `${T.accent}22` : iconGrad(mi), border: `1px solid ${done ? T.accent+"44" : iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: done ? "none" : `0 4px 12px rgba(0,0,0,0.2)` }}>{done ? "✅" : m.emoji}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
+                              <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
+                              {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
+                              {m.duration_minutes > 0 && <span style={{ fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>⏱️ {m.duration_minutes}min</span>}
+                              {timesInPeriod > 1 && <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>🔁 {timesInPeriod}ª vez</span>}
+                            </div>
+                          </div>
+                          {(() => {
+                            if (pend) return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>;
+                            const endsAt = runs[m.id];
+                            if (endsAt) {
+                              const rem = endsAt - nowTick;
+                              if (rem > 0) {
+                                const mm = Math.floor(rem / 60000), ss = Math.floor((rem % 60000) / 1000);
+                                const low = rem <= 60000;
+                                return (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                                    <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 15, color: low ? T.warning : T.accent }}>⏱️ {String(mm).padStart(2,"0")}:{String(ss).padStart(2,"0")}</span>
+                                    <button onClick={() => cancelRun(m.id)} title="Cancelar" style={{ padding: "5px 9px", borderRadius: 10, border: `1px solid ${T.pink}55`, background: `${T.pink}15`, color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
+                                  </div>
+                                );
+                              }
+                              return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>enviando…</span>;
+                            }
+                            if (m.duration_minutes > 0) return <button onClick={() => startRun(m)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>▶️ {done ? "De novo" : "Iniciar"}</button>;
+                            if (!done) return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>;
+                            return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "7px 12px", borderRadius: 12, border: `1px solid ${T.warning}55`, background: `${T.warning}15`, color: T.warning, fontWeight: 800, fontSize: 11, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "🔁 Fiz de novo!"}</button>;
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+              {/* Badge "Missões Concluídas" */}
+              {missions.length > 0 && missions.every(m => getLog(m.id, m.frequency)?.status === "approved") && (
+                <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.blue}22)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `2px solid ${T.accent}55`, animation: "bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1)", marginBottom: 16 }}>
+                  <div style={{ fontSize: 44, marginBottom: 8 }}>🌟</div>
+                  <div style={{ color: T.accent, fontWeight: 900, fontSize: 17, marginBottom: 4 }}>Missões do Dia Concluídas!</div>
+                  <div style={{ color: T.textMuted, fontSize: 13 }}>Você é incrível! Continue assim amanhã 🚀</div>
+                </div>
+              )}
+
+              {/* Progresso semanal — gráfico de barras + streak */}
+              {streakDays.length === 7 && (() => {
+                const DAY_LABELS = ["D","S","T","Q","Q","S","S"];
+                const days = Array.from({length: 7}, (_, i) => {
+                  const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                  return localDateStr(6 - i);
+                });
+                const approvedLogs = logs.filter(l => l.status === "approved");
+                const perDay = days.map((date, i) => {
+                  const d = new Date(date + "T12:00:00");
+                  const count = approvedLogs.filter(l => l.due_date === date).length;
+                  const xpDay = approvedLogs.filter(l => l.due_date === date)
+                    .reduce((s, l) => s + (missions.find(m => m.id === l.mission_id)?.xp_reward || 0), 0);
+                  return { date, label: DAY_LABELS[d.getDay()], count, xpDay, active: streakDays[i], isToday: i === 6 };
+                });
+                const maxCount = Math.max(...perDay.map(d => d.count), 1);
+                const totalWeek = perDay.reduce((s, d) => s + d.count, 0);
+                const totalXP   = perDay.reduce((s, d) => s + d.xpDay, 0);
+                return (
+                  <div style={{ background: T.card, borderRadius: 20, padding: "16px 16px 12px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>ESTA SEMANA</div>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <span style={{ fontSize: 11, color: T.accent, fontWeight: 800 }}>✅ {totalWeek} missões</span>
+                        <span style={{ fontSize: 11, color: T.purple, fontWeight: 800 }}>⭐ {totalXP} XP</span>
+                      </div>
+                    </div>
+                    {/* Barras */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 64, marginBottom: 6 }}>
+                      {perDay.map((d, i) => {
+                        const pct = d.count / maxCount;
+                        const color = d.isToday ? T.primary : d.active ? T.accent : "rgba(255,255,255,0.12)";
+                        return (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, height: "100%", justifyContent: "flex-end" }}>
+                            {d.count > 0 && <div style={{ fontSize: 9, color: d.isToday ? T.primary : T.textMuted, fontWeight: 800 }}>{d.count}</div>}
+                            <div style={{ width: "100%", height: `${Math.max(pct * 52, d.count > 0 ? 10 : 4)}px`, borderRadius: 6, background: d.count > 0 ? `linear-gradient(180deg, ${color}, ${color}99)` : "rgba(255,255,255,0.06)", transition: "height 0.4s", boxShadow: d.isToday && d.count > 0 ? `0 0 8px ${T.primary}66` : "none" }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Labels + streak */}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {perDay.map((d, i) => (
+                        <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                          <div style={{ fontSize: 10, color: d.isToday ? T.primary : T.textMuted, fontWeight: d.isToday ? 800 : 600 }}>{d.label}</div>
+                          <div style={{ fontSize: 13, marginTop: 2 }}>{d.active ? "🔥" : "⚪"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Missão Surpresa IA */}
               <div style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, borderRadius: 22, padding: 20, marginBottom: 20, position: "relative", overflow: "hidden" }}>
@@ -1834,116 +1961,6 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                 )}
               </div>
-
-              {/* Progresso semanal — gráfico de barras + streak */}
-              {streakDays.length === 7 && (() => {
-                const DAY_LABELS = ["D","S","T","Q","Q","S","S"];
-                const days = Array.from({length: 7}, (_, i) => {
-                  const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                  return localDateStr(6 - i);
-                });
-                const approvedLogs = logs.filter(l => l.status === "approved");
-                const perDay = days.map((date, i) => {
-                  const d = new Date(date + "T12:00:00");
-                  const count = approvedLogs.filter(l => l.due_date === date).length;
-                  const xpDay = approvedLogs.filter(l => l.due_date === date)
-                    .reduce((s, l) => s + (missions.find(m => m.id === l.mission_id)?.xp_reward || 0), 0);
-                  return { date, label: DAY_LABELS[d.getDay()], count, xpDay, active: streakDays[i], isToday: i === 6 };
-                });
-                const maxCount = Math.max(...perDay.map(d => d.count), 1);
-                const totalWeek = perDay.reduce((s, d) => s + d.count, 0);
-                const totalXP   = perDay.reduce((s, d) => s + d.xpDay, 0);
-                return (
-                  <div style={{ background: T.card, borderRadius: 20, padding: "16px 16px 12px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>ESTA SEMANA</div>
-                      <div style={{ display: "flex", gap: 12 }}>
-                        <span style={{ fontSize: 11, color: T.accent, fontWeight: 800 }}>✅ {totalWeek} missões</span>
-                        <span style={{ fontSize: 11, color: T.purple, fontWeight: 800 }}>⭐ {totalXP} XP</span>
-                      </div>
-                    </div>
-                    {/* Barras */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 64, marginBottom: 6 }}>
-                      {perDay.map((d, i) => {
-                        const pct = d.count / maxCount;
-                        const color = d.isToday ? T.primary : d.active ? T.accent : "rgba(255,255,255,0.12)";
-                        return (
-                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, height: "100%", justifyContent: "flex-end" }}>
-                            {d.count > 0 && <div style={{ fontSize: 9, color: d.isToday ? T.primary : T.textMuted, fontWeight: 800 }}>{d.count}</div>}
-                            <div style={{ width: "100%", height: `${Math.max(pct * 52, d.count > 0 ? 10 : 4)}px`, borderRadius: 6, background: d.count > 0 ? `linear-gradient(180deg, ${color}, ${color}99)` : "rgba(255,255,255,0.06)", transition: "height 0.4s", boxShadow: d.isToday && d.count > 0 ? `0 0 8px ${T.primary}66` : "none" }} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Labels + streak */}
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {perDay.map((d, i) => (
-                        <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                          <div style={{ fontSize: 10, color: d.isToday ? T.primary : T.textMuted, fontWeight: d.isToday ? 800 : 600 }}>{d.label}</div>
-                          <div style={{ fontSize: 13, marginTop: 2 }}>{d.active ? "🔥" : "⚪"}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>🎯 Missões</div>
-              {missions.length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>Nenhuma missão ainda!</div>
-                : missions.map((m, mi) => {
-                    const log = getLog(m.id, m.frequency);
-                    const done = log?.status === "approved";
-                    const pend = log?.status === "pending";
-                    const timesInPeriod = countLogsInPeriod(m.id, m.frequency);
-                    return (
-                      <div key={m.id} style={{ background: done ? `${T.accent}11` : pend ? `${T.secondary}11` : T.card, borderRadius: 18, padding: 16, marginBottom: 12, border: `1px solid ${done ? T.accent+"44" : pend ? T.secondary+"44" : "rgba(255,255,255,0.06)"}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: 18, fontSize: 28, background: done ? `${T.accent}22` : iconGrad(mi), border: `1px solid ${done ? T.accent+"44" : iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: done ? "none" : `0 4px 12px rgba(0,0,0,0.2)` }}>{done ? "✅" : m.emoji}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ color: done ? T.textMuted : T.text, fontWeight: 700, fontSize: 15, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
-                            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                              <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
-                              {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
-                              {m.duration_minutes > 0 && <span style={{ fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>⏱️ {m.duration_minutes}min</span>}
-                              {timesInPeriod > 1 && <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>🔁 {timesInPeriod}ª vez</span>}
-                            </div>
-                          </div>
-                          {(() => {
-                            if (pend) return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>⏳ Aguardando</span>;
-                            const endsAt = runs[m.id];
-                            if (endsAt) {
-                              const rem = endsAt - nowTick;
-                              if (rem > 0) {
-                                const mm = Math.floor(rem / 60000), ss = Math.floor((rem % 60000) / 1000);
-                                const low = rem <= 60000;
-                                return (
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                                    <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 15, color: low ? T.warning : T.accent }}>⏱️ {String(mm).padStart(2,"0")}:{String(ss).padStart(2,"0")}</span>
-                                    <button onClick={() => cancelRun(m.id)} title="Cancelar" style={{ padding: "5px 9px", borderRadius: 10, border: `1px solid ${T.pink}55`, background: `${T.pink}15`, color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
-                                  </div>
-                                );
-                              }
-                              return <span style={{ fontSize: 11, color: T.secondary, fontWeight: 700, flexShrink: 0 }}>enviando…</span>;
-                            }
-                            if (m.duration_minutes > 0) return <button onClick={() => startRun(m)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>▶️ {done ? "De novo" : "Iniciar"}</button>;
-                            if (!done) return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "Feito!"}</button>;
-                            return <button onClick={() => submit(m.id)} disabled={submitting === m.id} style={{ padding: "7px 12px", borderRadius: 12, border: `1px solid ${T.warning}55`, background: `${T.warning}15`, color: T.warning, fontWeight: 800, fontSize: 11, cursor: submitting === m.id ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>{submitting === m.id ? "..." : "🔁 Fiz de novo!"}</button>;
-                          })()}
-                        </div>
-                      </div>
-                    );
-                  })
-              }
-              {/* Badge "Missões Concluídas" */}
-              {missions.length > 0 && missions.every(m => getLog(m.id, m.frequency)?.status === "approved") && (
-                <div style={{ background: `linear-gradient(135deg, ${T.accent}22, ${T.blue}22)`, borderRadius: 20, padding: "18px 20px", textAlign: "center", border: `2px solid ${T.accent}55`, animation: "bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
-                  <div style={{ fontSize: 44, marginBottom: 8 }}>🌟</div>
-                  <div style={{ color: T.accent, fontWeight: 900, fontSize: 17, marginBottom: 4 }}>Missões do Dia Concluídas!</div>
-                  <div style={{ color: T.textMuted, fontSize: 13 }}>Você é incrível! Continue assim amanhã 🚀</div>
-                </div>
-              )}
             </div>
           )}
 
