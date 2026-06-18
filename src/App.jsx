@@ -391,15 +391,13 @@ const AddChildModal = ({ onAdd, onClose }) => {
     if (new Date(birthDate) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr("");
     setLoading(true);
-    const { data: childId, error } = await supabase.rpc("add_child", {
+    const { error } = await supabase.rpc("add_child", {
       p_display_name: name,
       p_avatar_emoji: avatar,
       p_age: age,
+      p_birth_date: birthDate || null,
     });
     if (error) { setLoading(false); setErr(error.message || "Erro ao adicionar filho. Tente novamente."); return; }
-    if (childId && birthDate) {
-      await supabase.from("profiles").update({ birth_date: birthDate }).eq("id", childId);
-    }
     setLoading(false);
     onAdd();
   };
@@ -1126,15 +1124,13 @@ const Onboarding = ({ user, onDone }) => {
     if (!childName || !childBirth) return;
     if (new Date(childBirth) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr(""); setLoading(true);
-    const { data: childId, error } = await supabase.rpc("add_child", {
+    const { error } = await supabase.rpc("add_child", {
       p_display_name: childName,
       p_avatar_emoji: avatar,
       p_age: calcAge(childBirth),
+      p_birth_date: childBirth || null,
     });
     if (error) { setLoading(false); setErr(error.message); return; }
-    if (childId && childBirth) {
-      await supabase.from("profiles").update({ birth_date: childBirth }).eq("id", childId);
-    }
     setLoading(false);
     onDone();
   };
