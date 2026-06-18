@@ -965,13 +965,19 @@ const AuthScreen = ({ initialMode = "login" }) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { data: { display_name: name, role: userType } }
         });
         if (error) throw error;
-        notify("✅ Conta criada! Verifique seu email.");
-        setTimeout(() => setMode("login"), 2500);
+        if (data?.session) {
+          // Confirmação de e-mail desligada: já entra direto (onAuthStateChange navega)
+          notify("✅ Conta criada! Bem-vindo(a) ao RotinUp! 🎉");
+        } else {
+          // Confirmação de e-mail ligada: precisa confirmar antes de entrar
+          notify("✅ Conta criada! Confirme seu e-mail para entrar.");
+          setTimeout(() => setMode("login"), 2500);
+        }
       }
     } catch (err) {
       // Erro persistente (inline) + toast — o toast some em 3.5s e pode passar batido
