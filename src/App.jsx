@@ -4058,16 +4058,32 @@ const AdminPanel = ({ onBack }) => {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           {[
-            { label: "Total famílias", value: families.length,             color: T.blue     },
-            { label: "Premium 👑",      value: premCount,                   color: T.secondary },
-            { label: "Free",            value: families.length - premCount, color: T.textMuted },
+            { ic: "🏠", label: "Famílias", value: families.length,             color: T.blue      },
+            { ic: "👑", label: "Premium",  value: premCount,                   color: T.secondary },
+            { ic: "🆓", label: "Free",     value: families.length - premCount, color: T.textMuted },
           ].map((s, i) => (
-            <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "10px 12px", textAlign: "center", border: `1px solid ${s.color}22` }}>
-              <div style={{ color: s.color, fontWeight: 900, fontSize: 24 }}>{s.value}</div>
-              <div style={{ color: T.textMuted, fontSize: 10, marginTop: 2 }}>{s.label}</div>
+            <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "12px 10px", textAlign: "center", border: `1px solid ${s.color}22` }}>
+              <div style={{ fontSize: 18, marginBottom: 2 }}>{s.ic}</div>
+              <div style={{ color: s.color, fontWeight: 900, fontSize: 24, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ color: T.textMuted, fontSize: 10, marginTop: 3 }}>{s.label}</div>
             </div>
           ))}
         </div>
+        {/* Conversão Premium — % de famílias no plano pago */}
+        {families.length > 0 && (() => {
+          const share = Math.round((premCount / families.length) * 100);
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <span style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>CONVERSÃO PREMIUM</span>
+                <span style={{ color: T.secondary, fontSize: 12, fontWeight: 900 }}>{share}%</span>
+              </div>
+              <div style={{ height: 7, borderRadius: 5, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${share}%`, borderRadius: 5, background: `linear-gradient(90deg, ${T.purple}, ${T.secondary})`, transition: "width 0.5s ease" }} />
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Busca */}
@@ -4100,6 +4116,7 @@ const AdminPanel = ({ onBack }) => {
         ) : filtered.map(f => (
           <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${confirmingDelete === f.family_id ? T.pink + "55" : f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, background: f.plan === "premium" ? `linear-gradient(135deg, ${T.purple}33, ${T.pink}22)` : "rgba(255,255,255,0.05)", border: `1px solid ${f.plan === "premium" ? T.secondary + "44" : "rgba(255,255,255,0.08)"}` }}>{f.plan === "premium" ? "👑" : "🏠"}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
                   <span style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{f.family_name || "Sem nome"}</span>
