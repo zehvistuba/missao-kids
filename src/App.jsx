@@ -3708,6 +3708,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                             <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
                             <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
                             {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
+                            {m.duration_minutes > 0 && <span style={{ fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>⏱️ {m.duration_minutes}min</span>}
                           </div>
                         </div>
                         <button onClick={() => setEditingMission(m)} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>✏️</button>
@@ -3788,6 +3789,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ width: 60, height: 60, borderRadius: 18, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
                         <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
+                        {r.duration_minutes > 0 && <div style={{ marginTop: 6, display: "inline-block", fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 8px", fontWeight: 800 }}>⏱️ {r.duration_minutes}min</div>}
                       </div>
                     ))}
                   </div>
@@ -3823,9 +3825,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
                 {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.length, icon:"🎁", color:T.pink }].map((s,i) => (
-                  <div key={i} style={{ background: T.card, borderRadius: 20, padding: 18, border: `1px solid ${s.color}22` }}>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26 }}>{s.value}</div>
+                  <div key={i} style={{ background: `linear-gradient(135deg, ${s.color}14, ${T.card} 70%)`, borderRadius: 20, padding: 18, border: `1px solid ${s.color}33` }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, marginBottom: 10 }}>{s.icon}</div>
+                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26, lineHeight: 1 }}>{s.value}</div>
                     <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
                   </div>
                 ))}
