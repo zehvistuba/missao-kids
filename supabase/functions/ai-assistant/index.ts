@@ -34,17 +34,19 @@ Deno.serve(async (req) => {
 
     const { action, context = {} } = body;
 
-    // Verify plan for premium-only actions
+    // Auth obrigatória em TODAS as ações — bloqueia abuso anônimo e custo aberto na IA.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return respond({ error: "unauthorized" }, 401);
+    const supabaseUrl  = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const callerClient = createClient(supabaseUrl, supabaseAnon, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await callerClient.auth.getUser();
+    if (authErr || !user) return respond({ error: "unauthorized" }, 401);
+
+    // Ações premium exigem plano premium
     if (action && PREMIUM_ACTIONS.has(action)) {
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) return respond({ error: "premium_required" }, 403);
-
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const callerClient = createClient(supabaseUrl, supabaseAnon, {
-        global: { headers: { Authorization: authHeader } },
-      });
-
       const { data: plan } = await callerClient.rpc("get_family_plan");
       if (plan !== "premium") {
         return respond({ error: "premium_required" }, 403);

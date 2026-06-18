@@ -24,11 +24,16 @@ Deno.serve(async (req) => {
   // Renomeado de SUPABASE_SERVICE_ROLE_KEY → SERVICE_ROLE_KEY (Supabase bloqueia prefixo SUPABASE_)
   const SERVICE_KEY  = Deno.env.get("SERVICE_ROLE_KEY") ?? "";
 
-  // Verificar token Hotmart (enviado como query param ?hottok=...)
+  // Verificar token Hotmart (enviado como query param ?hottok=...).
+  // FALHA FECHADO: sem HOTTOK configurado, recusa tudo (nunca libera geral).
   const url    = new URL(req.url);
   const hottok = url.searchParams.get("hottok") ?? "";
-  if (HOTTOK && hottok !== HOTTOK) {
-    console.error("Hotmart hottok inválido:", hottok);
+  if (!HOTTOK) {
+    console.error("HOTMART_HOTTOK não configurado — recusando requisição");
+    return new Response("Server misconfigured", { status: 500 });
+  }
+  if (hottok !== HOTTOK) {
+    console.error("Hotmart hottok inválido");
     return new Response("Unauthorized", { status: 401 });
   }
 
