@@ -26,7 +26,7 @@ rodado. No SQL Editor do Supabase, verificar:
   SELECT name, condition_val, bonus_coins
   FROM achievements WHERE condition_key = 'streak_days'
   ORDER BY condition_val;
-  -- Deve retornar: 7→50, 14→100, 21→150, 30→200, 60→400, 90→600
+  -- Deve retornar 7 linhas: 3→25, 7→50, 14→100, 21→150, 30→200, 60→400, 90→600
 
 Se não retornar 4 linhas ou os bonus_coins estiverem zerados, PARE e
 avise que o SQL de correção ainda não foi rodado.
@@ -69,7 +69,7 @@ BLOCO A — VERIFICAR CORREÇÕES DO CICLO 2
 
 [A-03] BUG-03: bonus_coins de streak corretos
   (já verificado via SQL acima, anotar resultado aqui)
-  7d→___  14d→___  21d→___  30d→___  60d→___  90d→___
+  3d→___  7d→___  14d→___  21d→___  30d→___  60d→___  90d→___
   PASSOU [ ]  FALHOU [ ]
 
 [A-04] BUG-11: streak só incrementa 1x/dia
