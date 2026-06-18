@@ -3494,15 +3494,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                               <AvatarImg value={child.avatar_emoji} size={48} radius={24} />
                             </div>
                           </XPRing>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
-                            <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                            <button onClick={() => setEditingChild(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
-                            <button onClick={() => setExtratoTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
-                            <button onClick={() => setDemeritTarget(child)} style={{ padding: "5px 12px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
-                            <div style={{ color: T.warning, fontWeight: 900, fontSize: 13 }}>{child.streak||0}🔥</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</span>
+                              {(child.streak || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 2, background: `${T.warning}1A`, color: T.warning, borderRadius: 8, padding: "1px 8px", fontSize: 12, fontWeight: 900 }}>🔥 {child.streak}</span>}
+                            </div>
+                            <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
                           </div>
                         </div>
                         {/* Progresso de hoje deste filho — espelha a barra HOJE da criança */}
@@ -3523,6 +3520,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                             </div>
                           );
                         })()}
+                        {/* Ações do filho — fileira embaixo */}
+                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                          <button onClick={() => setEditingChild(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                          <button onClick={() => setExtratoTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
+                          <button onClick={() => setDemeritTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
+                        </div>
                         {/* Missões para marcar pelo responsável */}
                         {missions.length > 0 && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
