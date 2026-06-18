@@ -3279,6 +3279,23 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             </div>
           )}
         </div>
+        {/* Chips de resumo do dia — bate o olho e entende */}
+        {(() => {
+          const pedidos = redemptions.filter(r => r.status === "requested").length;
+          const chips = [
+            pending.length > 0    && { ic: "⏳", txt: `${pending.length} p/ aprovar`, c: T.warning },
+            pedidos > 0           && { ic: "🙋", txt: `${pedidos} resgate${pedidos > 1 ? "s" : ""}`, c: T.purple },
+            activeTimers.length > 0 && { ic: "⏱️", txt: `${activeTimers.length} em andamento`, c: T.accent },
+            { ic: "👶", txt: `${children.length} filho${children.length !== 1 ? "s" : ""}`, c: T.blue },
+          ].filter(Boolean);
+          return (
+            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              {chips.map((ch, i) => (
+                <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${ch.c}1A`, color: ch.c, borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 900 }}>{ch.ic} {ch.txt}</span>
+              ))}
+            </div>
+          );
+        })()}
         {/* Banner upgrade — aparece para free com 1+ filho */}
         {familyPlan === "free" && children.length >= 1 && (
           <button onClick={() => setShowUpgrade(true)} style={{ marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 14, border: `1px solid ${T.purple}55`, background: `linear-gradient(135deg, ${T.purple}18, ${T.pink}12)`, color: T.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: 10 }}>
@@ -3446,9 +3463,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                     return (
                       <div key={child.id} style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: 18, overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <AvatarImg value={child.avatar_emoji} size={56} radius={18} />
-                          </div>
+                          <XPRing size={62} stroke={4} pct={(n.xpNeeded - l.xpNeeded) ? ((child.xp || 0) - l.xpNeeded) / (n.xpNeeded - l.xpNeeded) : 0} color={l.color}>
+                            <div style={{ width: 48, height: 48, borderRadius: "50%", overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <AvatarImg value={child.avatar_emoji} size={48} radius={24} />
+                            </div>
+                          </XPRing>
                           <div style={{ flex: 1 }}>
                             <div style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</div>
                             <div style={{ color: T.textMuted, fontSize: 12 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
@@ -3460,7 +3479,24 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                             <div style={{ color: T.warning, fontWeight: 900, fontSize: 13 }}>{child.streak||0}🔥</div>
                           </div>
                         </div>
-                        <XPBar current={(child.xp||0)-l.xpNeeded} max={n.xpNeeded-l.xpNeeded} color={l.color} />
+                        {/* Progresso de hoje deste filho — espelha a barra HOJE da criança */}
+                        {missions.length > 0 && (() => {
+                          const doneToday = missions.filter(m => getChildLog(child.id, m.id, m.frequency)?.status === "approved").length;
+                          const total = missions.length;
+                          const pct = total ? doneToday / total : 0;
+                          const allDone = doneToday === total;
+                          return (
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                <span style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>HOJE</span>
+                                <span style={{ color: allDone ? T.accent : T.text, fontSize: 12, fontWeight: 900 }}>{doneToday}/{total}{allDone ? " ✅" : ""}</span>
+                              </div>
+                              <div style={{ height: 8, borderRadius: 5, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 5, background: `linear-gradient(90deg, ${T.accent}, ${T.blue})`, transition: "width 0.5s ease" }} />
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {/* Missões para marcar pelo responsável */}
                         {missions.length > 0 && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
