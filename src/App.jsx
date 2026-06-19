@@ -3164,7 +3164,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     load();
   };
 
-  const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"}];
+  const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"},{key:"settings",icon:"⚙️",label:"Conta"}];
 
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: isDesktop ? "row" : "column" }}>
@@ -3900,7 +3900,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
+          {/* CONTA / CONFIGURAÇÕES */}
+          {tab === "settings" && (
+            <div>
+              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>⚙️ Conta</div>
               {/* Editar nome do responsável */}
               <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
                 <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>SEU PERFIL</div>
