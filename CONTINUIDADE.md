@@ -143,7 +143,17 @@ Para mexer nas **funções do Supabase** (edge functions), use o `supabase.exe`:
 - [ ] 🔒 **Rotacionar o `HOTMART_HOTTOK`** por um segredo forte (Supabase + Hotmart, mesmo valor nos dois).
 - [ ] 🧪 Testar logado: editar filho, Capitão Rotina, cronômetros, ícone da notificação, aba Conta.
 - [ ] 🌐 **Domínio + Resend** (e-mail) → depois **ligar "Confirm email"** no Supabase. (Hoje está desligado de propósito, porque o e-mail só envia pro dono.)
-- [ ] 📣 Go-to-market: **Hotmart com afiliados** (comissão recorrente + materiais) + **Google Play (TWA)** como descoberta orgânica.
+- [ ] 📣 Go-to-market (ver detalhe abaixo).
+
+### 📣 Estratégia de lançamento (decidida em jun/2026)
+**Objetivo:** lançar com visibilidade **sem precisar bancar tráfego pago** (ex.: Instagram ads).
+
+- **Plataforma de venda no lançamento: Hotmart** — porque além de processar pagamento (Pix/boleto/cartão, NF, chargeback) ela tem **rede de afiliados + marketplace** = outras pessoas vendem por você. Funciona sem CNPJ pronto. Já está integrada. Taxa ~9,9% (parte é o "preço da distribuição").
+- **2 canais que trazem público sozinhos:**
+  1. **Hotmart + afiliados:** comissão **recorrente generosa** (ex.: 40–50%) + materiais prontos (banners/textos/vídeo) → recrutar influenciadores de maternidade/educação infantil.
+  2. **Google Play Store (TWA):** empacotar o PWA como app Android → descoberta orgânica (pais buscam "rotina infantil") + confiança. iOS depois.
+- **Quando escalar (~50–100 assinantes + CNPJ):** migrar pra gateway nativo de SaaS — **Stripe** ou **Mercado Pago/Pagar.me** (taxa ~3–4% vs ~9,9% + portal de assinatura). **Sem lock-in:** trocar = re-apontar o webhook + `admin_set_plan`, não reescrever o app.
+- **Regra:** distribuição > taxa no lançamento. Não otimizar taxa antes de ter clientes pagantes.
 
 ---
 
