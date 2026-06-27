@@ -1299,6 +1299,30 @@ function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
   );
 }
 
+// Controle do cronômetro de recompensa: ▶️ Iniciar/Retomar · ⏸️ Pausar · contagem ao vivo
+function TimerControl({ t, onStart, onPause, busy }) {
+  const pad = (n) => String(n).padStart(2, "0");
+  if (t.timer_state === "running") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <Countdown endsAt={t.timer_ends_at} />
+        <button onClick={() => onPause(t.id)} disabled={busy} title="Pausar" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.warning}55`, background: `${T.warning}18`, color: T.warning, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>⏸️</button>
+      </div>
+    );
+  }
+  const secs = Math.max(0, t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60);
+  const mm = Math.floor(secs / 60), ss = secs % 60;
+  const paused = t.timer_state === "paused";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 14, color: paused ? T.warning : T.textMuted }}>
+        {paused ? `⏸️ ${pad(mm)}:${pad(ss)}` : `⏱️ ${mm} min`}
+      </span>
+      <button onClick={() => onStart(t.id)} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>▶️ {paused ? "Retomar" : "Iniciar"}</button>
+    </div>
+  );
+}
+
 const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [tab, setTab]         = useState("home");
   const [missions, setMissions] = useState([]);
@@ -1330,6 +1354,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pendingReds, setPendingReds] = useState([]);
   const [activeTimers, setActiveTimers] = useState([]);
+  const [timerBusy, setTimerBusy] = useState(null);
+  const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
+  const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
   const [cancellingRed, setCancellingRed] = useState(null);
 
   // ── Fase 2B: missões de duração (▶️ Iniciar). Cronômetro local por criança.
@@ -1537,7 +1564,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("mission_logs").select("due_date").eq("child_id", profile.id).eq("status", "approved").in("due_date", last7),
         supabase.rpc("get_family_plan"),
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at,status").eq("child_id", profile.id).in("status", ["requested","approved"]).order("created_at", { ascending: false }),
-        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,timer_ends_at").eq("child_id", profile.id).eq("status","delivered").not("timer_ends_at","is",null).gt("timer_ends_at", new Date().toISOString()).order("timer_ends_at", { ascending: true }),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,duration_minutes,timer_state,timer_ends_at,timer_remaining_seconds").eq("child_id", profile.id).eq("status","delivered").in("timer_state",["idle","running","paused"]).order("created_at", { ascending: false }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setFamilyPlan(planData || "free");
@@ -1990,7 +2017,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
                         <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>aproveite o seu tempo!</div>
                       </div>
-                      <div style={{ fontSize: 22 }}><Countdown endsAt={t.timer_ends_at} /></div>
+                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} busy={timerBusy === t.id} />
                     </div>
                   ))}
                 </div>
@@ -2815,6 +2842,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
   const [activeTimers, setActiveTimers]       = useState([]);
+  const [timerBusy, setTimerBusy]             = useState(null);
   const [confirmingRed, setConfirmingRed]     = useState(null);
   const [cancellingRed, setCancellingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
@@ -3003,7 +3031,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("rewards").select("*").eq("family_id", profile.family_id),
         supabase.from("mission_logs").select("mission_id, child_id, status, due_date").eq("family_id", profile.family_id).in("due_date", last30).in("status",["pending","approved"]),
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).in("status",["requested","approved"]).order("created_at", { ascending: false }),
-        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,child_id,child_name,timer_ends_at").eq("family_id", profile.family_id).eq("status","delivered").not("timer_ends_at","is",null).gt("timer_ends_at", new Date().toISOString()).order("timer_ends_at", { ascending: true }),
+        supabase.from("redemption_logs").select("id,reward_title,reward_emoji,child_id,child_name,duration_minutes,timer_state,timer_ends_at,timer_remaining_seconds").eq("family_id", profile.family_id).eq("status","delivered").in("timer_state",["idle","running","paused"]).order("created_at", { ascending: false }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
@@ -3054,6 +3082,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     load();
     return true;
   };
+
+  // Cronômetro de recompensa (responsável pode iniciar/pausar pelo filho)
+  const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
+  const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
 
   const confirmDelivery = async (redemptionId) => {
     setConfirmingRed(redemptionId);
@@ -3465,7 +3497,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
                         <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{t.child_name || children.find(c => c.id === t.child_id)?.display_name || ""}</div>
                       </div>
-                      <div style={{ fontSize: 20 }}><Countdown endsAt={t.timer_ends_at} /></div>
+                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} busy={timerBusy === t.id} />
                     </div>
                   ))}
                 </div>
