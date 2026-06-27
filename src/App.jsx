@@ -2722,6 +2722,58 @@ const DemeritModal = ({ child, onApply, onClose }) => {
   );
 };
 
+// Resgatar recompensa em nome do filho — responsável escolhe e resgata pro filho
+const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }) => {
+  const [balance, setBalance] = useState(child.kidcoins || 0);
+  const active = (rewards || []).filter(r => r.is_active !== false);
+  const handle = async (r) => {
+    if (balance < r.coin_cost || redeemingFor) return;
+    const ok = await onRedeem(r);
+    if (ok) setBalance(b => b - r.coin_cost);
+  };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, maxHeight: "88vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
+        <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+          <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
+          <div>
+            <div style={{ color: T.text, fontWeight: 900, fontSize: 17 }}>🎁 Resgatar para {child.display_name}</div>
+            <div style={{ color: T.secondary, fontSize: 12, fontWeight: 800 }}>Saldo: 🪙 {balance}</div>
+          </div>
+        </div>
+        {active.length === 0 ? (
+          <div style={{ background: T.darker, borderRadius: 16, padding: 24, textAlign: "center", color: T.textMuted }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🎁</div>Nenhuma recompensa cadastrada.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {active.map(r => {
+              const can = balance >= r.coin_cost;
+              const busy = redeemingFor === r.id;
+              return (
+                <div key={r.id} style={{ background: T.darker, borderRadius: 18, padding: 14, textAlign: "center", border: `1px solid ${can ? T.accent + "33" : "rgba(255,255,255,0.06)"}`, opacity: can ? 1 : 0.55 }}>
+                  <div style={{ fontSize: 34, marginBottom: 6 }}>{r.emoji}</div>
+                  <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{r.title}</div>
+                  <div style={{ color: T.secondary, fontWeight: 900, fontSize: 13 }}>🪙 {r.coin_cost}</div>
+                  {r.duration_minutes > 0 && <div style={{ marginTop: 4, display: "inline-block", fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 8px", fontWeight: 800 }}>⏱️ {r.duration_minutes}min</div>}
+                  <button onClick={() => handle(r)} disabled={!can || busy}
+                    style={{ width: "100%", marginTop: 10, padding: "8px 0", borderRadius: 12, border: "none", background: can ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: can ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 12, cursor: can && !busy ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif" }}>
+                    {busy ? "..." : can ? "Resgatar" : "Sem saldo"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 16, lineHeight: 1.5 }}>
+          O resgate entra na fila "🎁 Aguardando entrega" pra você confirmar quando entregar.
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════
 // PARENT DASHBOARD
 // ═══════════════════════════════════════════════════════════
@@ -2767,6 +2819,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [cancellingRed, setCancellingRed]     = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
   const [extratoTarget, setExtratoTarget]     = useState(null); // child object
+  const [redeemTarget, setRedeemTarget]       = useState(null); // child object (resgatar em nome do filho)
+  const [redeemingFor, setRedeemingFor]       = useState(null); // reward id em resgate
   const [coParents, setCoParents]             = useState([]);
   const [removingCoParent, setRemovingCoParent] = useState(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
@@ -2989,6 +3043,18 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     pushNotify([childId], "Missão concluída! 🎉", `Parabéns${child ? `, ${child.display_name}` : ""}! Continue assim! 🚀`);
   };
 
+  // Resgatar recompensa EM NOME DO FILHO (criança sem celular)
+  const redeemForChild = async (reward) => {
+    if (!redeemTarget) return false;
+    setRedeemingFor(reward.id);
+    const { error } = await supabase.rpc("redeem_for_child", { p_child_id: redeemTarget.id, p_reward_id: reward.id, p_quantity: 1 });
+    setRedeemingFor(null);
+    if (error) { notify(error.message || "Erro ao resgatar", "error"); return false; }
+    notify(`🎁 ${reward.title} resgatado para ${redeemTarget.display_name}! Veja em "Aguardando entrega".`);
+    load();
+    return true;
+  };
+
   const confirmDelivery = async (redemptionId) => {
     setConfirmingRed(redemptionId);
     const red = redemptions.find(r => r.id === redemptionId);
@@ -3205,6 +3271,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
           child={demeritTarget}
           onApply={applyDemerit}
           onClose={() => setDemeritTarget(null)}
+        />
+      )}
+
+      {/* Modal resgatar em nome do filho */}
+      {redeemTarget && (
+        <RedeemForChildModal
+          child={redeemTarget}
+          rewards={rewards}
+          redeemingFor={redeemingFor}
+          onRedeem={redeemForChild}
+          onClose={() => setRedeemTarget(null)}
         />
       )}
 
@@ -3559,6 +3636,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           <button onClick={() => setExtratoTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
                           <button onClick={() => setDemeritTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
                         </div>
+                        {/* Resgatar recompensa em nome do filho (criança sem celular) */}
+                        <button onClick={() => setRedeemTarget(child)} style={{ width: "100%", marginTop: 8, padding: "9px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🎁 Resgatar recompensa pra {child.display_name}</button>
                         {/* Missões para marcar pelo responsável */}
                         {missions.length > 0 && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
