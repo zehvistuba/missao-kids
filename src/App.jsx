@@ -1518,8 +1518,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   const deleteChildAccount = async () => {
     setDeletingAccount(true);
-    const { error } = await supabase.rpc("delete_my_account");
-    if (error) { setDeletingAccount(false); return notify(error.message, "error"); }
+    // Edge function: apaga dados do app + remove do Auth (LGPD)
+    const { data, error } = await supabase.functions.invoke("delete-account");
+    if (error || data?.error) { setDeletingAccount(false); return notify(data?.error || error?.message || "Erro ao excluir conta", "error"); }
     await supabase.auth.signOut();
     setDeletingAccount(false);
     onSignOut();
@@ -3000,8 +3001,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const deleteAccount = async () => {
     setDeletingAccount(true);
-    const { data, error } = await supabase.rpc("delete_my_account");
-    if (error) { setDeletingAccount(false); return notify(error.message, "error"); }
+    // Edge function: apaga dados do app + remove do Auth (LGPD)
+    const { data, error } = await supabase.functions.invoke("delete-account");
+    if (error || data?.error) { setDeletingAccount(false); return notify(data?.error || error?.message || "Erro ao excluir conta", "error"); }
     await supabase.auth.signOut();
     setDeletingAccount(false);
     onSignOut();
