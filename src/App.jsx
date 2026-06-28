@@ -3693,14 +3693,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                             </div>
                           );
                         })()}
-                        {/* Ações do filho — fileira embaixo */}
-                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                          <button onClick={() => setEditingChild(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
-                          <button onClick={() => setExtratoTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
-                          <button onClick={() => setDemeritTarget(child)} style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
+                        {/* Ações do filho — grade 2x2 (distribuição uniforme) */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+                          <button onClick={() => setEditingChild(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                          <button onClick={() => setExtratoTarget(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
+                          <button onClick={() => setDemeritTarget(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
+                          <button onClick={() => setRedeemTarget(child)} style={{ padding: "10px", borderRadius: 12, border: `1px solid ${T.accent}55`, background: `${T.accent}1A`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🎁 Resgatar</button>
                         </div>
-                        {/* Resgatar recompensa em nome do filho (criança sem celular) */}
-                        <button onClick={() => setRedeemTarget(child)} style={{ width: "100%", marginTop: 8, padding: "9px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🎁 Resgatar recompensa pra {child.display_name}</button>
                         {/* Missões para marcar pelo responsável */}
                         {missions.length > 0 && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
