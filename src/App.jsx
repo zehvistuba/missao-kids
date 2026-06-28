@@ -3195,7 +3195,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     // create_mission RETURNS UUID → data é a própria string do id.
     const newMissionId = typeof data === "string" ? data : data?.id;
     if (newMissionId && newM.duration_minutes > 0) {
-      await supabase.rpc("set_mission_duration", { p_mission_id: newMissionId, p_minutes: newM.duration_minutes });
+      const { error: durErr } = await supabase.rpc("set_mission_duration", { p_mission_id: newMissionId, p_minutes: newM.duration_minutes });
+      if (durErr) notify("Missão criada, mas a duração não foi salva. Edite e tente de novo.", "error");
     }
     notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 }); load();
   };
@@ -3217,7 +3218,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     // create_reward RETURNS UUID → data é a própria string do id.
     const newRewardId = typeof data === "string" ? data : data?.id;
     if (newRewardId && newR.duration_minutes > 0) {
-      await supabase.rpc("set_reward_duration", { p_reward_id: newRewardId, p_minutes: newR.duration_minutes });
+      const { error: durErr } = await supabase.rpc("set_reward_duration", { p_reward_id: newRewardId, p_minutes: newR.duration_minutes });
+      if (durErr) notify("Recompensa criada, mas a duração não foi salva. Edite e tente de novo.", "error");
     }
     notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 }); load();
   };

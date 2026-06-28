@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       (SUPABASE_SERVICE_KEY && callerJwt === SUPABASE_SERVICE_KEY) ||
       (CRON_SECRET && cronHeader === CRON_SECRET);
 
+    let callerFamilyId: string | null = null;
     if (!isServiceCall) {
       if (!callerJwt) return respond({ error: "Não autenticado" }, 401);
       const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -42,6 +43,9 @@ Deno.serve(async (req) => {
       });
       const { data: { user }, error: authErr } = await callerClient.auth.getUser();
       if (authErr || !user) return respond({ error: "Token inválido" }, 401);
+      // Família do caller — chamadas de usuário só notificam a própria família.
+      const { data: prof } = await callerClient.from("profiles").select("family_id").eq("id", user.id).single();
+      callerFamilyId = prof?.family_id ?? null;
     }
 
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
@@ -63,19 +67,25 @@ Deno.serve(async (req) => {
     const notifBody  = body.body  || "Você tem missões esperando por você!";
     const notifUrl   = body.url   || "/";
 
-    // Get subscriptions — by family or specific users
+    // Get subscriptions — destino conforme quem chama
     let query = supabase.from("push_subscriptions").select("subscription, user_id");
-    if (body.user_ids?.length) {
-      query = query.in("user_id", body.user_ids);
-    } else if (body.family_id) {
-      const { data: members } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("family_id", body.family_id);
-      const ids = (members || []).map((m: { id: string }) => m.id);
-      query = query.in("user_id", ids);
+    if (isServiceCall) {
+      // cron/service pode mirar qualquer destino
+      if (body.user_ids?.length) {
+        query = query.in("user_id", body.user_ids);
+      } else if (body.family_id) {
+        const { data: members } = await supabase.from("profiles").select("id").eq("family_id", body.family_id);
+        query = query.in("user_id", (members || []).map((m: { id: string }) => m.id));
+      } else {
+        return respond({ error: "Forneça family_id ou user_ids" }, 400);
+      }
     } else {
-      return respond({ error: "Forneça family_id ou user_ids" }, 400);
+      // chamada de usuário (JWT): só pode notificar a PRÓPRIA família
+      if (!callerFamilyId) return respond({ error: "Sem família" }, 403);
+      const { data: members } = await supabase.from("profiles").select("id").eq("family_id", callerFamilyId);
+      let ids = (members || []).map((m: { id: string }) => m.id);
+      if (body.user_ids?.length) ids = ids.filter((id) => body.user_ids!.includes(id)); // interseção
+      query = query.in("user_id", ids);
     }
 
     const { data: subs, error: subErr } = await query;
