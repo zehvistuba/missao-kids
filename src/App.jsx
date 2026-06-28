@@ -1303,19 +1303,38 @@ function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
 }
 
 // Controle do cronômetro de recompensa: ▶️ Iniciar/Retomar · ⏸️ Pausar · contagem ao vivo
-function TimerControl({ t, onStart, onPause, busy }) {
+function TimerControl({ t, onStart, onPause, onFinish, busy }) {
+  const [confirming, setConfirming] = useState(false);
   const pad = (n) => String(n).padStart(2, "0");
-  if (t.timer_state === "running") {
+  const running = t.timer_state === "running";
+  const remaining = Math.max(0, running ? (new Date(t.timer_ends_at).getTime() - Date.now()) / 1000 : (t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60));
+  const fmt = (secs) => { secs = Math.max(0, Math.floor(secs)); const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60; return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`; };
+  const doneBtn = (
+    <button onClick={() => setConfirming(true)} disabled={busy} title="Concluir agora" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.accent}55`, background: `${T.accent}18`, color: T.accent, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+  );
+
+  if (confirming) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700 }}>Faltam {fmt(remaining)}. Concluir?</span>
+        <button onClick={() => { setConfirming(false); onFinish(t.id); }} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: T.accent, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sim</button>
+        <button onClick={() => setConfirming(false)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Não</button>
+      </div>
+    );
+  }
+
+  if (running) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <Countdown endsAt={t.timer_ends_at} />
         <button onClick={() => onPause(t.id)} disabled={busy} title="Pausar" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.warning}55`, background: `${T.warning}18`, color: T.warning, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>⏸️</button>
+        {doneBtn}
       </div>
     );
   }
-  const secs = Math.max(0, t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60);
-  const hh = Math.floor(secs / 3600), mm = Math.floor((secs % 3600) / 60), ss = secs % 60;
+
   const paused = t.timer_state === "paused";
+  const hh = Math.floor(remaining / 3600), mm = Math.floor((remaining % 3600) / 60), ss = Math.floor(remaining % 60);
   const idleLabel = hh > 0 ? `⏱️ ${hh}h${mm > 0 ? ` ${mm}min` : ""}` : `⏱️ ${mm} min`;
   const pausedLabel = hh > 0 ? `⏸️ ${hh}:${pad(mm)}:${pad(ss)}` : `⏸️ ${pad(mm)}:${pad(ss)}`;
   return (
@@ -1324,6 +1343,7 @@ function TimerControl({ t, onStart, onPause, busy }) {
         {paused ? pausedLabel : idleLabel}
       </span>
       <button onClick={() => onStart(t.id)} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>▶️ {paused ? "Retomar" : "Iniciar"}</button>
+      {doneBtn}
     </div>
   );
 }
@@ -1362,6 +1382,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [timerBusy, setTimerBusy] = useState(null);
   const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
   const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
+  const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro ao concluir", "error"); notify("✅ Recompensa concluída!"); load(); };
   const [cancellingRed, setCancellingRed] = useState(null);
 
   // ── Fase 2B: missões de duração (▶️ Iniciar). Cronômetro local por criança.
@@ -2022,7 +2043,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
                         <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>aproveite o seu tempo!</div>
                       </div>
-                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} busy={timerBusy === t.id} />
+                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === t.id} />
                     </div>
                   ))}
                 </div>
@@ -3091,6 +3112,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   // Cronômetro de recompensa (responsável pode iniciar/pausar pelo filho)
   const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
   const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
+  const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro ao concluir", "error"); notify("✅ Recompensa concluída!"); load(); };
 
   const confirmDelivery = async (redemptionId) => {
     setConfirmingRed(redemptionId);
@@ -3502,7 +3524,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                         <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
                         <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{t.child_name || children.find(c => c.id === t.child_id)?.display_name || ""}</div>
                       </div>
-                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} busy={timerBusy === t.id} />
+                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === t.id} />
                     </div>
                   ))}
                 </div>
