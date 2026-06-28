@@ -909,6 +909,67 @@ const TermsModal = ({ onClose }) => (
   </div>
 );
 
+// Versão atual dos Termos/Política — bump aqui força novo aceite.
+const TERMS_VERSION = "2026-06-28";
+
+// Bloco de erro de carregamento (dashboards) — evita tela "vazia" silenciosa.
+const LoadErrorBlock = ({ onRetry }) => (
+  <div style={{ padding: "48px 24px", textAlign: "center" }}>
+    <div style={{ fontSize: 44, marginBottom: 12 }}>📡</div>
+    <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Não foi possível carregar seus dados</div>
+    <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>Verifique sua conexão e tente novamente.</div>
+    <button onClick={onRetry} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
+  </div>
+);
+
+// Tela de aceite de termos (responsável legal) — gate antes de onboarding/dashboard.
+const TermsGate = ({ onAccept, onSignOut }) => {
+  const [agreed, setAgreed]   = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [showFull, setShowFull] = useState(false);
+  const [err, setErr]         = useState("");
+  const accept = async () => {
+    if (!agreed) return;
+    setSaving(true); setErr("");
+    const { error } = await supabase.rpc("accept_terms", { p_terms_version: TERMS_VERSION });
+    setSaving(false);
+    if (error) { setErr("Não foi possível registrar o aceite. Tente novamente."); return; }
+    onAccept();
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: T.darker, padding: "32px 24px 40px", maxWidth: 430, margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <div style={{ fontSize: 44, marginBottom: 8 }}>🛡️</div>
+        <div style={{ color: T.text, fontWeight: 900, fontSize: 20 }}>Antes de começar</div>
+        <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>Consentimento do responsável legal (LGPD)</div>
+      </div>
+      <div style={{ background: T.card, borderRadius: 18, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.06)", color: T.textMuted, fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
+        Ao continuar, você declara que:
+        <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
+          <li>é o <strong style={{ color: T.text }}>responsável legal</strong> pela(s) criança(s) que vai cadastrar e autoriza o uso do app por elas;</li>
+          <li>autoriza o tratamento de <strong style={{ color: T.text }}>dados de menores</strong> (nome, idade, avatar e progresso) para operar o app;</li>
+          <li>está ciente de que os recursos de <strong style={{ color: T.text }}>IA (Google Gemini)</strong> processam nome, idade e progresso da criança para gerar conteúdo;</li>
+          <li>o pagamento do Premium é processado pela <strong style={{ color: T.text }}>Hotmart</strong>;</li>
+          <li>pode <strong style={{ color: T.text }}>revogar o consentimento e excluir os dados</strong> a qualquer momento pelo próprio app.</li>
+        </ul>
+      </div>
+      <div onClick={() => setShowFull(true)} style={{ color: T.primary, fontWeight: 700, fontSize: 13, textDecoration: "underline", cursor: "pointer", textAlign: "center", marginBottom: 16 }}>
+        Ler os Termos de Uso e Política de Privacidade completos
+      </div>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 16 }}>
+        <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: T.accent, flexShrink: 0 }} />
+        <span style={{ color: T.text, fontSize: 13, lineHeight: 1.5 }}>Li e concordo com os Termos de Uso e a Política de Privacidade, como responsável legal.</span>
+      </label>
+      {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>⚠️ {err}</div>}
+      <button onClick={accept} disabled={!agreed || saving} style={{ width: "100%", padding: "15px", borderRadius: 16, border: "none", background: agreed ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: agreed ? "#fff" : T.textMuted, fontWeight: 900, fontSize: 15, cursor: agreed && !saving ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif", marginBottom: 12 }}>
+        {saving ? "Registrando..." : "Aceitar e continuar"}
+      </button>
+      <button onClick={onSignOut} style={{ width: "100%", padding: "12px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sair</button>
+      {showFull && createPortal(<TermsModal onClose={() => setShowFull(false)} />, document.body)}
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
@@ -923,6 +984,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
   const [notif, setNotif]       = useState(null);
   const [notifType, setNotifType] = useState("success");
   const [inlineErr, setInlineErr] = useState("");
+  const [agreedTerms, setAgreedTerms] = useState(false);
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
 
@@ -958,6 +1020,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
     if (!email) { setInlineErr("Digite seu email"); return; }
     if (!isValidEmail(email)) { setInlineErr("Email inválido"); return; }
     if (!password) { setInlineErr("Digite sua senha"); return; }
+    if (mode === "signup" && !agreedTerms) { setInlineErr("Você precisa aceitar os Termos para criar a conta"); return; }
     setLoading(true);
     setInlineErr("");
     try {
@@ -971,7 +1034,9 @@ const AuthScreen = ({ initialMode = "login" }) => {
         });
         if (error) throw error;
         if (data?.session) {
-          // Confirmação de e-mail desligada: já entra direto (onAuthStateChange navega)
+          // Confirmação de e-mail desligada: já entra direto (onAuthStateChange navega).
+          // Registra o aceite dos termos (o checkbox foi marcado).
+          await supabase.rpc("accept_terms", { p_terms_version: TERMS_VERSION }).catch(() => {});
           notify("✅ Conta criada! Bem-vindo(a) ao RotinUp! 🎉");
         } else {
           // Confirmação de e-mail ligada: precisa confirmar antes de entrar
@@ -1043,17 +1108,20 @@ const AuthScreen = ({ initialMode = "login" }) => {
                 <span onClick={() => setMode("forgot")} style={{ color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</span>
               </div>
             )}
-            <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
+            <Btn onClick={handleEmail} disabled={loading || (mode === "signup" && !agreedTerms)}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
           </>
         )}
 
         {mode === "signup" && (
-          <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
-            Ao criar conta você concorda com os{" "}
-            <span onClick={() => setShowTerms(true)} style={{ color: T.primary, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
-              Termos de Uso e Política de Privacidade
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, cursor: "pointer" }}>
+            <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); setInlineErr(""); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: T.textMuted, lineHeight: 1.5 }}>
+              Sou o responsável legal e concordo com os{" "}
+              <span onClick={(e) => { e.preventDefault(); setShowTerms(true); }} style={{ color: T.primary, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+                Termos de Uso e Política de Privacidade
+              </span>{" "}(tratamento de dados de menores, IA e pagamento).
             </span>
-          </div>
+          </label>
         )}
 
         {mode !== "forgot" && <><div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
@@ -1373,6 +1441,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [streakDays, setStreakDays] = useState([]); // last 7 days active?
+  const [loadError, setLoadError] = useState(null);
   const [submitting, setSubmitting] = useState(null); // mission id being submitted
   const [quantities, setQuantities] = useState({});   // { [rewardId]: number }
   const [familyPlan, setFamilyPlan] = useState("free");
@@ -1604,8 +1673,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         const earnedSet = new Set((earned || []).map(e => e.achievement_id));
         setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
       }
+      setLoadError(null);
     } catch {
-      // queries failed — don't leave screen stuck in loading
+      if (myId === loadIdRef.current) setLoadError("Não foi possível carregar seus dados. Tente novamente.");
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
     }
@@ -1815,7 +1885,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 90px" }}>
-        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -2881,6 +2951,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [familyPlan, setFamilyPlan]         = useState("free");
   const [showUpgrade, setShowUpgrade]       = useState(false);
   const [myEmail, setMyEmail]               = useState("");
+  const [loadError, setLoadError]           = useState(null);
   const [childLogs, setChildLogs]           = useState([]);
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
@@ -3090,8 +3161,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
+      setLoadError(null);
     } catch {
-      // queries failed — don't leave screen stuck in loading
+      if (myId === loadIdRef.current) setLoadError("Não foi possível carregar seus dados. Tente novamente.");
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
     }
@@ -3510,7 +3582,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: isDesktop ? "24px 32px 48px" : "20px 20px 100px" }}>
-        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : <>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4458,12 +4530,17 @@ export default function App() {
         setProfile(data);
         const isAdmin = window.location.pathname === "/admin";
         const isParentRole = data.role === "parent" || data.role === "admin";
-        setScreen(
-          isAdmin ? "admin"
-          : !data.family_id && isParentRole   ? "onboarding"
-          : !data.family_id && data.role === "child" ? "child_join"
-          : isParentRole ? "parent" : "child"
-        );
+        // Gate de consentimento LGPD (responsável legal): exige aceite da versão atual.
+        if (isParentRole && data.terms_version !== TERMS_VERSION) {
+          setScreen("terms");
+        } else {
+          setScreen(
+            isAdmin ? "admin"
+            : !data.family_id && isParentRole   ? "onboarding"
+            : !data.family_id && data.role === "child" ? "child_join"
+            : isParentRole ? "parent" : "child"
+          );
+        }
       } else {
         await supabase.auth.signOut();
       }
@@ -4490,6 +4567,7 @@ export default function App() {
           {screen === "splash" && <Splash onDone={() => setSplashDone(true)} />}
           {screen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
           {screen === "auth"       && <AuthScreen initialMode={authMode} />}
+          {screen === "terms"      && user && <TermsGate onAccept={() => loadProfile(user.id)} onSignOut={signOut} />}
           {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
           {screen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
           {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
