@@ -2314,9 +2314,13 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 };
 
 // ─── Upgrade Modal ────────────────────────────────────────
-const UpgradeModal = ({ onClose }) => {
+const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
   const [billing, setBilling] = useState("annual");
+  const [claiming, setClaiming] = useState(false);
   const plan = PLANS[billing];
+  const base = billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY;
+  // pré-preenche o e-mail da conta no checkout → o webhook casa a compra automaticamente
+  const checkoutUrl = userEmail ? `${base}&email=${encodeURIComponent(userEmail)}` : base;
 
   const FREE_ITEMS = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
 
@@ -2393,10 +2397,21 @@ const UpgradeModal = ({ onClose }) => {
           </div>
         </div>
 
-        <a href={billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY} target="_blank" rel="noopener noreferrer"
+        <a href={checkoutUrl} target="_blank" rel="noopener noreferrer"
           style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
           👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
         </a>
+        {userEmail && (
+          <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginBottom: 12, lineHeight: 1.5 }}>
+            💡 Use o e-mail <strong style={{ color: T.text }}>{userEmail}</strong> no pagamento pra liberar o Premium na hora.
+          </div>
+        )}
+        {onClaim && (
+          <button onClick={async () => { setClaiming(true); await onClaim(); setClaiming(false); }} disabled={claiming}
+            style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${T.accent}55`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: claiming ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 8 }}>
+            {claiming ? "Verificando..." : "✅ Já assinei — ativar Premium"}
+          </button>
+        )}
         <button onClick={onClose} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
           Continuar no plano gratuito
         </button>
@@ -2865,6 +2880,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [editingReward, setEditingReward]   = useState(null);
   const [familyPlan, setFamilyPlan]         = useState("free");
   const [showUpgrade, setShowUpgrade]       = useState(false);
+  const [myEmail, setMyEmail]               = useState("");
   const [childLogs, setChildLogs]           = useState([]);
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
   const [redemptions, setRedemptions]         = useState([]);
@@ -3008,6 +3024,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setDeletingAccount(false);
     onSignOut();
   };
+
+  // Reconciliação de pagamento: ativa Premium se houver compra no Hotmart com o e-mail da conta.
+  const claimPremium = async (silent) => {
+    const { data } = await supabase.rpc("claim_premium_by_email");
+    if (data?.ok) { if (!silent) notify("👑 Premium ativado! Aproveite."); load(); return; }
+    if (!silent) notify("Nenhuma assinatura encontrada nesse e-mail. Confira se pagou com o e-mail da conta.", "error");
+  };
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMyEmail(data?.user?.email || ""));
+    claimPremium(true); // auto-reconcilia (silencioso) compra feita antes/depois do cadastro
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reactivateMission = async (missionId) => {
     setReactivating(missionId);
@@ -3300,7 +3327,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       <Notif msg={notif} type={notifType} />
 
       {/* Modal upgrade */}
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} userEmail={myEmail} onClaim={() => claimPremium(false)} />}
 
       {/* Modal adicionar filho */}
       {showAddChild && (

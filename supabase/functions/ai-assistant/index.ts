@@ -46,9 +46,13 @@ Deno.serve(async (req) => {
     if (authErr || !user) return respond({ error: "unauthorized" }, 401);
 
     // Rate-limit por usuário/dia (cota decidida pelo plano no servidor) — anti-abuso/custo.
-    const { data: rl } = await callerClient.rpc("ai_check_and_bump");
-    if (rl && rl.allowed === false) {
-      return respond({ error: `Limite de IA de hoje atingido (${rl.limit}/dia). Tente amanhã.` }, 429);
+    // FAIL-CLOSED: se a cota não puder ser verificada (erro/RPC ausente), bloqueia.
+    const { data: rl, error: rlErr } = await callerClient.rpc("ai_check_and_bump");
+    if (rlErr || !rl || rl.allowed === false) {
+      const msg = rlErr || !rl
+        ? "Não foi possível verificar o limite de IA agora. Tente novamente em instantes."
+        : `Limite de IA de hoje atingido (${rl.limit}/dia). Tente amanhã.`;
+      return respond({ error: msg }, 429);
     }
 
     // Ações premium exigem plano premium
