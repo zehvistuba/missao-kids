@@ -1273,12 +1273,15 @@ function Countdown({ endsAt }) {
   }, []);
   const ms = new Date(endsAt).getTime() - now;
   const over = ms <= 0;
-  const mm = Math.max(0, Math.floor(ms / 60000));
-  const ss = Math.max(0, Math.floor((ms % 60000) / 1000));
+  const tot = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(tot / 3600);
+  const mm = Math.floor((tot % 3600) / 60);
+  const ss = tot % 60;
+  const p2 = (n) => String(n).padStart(2, "0");
   const low = ms > 0 && ms <= 5 * 60000;
   return (
     <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", color: over ? T.pink : low ? T.warning : T.accent }}>
-      {over ? "⏱️ acabou" : `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`}
+      {over ? "⏱️ acabou" : (hh > 0 ? `${hh}:${p2(mm)}:${p2(ss)}` : `${p2(mm)}:${p2(ss)}`)}
     </span>
   );
 }
@@ -1311,12 +1314,14 @@ function TimerControl({ t, onStart, onPause, busy }) {
     );
   }
   const secs = Math.max(0, t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60);
-  const mm = Math.floor(secs / 60), ss = secs % 60;
+  const hh = Math.floor(secs / 3600), mm = Math.floor((secs % 3600) / 60), ss = secs % 60;
   const paused = t.timer_state === "paused";
+  const idleLabel = hh > 0 ? `⏱️ ${hh}h${mm > 0 ? ` ${mm}min` : ""}` : `⏱️ ${mm} min`;
+  const pausedLabel = hh > 0 ? `⏸️ ${hh}:${pad(mm)}:${pad(ss)}` : `⏸️ ${pad(mm)}:${pad(ss)}`;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
       <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 14, color: paused ? T.warning : T.textMuted }}>
-        {paused ? `⏸️ ${pad(mm)}:${pad(ss)}` : `⏱️ ${mm} min`}
+        {paused ? pausedLabel : idleLabel}
       </span>
       <button onClick={() => onStart(t.id)} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>▶️ {paused ? "Retomar" : "Iniciar"}</button>
     </div>
