@@ -1108,7 +1108,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
                 <span onClick={() => setMode("forgot")} style={{ color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</span>
               </div>
             )}
-            <Btn onClick={handleEmail} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
+            <Btn onClick={handleEmail} disabled={loading || (mode === "signup" && !agreedTerms)}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
           </>
         )}
 
