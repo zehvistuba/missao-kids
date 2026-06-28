@@ -45,6 +45,12 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await callerClient.auth.getUser();
     if (authErr || !user) return respond({ error: "unauthorized" }, 401);
 
+    // Rate-limit por usuário/dia (cota decidida pelo plano no servidor) — anti-abuso/custo.
+    const { data: rl } = await callerClient.rpc("ai_check_and_bump");
+    if (rl && rl.allowed === false) {
+      return respond({ error: `Limite de IA de hoje atingido (${rl.limit}/dia). Tente amanhã.` }, 429);
+    }
+
     // Ações premium exigem plano premium
     if (action && PREMIUM_ACTIONS.has(action)) {
       const { data: plan } = await callerClient.rpc("get_family_plan");
