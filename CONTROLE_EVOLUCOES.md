@@ -55,7 +55,8 @@ Veredito atual: **Sem P0 aberto.** `create_family` e a escalada de privilégio (
   3. `admin_get_families`/`admin_set_plan`/`admin_delete_family` passam a exigir `is_platform_admin()`; detector de outras `admin_*` via `RAISE NOTICE`.
   4. Policy de `hotmart_events` passa a exigir `is_platform_admin()`.
   5. Varredura corretiva: demove todo `role='admin'` cujo email ≠ dono; purga contas de teste `@rotinup-qa.test`.
-- Prova executada (2026-07-26, `qa_verify_admin_fix.py`, 10/10 PASS): signup admin→parent ✅; child→child ✅; sem role→parent ✅; PATCH `role='admin'` bloqueado ("Alteração de papel não permitida") ✅; falso admin "Acesso negado" nas 3 RPCs + ex-signup-admin ✅; `create_family` de parent OK ✅; `is_platform_admin()=false` p/ comum ✅. Teste do **admin legítimo** (dono consegue chamar) exige login do dono → smoke manual pendente.
+- Prova executada (2026-07-26, `qa_verify_admin_fix.py`, 10/10 PASS): signup admin→parent ✅; child→child ✅; sem role→parent ✅; PATCH `role='admin'` bloqueado ("Alteração de papel não permitida") ✅; falso admin "Acesso negado" nas 3 RPCs + ex-signup-admin ✅; `create_family` de parent OK ✅; `is_platform_admin()=false` p/ comum ✅.
+- **Admin legítimo provado na fronteira RPC** (2026-07-26, no smoke do hardening): `admin_get_families()` chamado com o `sub` do dono retornou 6 famílias ✅. Falta só o smoke **visual** (dono logado renderizando o painel) — checagem de UI, não de segurança.
 - Achados extras da FASE 0 em produção, já tratados no fix v3: **`admin_set_admin_by_email(text)`** era `SECURITY DEFINER` executável por `anon` **sem gate** (P0 vivo independente) → **dropado**; `admin_get_all_families()` duplicava leitura global → **dropado**; policy morta `service_hotmart_all` → removida; `profiles.role` é enum `user_role` (cast aplicado); PREMIUM=10/FREE=1 confirmados e mantidos; contrato vivo de `admin_get_families` preservado.
 - Notas de revisão antes de aplicar: confirmar email do dono; `admin_set_plan` assume FREE⇒`max_co_parents=1` (rode a FASE 0 do SQL se quiser bater o corpo vivo — havia divergência de `1` vs `2` no repo).
 
@@ -82,7 +83,8 @@ Veredito atual: **Sem P0 aberto.** `create_family` e a escalada de privilégio (
 |---|---|---|---|
 | P0 | Corrigir/provar `create_family` | ✅ Provado | API cria família no onboarding (teste 2026-07-26) |
 | P0 | Escalada de role no signup (auto-admin) | ✅ Provado | Aplicado em prod; FASE 2 verde; API 10/10 PASS. Falta só smoke manual do dono no painel |
-| P2 | `get_family_id_by_email` sem gate + defesa-em-profundidade nas admin_* | 🟠 Corrigido (aguarda aplicar) | Triado com Codex (`REVISAO_CODEX_HARDENING.md`) → P2 (não P1: UUID não é credencial, RLS protege). Patch `supabase_hardening_grants.sql`: restringe RPC do webhook a `service_role` + revoga `anon` das 3 admin_*. Aplicar antes do QA Chrome; não bloqueia beta sozinho |
+| P2 | `get_family_id_by_email` sem gate + defesa-em-profundidade nas admin_* | ✅ Provado (aplicado em prod) | `supabase_hardening_grants.sql` aplicado (SHA `07172e57…`); FASE 2 **9/9 ok=true**; smoke webhook via service_role **PASS** (family_id resolvido); anon sem EXECUTE em todas. `get_family_id_by_email` só `service_role` |
+| P3 | Default privileges amplos (anon/authenticated/service_role em funções novas) | 🟡 Aceito/tech-debt | Toda função nova nasce com EXECUTE p/ as 3 roles; exige hardening individual OU revisar `ALTER DEFAULT PRIVILEGES` (escopo próprio). Não bloqueia |
 | P1 | QA Chrome UI completo | ⏳ Pendente | Sem P0/P1 reais |
 | P1 | Triagem final dos achados Chrome | ⏳ Pendente | Separar bug real, falso positivo e risco aceito |
 
@@ -335,6 +337,8 @@ Critério de pronto:
 | 2026-07-26 | Revisão Claude do v3 + decisões do dono | Autorizado | Claude achou bug (backfill sem cast enum) e corrigiu (v3.1). Dono decidiu: **preservar contrato vivo** de admin_get_families, **PREMIUM=10**, e **autorizou aplicar FASE 1 em produção**. Handoff enviado ao Codex navegador |
 | 2026-07-26 | FASE 1 aplicada em produção + FASE 2 | ✅ Provado | Codex aplicou (SHA `7d546fb9…`, exit 0, sem drift); FASE 2 V1–V5 verde; 2 RPCs legadas eliminadas. Claude rodou prova de runtime por API: **10/10 PASS**. P0 escalada = PROVADO/FECHADO. Resta smoke manual do dono + P1 `get_family_id_by_email` |
 | 2026-07-26 | Análise conjunta hardening residual (Codex MCP) | Decidido | Codex+Claude: `get_family_id_by_email`=**P2** (só webhook via service_role); revogar `anon` das admin_* (defesa profund.). Patch `supabase_hardening_grants.sql` (ACL, transação curta, FASE 0/2). Aplicar antes do QA Chrome; não bloqueia beta. Decidido commitar artefatos P0 na branch |
+| 2026-07-26 | Commit dos artefatos na branch | Feito | 2 commits em `fix/p0-admin-escalation` (sem push/merge): `a5bc5a0` (P0) e `490c586` (hardening). Sem segredos; `.env.local` ignorado |
+| 2026-07-26 | Hardening ACL aplicado + provado em prod | ✅ Provado | `supabase_hardening_grants.sql` (SHA `07172e57…`); FASE 0 confirmou anon tinha EXECUTE; FASE 2 9/9 ok=true; smoke webhook service_role PASS; admin_get_families com sub do dono retornou 6 famílias. Resta só smoke visual do dono |
 
 ---
 
