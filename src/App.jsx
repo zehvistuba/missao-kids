@@ -1,4 +1,14 @@
 import { useState, useEffect, useRef } from "react";
+
+// Fecha o modal com a tecla Esc (acessibilidade/UX). Aplicar nos modais-diálogo.
+function useEscClose(onClose) {
+  useEffect(() => {
+    if (typeof onClose !== "function") return;
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+}
 import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
 
@@ -378,6 +388,7 @@ function NotifyToggle({ userId }) {
 
 // ─── Add Child Modal ───────────────────────────────────────
 const AddChildModal = ({ onAdd, onClose }) => {
+  useEscClose(onClose);
   const [name, setName]         = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [avatar, setAvatar]     = useState(avatarUrl("Luna"));
@@ -430,6 +441,7 @@ const AddChildModal = ({ onAdd, onClose }) => {
 
 // ─── Edit Child Modal ──────────────────────────────────────
 const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
+  useEscClose(onClose);
   const [name, setName]           = useState(child.display_name || "");
   const [birthDate, setBirthDate] = useState(child.birth_date || "");
   const [avatar, setAvatar]       = useState(child.avatar_emoji || avatarUrl("Luna"));
@@ -1078,7 +1090,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
           <div>
             <div style={{ color: T.text, fontWeight: 800, fontSize: 13, marginBottom: 4 }}>Cadastro para Responsáveis</div>
             <div style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.5 }}>
-              Crianças são adicionadas pelo responsável via <strong style={{ color: T.primary }}>código de convite</strong> — não precisam criar conta por aqui.
+              Você adiciona seus filhos direto no app, em <strong style={{ color: T.primary }}>“Adicionar filho”</strong> — eles não criam conta nem precisam de e-mail.
             </div>
           </div>
         </div>
@@ -2385,6 +2397,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
+  useEscClose(onClose);
   const [billing, setBilling] = useState("annual");
   const [claiming, setClaiming] = useState(false);
   const plan = PLANS[billing];
@@ -2492,6 +2505,7 @@ const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
 
 // ─── Mission Modal ────────────────────────────────────────
 const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose }) => {
+  useEscClose(onClose);
   const [title, setTitle]     = useState(mission.title || "");
   const [emoji, setEmoji]     = useState(mission.emoji || "⭐");
   const [coins, setCoins]     = useState(mission.coins_reward ?? 20);
@@ -2561,6 +2575,7 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
 
 // ─── Reward Modal ─────────────────────────────────────────
 const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose }) => {
+  useEscClose(onClose);
   const [title, setTitle]   = useState(reward.title || "");
   const [emoji, setEmoji]   = useState(reward.emoji || "🎁");
   const [cost, setCost]     = useState(reward.coin_cost ?? 50);
@@ -2614,6 +2629,7 @@ const nullif0 = v => (v === 0 || v === null || v === undefined) ? null : v;
 
 // ─── Extrato Modal ────────────────────────────────────────
 const ExtratoModal = ({ child, onClose }) => {
+  useEscClose(onClose);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [freshKidcoins, setFreshKidcoins] = useState(null);
@@ -2772,6 +2788,7 @@ const ExtratoModal = ({ child, onClose }) => {
 
 // ─── Demerit Modal ────────────────────────────────────────
 const DemeritModal = ({ child, onApply, onClose }) => {
+  useEscClose(onClose);
   const [selected, setSelected] = useState(null);
   const [customTitle, setCustomTitle] = useState("");
   const [customEmoji, setCustomEmoji] = useState("⚠️");
@@ -2863,6 +2880,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 
 // Resgatar recompensa em nome do filho — responsável escolhe e resgata pro filho
 const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }) => {
+  useEscClose(onClose);
   const [balance, setBalance] = useState(child.kidcoins || 0);
   const active = (rewards || []).filter(r => r.is_active !== false);
   const handle = async (r) => {
