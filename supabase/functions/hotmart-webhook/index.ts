@@ -1,134 +1,138 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.105.4";
+import {
+  constantTimeEqual,
+  isAllowedHotmartProduct,
+  minimizeHotmartPayload,
+  parseHotmartWebhook,
+} from "./domain.js";
 
-// Hotmart Webhook — atualiza families.plan ao receber compra/cancelamento
-// Secret names no Supabase: HOTMART_HOTTOK e SERVICE_ROLE_KEY (sem prefixo SUPABASE_)
+const jsonResponse = (body: unknown, status = 200) => new Response(
+  JSON.stringify(body),
+  { status, headers: { "Content-Type": "application/json" } },
+);
 
-const EVENTS_PREMIUM = new Set([
-  "PURCHASE_APPROVED",
-  "PURCHASE_COMPLETE",
-]);
-const EVENTS_FREE = new Set([
-  "PURCHASE_CANCELED",
-  "PURCHASE_REFUNDED",
-  "PURCHASE_CHARGEBACK",
-  "SUBSCRIPTION_CANCELLATION",
-]);
+const splitEnvList = (value: string) => value
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const MAX_PAYLOAD_BYTES = 1_000_000;
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+  if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
+
+  const requestId = crypto.randomUUID();
+  const hottokSecret = Deno.env.get("HOTMART_HOTTOK") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    ?? Deno.env.get("SERVICE_ROLE_KEY")
+    ?? "";
+  const allowLegacyQueryToken = Deno.env.get("ALLOW_LEGACY_HOTTOK_QUERY") === "true";
+  const allowedProductIds = splitEnvList(Deno.env.get("HOTMART_PRODUCT_IDS") ?? "");
+  const allowedProductUcodes = splitEnvList(Deno.env.get("HOTMART_PRODUCT_UCODES") ?? "");
+
+  if (
+    !hottokSecret
+    || !supabaseUrl
+    || !serviceKey
+    || (allowedProductIds.length === 0 && allowedProductUcodes.length === 0)
+  ) {
+    console.error("[hotmart] Configuração obrigatória ausente", { requestId });
+    return jsonResponse({ error: "server_misconfigured", requestId }, 500);
   }
 
-  const HOTTOK       = Deno.env.get("HOTMART_HOTTOK")   ?? "";
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")     ?? "";
-  // Renomeado de SUPABASE_SERVICE_ROLE_KEY → SERVICE_ROLE_KEY (Supabase bloqueia prefixo SUPABASE_)
-  const SERVICE_KEY  = Deno.env.get("SERVICE_ROLE_KEY") ?? "";
-
-  // Verificar token Hotmart (enviado como query param ?hottok=...).
-  // FALHA FECHADO: sem HOTTOK configurado, recusa tudo (nunca libera geral).
-  const url    = new URL(req.url);
-  const hottok = url.searchParams.get("hottok") ?? "";
-  if (!HOTTOK) {
-    console.error("HOTMART_HOTTOK não configurado — recusando requisição");
-    return new Response("Server misconfigured", { status: 500 });
+  const url = new URL(req.url);
+  const headerToken = req.headers.get("X-HOTMART-HOTTOK") ?? "";
+  const legacyQueryToken = allowLegacyQueryToken ? url.searchParams.get("hottok") ?? "" : "";
+  const receivedToken = headerToken || legacyQueryToken;
+  if (!receivedToken || !constantTimeEqual(receivedToken, hottokSecret)) {
+    console.warn("[hotmart] Hottok inválido", { requestId });
+    return jsonResponse({ error: "unauthorized", requestId }, 401);
   }
-  if (hottok !== HOTTOK) {
-    console.error("Hotmart hottok inválido");
-    return new Response("Unauthorized", { status: 401 });
+  if (!headerToken && legacyQueryToken) {
+    console.warn("[hotmart] Hottok recebido por query legada", { requestId });
+  }
+
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES) {
+    return jsonResponse({ error: "payload_too_large", requestId }, 413);
   }
 
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_PAYLOAD_BYTES) {
+      return jsonResponse({ error: "payload_too_large", requestId }, 413);
+    }
+    body = JSON.parse(rawBody);
   } catch {
-    return new Response("Invalid JSON", { status: 400 });
+    return jsonResponse({ error: "invalid_json", requestId }, 400);
   }
 
-  // Extrair evento e email do comprador (Hotmart v2 payload)
-  const event: string = (body.event as string) ?? "";
-  const data  = body.data as Record<string, unknown> ?? {};
-  const buyer = (data.buyer ?? data.purchase) as Record<string, unknown> ?? {};
-  const email: string = ((buyer.email as string) ?? "").toLowerCase().trim();
-
-  console.log("Hotmart webhook:", { event, email });
-
-  if (!email) {
-    return new Response(JSON.stringify({ ok: false, error: "email ausente no payload" }), { status: 200 });
+  let parsed;
+  try {
+    parsed = parseHotmartWebhook(body);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "payload inválido";
+    console.warn("[hotmart] Payload rejeitado", { requestId, message });
+    return jsonResponse({ error: "invalid_payload", message, requestId }, 400);
   }
 
-  // Determinar novo plano
-  let newPlan: "premium" | "free" | null = null;
-  if (EVENTS_PREMIUM.has(event)) newPlan = "premium";
-  else if (EVENTS_FREE.has(event)) newPlan = "free";
+  if (!isAllowedHotmartProduct(parsed, allowedProductIds, allowedProductUcodes)) {
+    console.warn("[hotmart] Evento de produto não autorizado", {
+      requestId,
+      eventId: parsed.eventId,
+      productId: parsed.productId,
+      productUcode: parsed.productUcode,
+    });
+    return jsonResponse({ ok: true, ignored: "product_not_allowed", requestId });
+  }
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+  if (!parsed.newPlan) {
+    console.info("[hotmart] Evento ignorado", { requestId, eventId: parsed.eventId, event: parsed.event });
+    return jsonResponse({ ok: true, ignored: parsed.event, requestId });
+  }
+  if (!parsed.entitlementKey) {
+    console.warn("[hotmart] Evento sem identificador de compra/assinatura", {
+      requestId,
+      eventId: parsed.eventId,
+      event: parsed.event,
+    });
+    return jsonResponse({ error: "missing_entitlement_key", requestId }, 400);
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  const { data, error } = await supabase.rpc("process_hotmart_event", {
+    p_event_id: parsed.eventId,
+    p_event: parsed.event,
+    p_buyer_email: parsed.email,
+    p_event_created_at: parsed.eventCreatedAt,
+    p_entitlement_key: parsed.entitlementKey,
+    p_new_plan: parsed.newPlan,
+    p_transaction_code: parsed.transactionCode,
+    p_subscription_code: parsed.subscriptionCode,
+    p_payload: minimizeHotmartPayload(body),
+  });
 
-  // Registrar evento no log independente do resultado
-  await supabase.from("hotmart_events").insert({
-    event,
-    buyer_email: email,
-    payload: body,
-  }).then(({ error }) => { if (error) console.error("Log hotmart_events:", error.message); });
-
-  if (!newPlan) {
-    // Evento não mapeado (ex: PURCHASE_UNDER_ANALYSIS) — 200 para Hotmart não reenviar
-    return new Response(JSON.stringify({ ok: true, ignored: event }), { status: 200 });
+  if (error) {
+    console.error("[hotmart] Falha no processamento atômico", {
+      requestId,
+      eventId: parsed.eventId,
+      code: error.code,
+      message: error.message,
+    });
+    return jsonResponse({ error: "processing_failed", requestId }, 500);
   }
 
-  // 1ª tentativa: encontrar família por hotmart_buyer_email (vínculo direto)
-  let familyId: string | null = null;
-  const { data: byBuyerEmail } = await supabase
-    .from("families")
-    .select("id")
-    .eq("hotmart_buyer_email", email)
-    .maybeSingle();
-
-  if (byBuyerEmail?.id) {
-    familyId = byBuyerEmail.id;
-    console.log("Família encontrada via hotmart_buyer_email:", familyId);
-  } else {
-    // 2ª tentativa: encontrar família pelo email de login do responsável (auth.users)
-    const { data: rpcResult, error: rpcErr } = await supabase
-      .rpc("get_family_id_by_email", { p_email: email });
-    if (rpcErr) console.error("RPC get_family_id_by_email:", rpcErr.message);
-    else familyId = rpcResult ?? null;
-    if (familyId) console.log("Família encontrada via auth.users:", familyId);
-  }
-
-  if (!familyId) {
-    console.error("Família não encontrada para:", email);
-    // 200 para Hotmart não reenviar — email ainda não cadastrado no app
-    return new Response(
-      JSON.stringify({ ok: false, error: "família não encontrada", email }),
-      { status: 200 }
-    );
-  }
-
-  // Atualizar plano + salvar buyer_email para facilitar lookups futuros
-  const maxCoParents = newPlan === "premium" ? 10 : 1;
-  const { error: updErr } = await supabase
-    .from("families")
-    .update({ plan: newPlan, hotmart_buyer_email: email, max_co_parents: maxCoParents })
-    .eq("id", familyId);
-
-  if (updErr) {
-    console.error("Erro ao atualizar plano:", updErr.message);
-    return new Response(JSON.stringify({ ok: false, error: updErr.message }), { status: 500 });
-  }
-
-  // Atualizar family_id no log do evento
-  await supabase
-    .from("hotmart_events")
-    .update({ family_id: familyId })
-    .eq("buyer_email", email)
-    .eq("event", event)
-    .is("family_id", null);
-
-  console.log(`✅ ${email} → plan=${newPlan} (${event}) família=${familyId}`);
-  return new Response(
-    JSON.stringify({ ok: true, email, plan: newPlan, event, familyId }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
+  console.info("[hotmart] Evento processado", {
+    requestId,
+    eventId: parsed.eventId,
+    event: parsed.event,
+    duplicate: data?.duplicate ?? false,
+    linked: data?.linked ?? false,
+  });
+  const result = data && typeof data === "object" ? data : {};
+  return jsonResponse({ ok: true, requestId, ...result });
 });

@@ -1,4 +1,6 @@
 -- RotinUp: Recuperação de família + limites de plano no backend
+-- HISTORICO - NAO REAPLICAR: limites/defaults deste snapshot foram substituidos.
+-- Fonte vigente: supabase_fix_plan_limits_canonical.sql.
 -- Executar no SQL Editor: https://supabase.com/dashboard/project/intieqgjmprxatvogxkh/sql
 -- Data: 2026-05-19
 

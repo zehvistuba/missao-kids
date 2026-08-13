@@ -107,6 +107,7 @@ Para mexer nas **funções do Supabase** (edge functions), use o `supabase.exe`:
 **No Supabase → Edge Functions → Secrets:**
 - `GEMINI_API_KEY` (IA)
 - `HOTMART_HOTTOK` (segredo do webhook — **trocar por um forte!**)
+- `HOTMART_PRODUCT_IDS` ou `HOTMART_PRODUCT_UCODES` (allowlist do produto RotinUp)
 - VAPID público/privado (notificações)
 - `SERVICE_ROLE_KEY` (usado pelo webhook)
 - `rotinup_cron_secret` (no Vault — usado pelos lembretes automáticos)
@@ -163,7 +164,7 @@ Para mexer nas **funções do Supabase** (edge functions), use o `supabase.exe`:
 |---|---|
 | **App fora do ar / branco** | Vercel → Deployments → ver se o último deploy falhou. Reverter pro commit anterior se preciso. |
 | **Login não funciona** | Supabase → Authentication. Verifique se as chaves na Vercel batem com Supabase → API. |
-| **Pagamento não libera Premium** | Supabase → Edge Functions → Logs do `hotmart-webhook`. Conferir se `HOTMART_HOTTOK` bate com a URL na Hotmart. |
+| **Pagamento não libera Premium** | Supabase → Edge Functions → Logs do `hotmart-webhook`. Conferir o header `X-HOTMART-HOTTOK`, a allowlist `HOTMART_PRODUCT_IDS`/`HOTMART_PRODUCT_UCODES` e o payload 2.0.0. |
 | **Notificação não chega** | Precisa de aparelho com notificação ativada (app → Conta → 🔔). Ver logs do `push-notify`. |
 | **IA não responde** | Verificar `GEMINI_API_KEY` no Supabase + se o usuário está logado. |
 | **Quero desfazer uma mudança** | `git log` (ver commits) → `git revert <commit>` ou voltar pro deploy anterior na Vercel. |

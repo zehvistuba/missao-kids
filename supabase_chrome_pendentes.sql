@@ -1,5 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- RotinUp — Scripts pendentes para rodar no SQL Editor do Supabase
+-- HISTORICO - NAO REAPLICAR: patch de QA com limite Premium antigo de 20.
+-- Fonte vigente: supabase_fix_plan_limits_canonical.sql.
 -- URL: https://supabase.com/dashboard/project/intieqgjmprxatvogxkh/sql
 -- Data: 2026-05-20
 -- Rodar NESTA ORDEM (copiar e executar bloco a bloco, ou tudo de uma vez)

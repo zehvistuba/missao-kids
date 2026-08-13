@@ -1,4 +1,6 @@
 -- RotinUp: Limites de plano FREE — missões, recompensas e co-responsáveis
+-- HISTORICO - NAO REAPLICAR: este arquivo usa limite Premium antigo de 20.
+-- Fonte vigente: supabase_fix_plan_limits_canonical.sql.
 -- FREE: 5 missões ativas, 3 recompensas ativas, 1 co-responsável (só o criador)
 -- PREMIUM: ilimitado (missions/rewards), 20 co-responsáveis
 -- Executar no SQL Editor: https://supabase.com/dashboard/project/intieqgjmprxatvogxkh/sql

@@ -1,24 +1,31 @@
-import { useState, useEffect, useRef } from "react";
-
-// Fecha o modal com a tecla Esc (acessibilidade/UX). Aplicar nos modais-diálogo.
-function useEscClose(onClose) {
-  useEffect(() => {
-    if (typeof onClose !== "function") return;
-    const h = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-}
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { createClient } from "@supabase/supabase-js";
+import {
+  FREE_FEATURES,
+  getAdminChildCount,
+  HOTMART_CHECKOUT_URLS,
+  PLAN_LIMITS,
+  PLANS,
+  PREMIUM_FEATURES,
+  TERMS_LAST_UPDATED_LABEL,
+  TERMS_VERSION,
+} from "./config/product.js";
+import { useModalDialog } from "./hooks/useModalDialog.js";
+import { supabase } from "./lib/supabase.js";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON
-);
+const TEXT_BUTTON_STYLE = {
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+};
 
 const sanitizeStr = (v, maxLen = 120) =>
-  String(v ?? "").replace(/[\x00-\x1F\x7F]/g, " ").replace(/[<>"'`]/g, "").trim().slice(0, maxLen);
+  Array.from(String(v ?? ""), (char) => {
+    const code = char.charCodeAt(0);
+    return code <= 31 || code === 127 ? " " : char;
+  }).join("").replace(/[<>"'`]/g, "").trim().slice(0, maxLen);
 
 const sanitizeContext = (ctx) => {
   if (!ctx || typeof ctx !== "object") return {};
@@ -53,7 +60,9 @@ const callAI = async (action, context) => {
     try {
       const body = await error.context?.json?.();
       if (body?.error) msg = body.error;
-    } catch {}
+    } catch {
+      // Some network errors do not expose a JSON response body.
+    }
     throw new Error(msg);
   }
   if (data?.error) throw new Error(data.error);
@@ -141,12 +150,6 @@ const DateInp = ({ value, onChange }) => (
 );
 
 // ─── UI Components ────────────────────────────────────────
-const XPBar = ({ current, max, color = T.accent }) => (
-  <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, height: 8, overflow: "hidden" }}>
-    <div style={{ width: `${Math.min(100, (current / max) * 100)}%`, height: "100%", background: `linear-gradient(90deg, ${color}, ${color}CC)`, borderRadius: 999, transition: "width 0.8s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: `0 0 8px ${color}88` }} />
-  </div>
-);
-
 const Notif = ({ msg, type }) => msg ? (
   <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", width: "min(calc(100vw - 32px), 398px)", zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>{msg}</div>
 ) : null;
@@ -220,10 +223,10 @@ const DiceBearPicker = ({ value, onChange }) => {
       {dbStyle === "__emoji__" ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
           {EMOJI_AVATARS.map(em => (
-            <div key={em} onClick={() => onChange(em)}
-              style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === em ? T.purple : "transparent"}`, background: value === em ? `${T.purple}22` : "rgba(255,255,255,0.04)", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>
+            <button type="button" key={em} onClick={() => onChange(em)} aria-label={`Usar avatar ${em}`} aria-pressed={value === em}
+              style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === em ? T.purple : "transparent"}`, background: value === em ? `${T.purple}22` : "rgba(255,255,255,0.04)", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontFamily: "'Nunito', sans-serif" }}>
               {em}
-            </div>
+            </button>
           ))}
         </div>
       ) : (
@@ -232,10 +235,10 @@ const DiceBearPicker = ({ value, onChange }) => {
             const url = avatarUrl(seed, dbStyle);
             const sel = value === url;
             return (
-              <div key={seed} onClick={() => onChange(url)}
+              <button type="button" key={seed} onClick={() => onChange(url)} aria-label={`Usar avatar ${seed}`} aria-pressed={sel}
                 style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
-              </div>
+              </button>
             );
           })}
         </div>
@@ -388,7 +391,7 @@ function NotifyToggle({ userId }) {
 
 // ─── Add Child Modal ───────────────────────────────────────
 const AddChildModal = ({ onAdd, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [name, setName]         = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [avatar, setAvatar]     = useState(avatarUrl("Luna"));
@@ -415,7 +418,7 @@ const AddChildModal = ({ onAdd, onClose }) => {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Adicionar filho" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 16, textAlign: "center" }}>👶 Adicionar Filho(a)</div>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -441,7 +444,7 @@ const AddChildModal = ({ onAdd, onClose }) => {
 
 // ─── Edit Child Modal ──────────────────────────────────────
 const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [name, setName]           = useState(child.display_name || "");
   const [birthDate, setBirthDate] = useState(child.birth_date || "");
   const [avatar, setAvatar]       = useState(child.avatar_emoji || avatarUrl("Luna"));
@@ -478,7 +481,7 @@ const EditChildModal = ({ child, onSave, onDelete, onClose }) => {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Editar ${child.display_name}`} tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 16, textAlign: "center" }}>✏️ Editar {child.display_name}</div>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -565,7 +568,7 @@ const ChildJoin = ({ onDone }) => {
         if (error) throw error;
       }
       onDone();
-    } catch (e) {
+    } catch {
       setErr("Não foi possível salvar o perfil. Tente novamente.");
     } finally {
       setSaving(false);
@@ -652,12 +655,12 @@ const ChildJoin = ({ onDone }) => {
 // SPLASH
 // ═══════════════════════════════════════════════════════════
 const Splash = ({ onDone }) => {
-  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, [onDone]);
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", textAlign: "center" }}>
         <img src="/icon.png" alt="RotinUp" style={{ width: 110, height: 110, marginBottom: 20, borderRadius: 28, filter: `drop-shadow(0 0 24px #9B5DE566)` }} />
-        <div style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: -2, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
+        <div style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: 0, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 8, letterSpacing: 2 }}>TRANSFORME A ROTINA EM AVENTURA</div>
       </div>
       <div style={{ marginTop: 60, display: "flex", gap: 8 }}>
@@ -670,17 +673,8 @@ const Splash = ({ onDone }) => {
 // ═══════════════════════════════════════════════════════════
 // PLANOS — compartilhado entre LandingPremiumCard e UpgradeModal
 // ═══════════════════════════════════════════════════════════
-const PLANS = {
-  monthly: { price: "14,90", period: "/mês", label: "Mensal", total: null,    savings: null,         badge: "🚀 Lançamento" },
-  annual:  { price: "149,90", period: "/ano", label: "Anual",  total: "12,49/mês", savings: "R$ 28,90", badge: "⭐ Melhor valor" },
-};
-const HOTMART_MONTHLY = "https://pay.hotmart.com/E105936971D?off=992z9nyu";
-const HOTMART_ANNUAL  = "https://pay.hotmart.com/E105936971D?off=tjv79dzd";
-
-const PREM_ITEMS = ["Até 10 filhos", "Até 10 responsáveis", "Missões e recompensas ilimitadas", "IA: sugestão de missões ilimitada", "IA: relatório semanal automático", "IA: missão surpresa personalizada", "Histórico completo por filho", "Suporte prioritário WhatsApp"];
-
 // ─── Card Premium para Landing Page ──────────────────────
-const LandingPremiumCard = ({ onSignup }) => {
+const LandingPremiumCard = () => {
   const [billing, setBilling] = useState("annual");
   const plan = PLANS[billing];
 
@@ -723,7 +717,7 @@ const LandingPremiumCard = ({ onSignup }) => {
       </div>
 
       {/* features */}
-      {PREM_ITEMS.map(item => (
+      {PREMIUM_FEATURES.map(item => (
         <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <span style={{ color: T.purple, fontWeight: 900, fontSize: 14 }}>✓</span>
           <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13 }}>{item}</span>
@@ -731,7 +725,7 @@ const LandingPremiumCard = ({ onSignup }) => {
       ))}
 
       {/* CTA */}
-      <a href={billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 16, textDecoration: "none" }}>
+      <a href={HOTMART_CHECKOUT_URLS[billing]} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 16, textDecoration: "none" }}>
         <button style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.purple}, #7B2FBE)`, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 6px 20px ${T.purple}44` }}>
           👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
         </button>
@@ -745,6 +739,7 @@ const LandingPremiumCard = ({ onSignup }) => {
 // LANDING PAGE
 // ═══════════════════════════════════════════════════════════
 const LandingPage = ({ onSignup, onLogin }) => {
+  const isDesktop = useIsDesktop(900);
   const features = [
     { emoji: "🎯", title: "Missões Diárias", desc: "Transforme tarefas em aventuras épicas que as crianças adoram completar" },
     { emoji: "🪙", title: "KidCoins & Recompensas", desc: "Ganhe moedas e troque por recompensas escolhidas pela família" },
@@ -755,39 +750,39 @@ const LandingPage = ({ onSignup, onLogin }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, overflowY: "auto" }}>
       {/* Hero */}
-      <div style={{ background: `linear-gradient(160deg, ${T.darker} 0%, #1A0A2E 100%)`, padding: "60px 28px 50px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: `linear-gradient(160deg, ${T.darker} 0%, #1A0A2E 100%)`, padding: isDesktop ? "72px 64px 60px" : "60px 28px 50px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${T.primary}22, transparent)`, pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}22, transparent)`, pointerEvents: "none" }} />
         <img src="/icon.png" alt="RotinUp" style={{ width: 100, height: 100, marginBottom: 16, borderRadius: 24, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", filter: "drop-shadow(0 0 28px #9B5DE555)" }} />
-        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: -2, marginBottom: 6, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
+        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: 0, marginBottom: 6, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 16, marginBottom: 10, letterSpacing: 1 }}>TRANSFORME A ROTINA EM AVENTURA</div>
-        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, lineHeight: 1.6, maxWidth: 320, margin: "0 auto 36px" }}>
+        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: isDesktop ? 17 : 15, lineHeight: 1.6, maxWidth: isDesktop ? 560 : 320, margin: "0 auto 36px" }}>
           O app de gamificação que faz as crianças amarem sua rotina — e os pais amarem a paz em casa.
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "0 auto" }}>
-          <button onClick={onSignup} style={{ padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
+        <div style={{ display: "flex", flexDirection: isDesktop ? "row" : "column", gap: 12, maxWidth: isDesktop ? 650 : 320, margin: "0 auto" }}>
+          <button onClick={onSignup} style={{ flex: 1, padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
             ✨ Criar conta grátis
           </button>
-          <button onClick={onLogin} style={{ padding: "15px 28px", borderRadius: 18, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+          <button onClick={onLogin} style={{ flex: 1, padding: "15px 28px", borderRadius: 18, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
             Já tenho conta
           </button>
         </div>
       </div>
 
       {/* Stats strip */}
-      <div style={{ background: T.card, padding: "20px 28px", display: "flex", justifyContent: "space-around", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ background: T.card, padding: isDesktop ? "24px 48px" : "20px 16px", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {[{ n: "100%", label: "gratuito para começar" }, { n: "6", label: "níveis de evolução" }, { n: "16", label: "conquistas para ganhar" }].map((s, i) => (
-          <div key={i} style={{ textAlign: "center" }}>
+          <div key={i} style={{ minWidth: 0, textAlign: "center", padding: "0 4px", borderLeft: i === 0 ? "none" : "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ color: T.primary, fontWeight: 900, fontSize: 22 }}>{s.n}</div>
-            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{s.label}</div>
+            <div style={{ color: T.textMuted, fontSize: 10, lineHeight: 1.35, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Features */}
-      <div style={{ padding: "36px 24px" }}>
+      <div style={{ padding: isDesktop ? "52px 48px" : "36px 24px", maxWidth: 1040, margin: "0 auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Tudo que você precisa</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", gap: 14 }}>
           {features.map((f, i) => (
             <div key={i} style={{ background: T.card, borderRadius: 20, padding: "18px 20px", display: "flex", alignItems: "flex-start", gap: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.primary}22, ${T.purple}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{f.emoji}</div>
@@ -801,8 +796,9 @@ const LandingPage = ({ onSignup, onLogin }) => {
       </div>
 
       {/* How it works */}
-      <div style={{ padding: "0 24px 40px" }}>
+      <div style={{ padding: isDesktop ? "0 48px 52px" : "0 24px 40px", maxWidth: 1040, margin: "0 auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Como funciona</div>
+        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", columnGap: 40 }}>
         {[
           { step: "1", emoji: "👨‍👩‍👧", title: "Crie a família", desc: "Responsável cadastra a família e adiciona os filhos" },
           { step: "2", emoji: "🎯", title: "Crie missões", desc: "Defina tarefas do dia a dia como missões com recompensas" },
@@ -817,13 +813,14 @@ const LandingPage = ({ onSignup, onLogin }) => {
             </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* Níveis de evolução */}
-      <div style={{ padding: "0 24px 40px" }}>
+      <div style={{ padding: isDesktop ? "0 48px 52px" : "0 24px 40px", maxWidth: 1040, margin: "0 auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>6 Níveis de Evolução</div>
         <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Cada missão ganha XP — a criança sobe de nível e desbloqueia conquistas</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(3, minmax(0, 1fr))" : "1fr", gap: 10 }}>
           {LEVELS.map((lv, i) => (
             <div key={lv.level} style={{ background: T.card, borderRadius: 16, padding: "13px 16px", display: "flex", alignItems: "center", gap: 14, border: `1px solid ${lv.color}33` }}>
               <div style={{ width: 44, height: 44, borderRadius: 14, background: `${lv.color}22`, border: `2px solid ${lv.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{lv.emoji}</div>
@@ -838,10 +835,10 @@ const LandingPage = ({ onSignup, onLogin }) => {
       </div>
 
       {/* Planos FREE vs PREMIUM */}
-      <div style={{ padding: "0 24px 48px" }}>
+      <div style={{ padding: isDesktop ? "0 48px 64px" : "0 24px 48px", maxWidth: 1040, margin: "0 auto" }}>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>Escolha seu plano</div>
         <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Comece grátis. Faça upgrade quando quiser crescer.</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", gap: 14, alignItems: "start" }}>
           {/* FREE */}
           <div style={{ background: T.card, borderRadius: 20, padding: 20, border: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -863,7 +860,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
           </div>
 
           {/* PREMIUM com toggle Mensal/Anual */}
-          <LandingPremiumCard onSignup={onSignup} />
+          <LandingPremiumCard />
         </div>
       </div>
 
@@ -881,18 +878,20 @@ const LandingPage = ({ onSignup, onLogin }) => {
 };
 
 // ─── Terms & Privacy Modal ────────────────────────────────
-const TermsModal = ({ onClose }) => (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, overflowY: "auto" }}>
-    <div style={{ maxWidth: 430, margin: "0 auto", padding: "28px 20px 60px" }}>
+const TermsModal = ({ onClose }) => {
+  const dialogRef = useModalDialog(onClose);
+  return (
+  <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, overflowY: "auto" }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Termos de Uso e Política de Privacidade" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ maxWidth: 430, margin: "0 auto", padding: "28px 20px 60px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
+        <button onClick={onClose} aria-label="Fechar Termos" style={{ background: "none", border: "none", color: T.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>📄 Termos e Privacidade</div>
       </div>
 
       {[
         { title: "1. Sobre o RotinUp", body: "O RotinUp é um aplicativo de gamificação de rotinas infantis desenvolvido por JV Digital (CNPJ em processo de abertura). Ao usar o app, você concorda com estes Termos de Uso e Política de Privacidade, em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD) e o Estatuto da Criança e do Adolescente (Lei 8.069/1990 — ECA)." },
         { title: "2. Uso do Serviço e Responsabilidade Parental", body: "O RotinUp destina-se exclusivamente a responsáveis legais (pais, tutores ou guardiões) que criam e gerenciam as contas de seus filhos menores de 18 anos.\n\nAo se cadastrar, o responsável declara:\n• Ter 18 anos ou mais;\n• Ser o responsável legal pelas crianças cadastradas;\n• Autorizar expressamente o uso do app pelo menor sob sua supervisão;\n• Monitorar e supervisionar o uso do app pela criança.\n\nCrianças não criam contas próprias — o acesso é sempre configurado e controlado pelo responsável. É proibido usar o serviço para fins ilegais ou compartilhar credenciais." },
-        { title: "3. Planos e Pagamento", body: "O plano gratuito permite 1 filho e acesso às funcionalidades básicas. O plano Premium é cobrado mensalmente via Hotmart e pode ser cancelado a qualquer momento. Valores sujeitos a alteração com aviso prévio de 30 dias." },
+        { title: "3. Planos e Pagamento", body: "O plano gratuito permite 1 filho e acesso às funcionalidades básicas. O plano Premium é cobrado mensalmente ou anualmente, conforme a oferta escolhida antes da compra, via Hotmart. A renovação e o cancelamento seguem as condições apresentadas no checkout. Valores sujeitos a alteração com aviso prévio de 30 dias." },
         { title: "4. Dados coletados (LGPD — Lei 13.709/18)", body: "Coletamos: e-mail e nome do responsável; nome, idade e avatar dos filhos cadastrados; registros de missões, recompensas e tropeços; dados de uso e autenticação.\n\nNão coletamos fotos, localização, documentos de identificação ou qualquer dado sensível de crianças." },
         { title: "5. Finalidade do tratamento", body: "Os dados são usados exclusivamente para: operar as funcionalidades do app; personalizar a experiência; processar pagamentos (via Hotmart); enviar notificações do serviço.\n\nBase legal: execução de contrato (Art. 7º, V — LGPD) e legítimo interesse do responsável no desenvolvimento do filho (Art. 7º, IX — LGPD)." },
         { title: "6. Compartilhamento de dados", body: "Seus dados podem ser processados por:\n• Supabase (banco de dados e autenticação — EUA)\n• Hotmart (processamento de pagamentos — Brasil)\n• Google (autenticação OAuth opcional — EUA)\n• Google Gemini (IA — EUA): ao usar os recursos de inteligência artificial (sugestões de missões, mensagens de incentivo do \"Capitão Rotina\" e relatórios), são enviados o nome, a idade, o nível e o progresso de tarefas da criança para gerar o conteúdo. NÃO são enviados e-mail, dados de contato, documentos, localização nem dados sensíveis. Esse processamento ocorre apenas quando um recurso de IA é acionado.\n\nNão vendemos, alugamos ou compartilhamos dados com terceiros para fins publicitários." },
@@ -900,7 +899,7 @@ const TermsModal = ({ onClose }) => (
         { title: "8. Limitação de responsabilidade", body: "O RotinUp é uma ferramenta de apoio à rotina familiar e não substitui orientação médica, psicológica ou pedagógica.\n\nA JV Digital não se responsabiliza por:\n• Decisões de criação ou conteúdo das missões definidas pelo responsável;\n• Consequências do uso inadequado por parte do responsável ou da criança;\n• Falhas de conectividade, interrupções do serviço ou perda de dados por motivos de força maior.\n\nO responsável assume integral responsabilidade pelo uso do app e pelo conteúdo configurado." },
         { title: "9. Retenção e exclusão", body: "Dados ficam armazenados enquanto a conta estiver ativa. Ao excluir a conta, os dados são removidos em até 30 dias. Para solicitar exclusão antecipada, envie e-mail para privacidade@jvdigital.com.br." },
         { title: "10. Direitos do titular (LGPD Arts. 17–22)", body: "Você tem direito a: acessar seus dados; corrigir informações incorretas; solicitar exclusão; revogar consentimento; receber seus dados em formato portável; opor-se ao tratamento.\n\nPara exercer seus direitos: privacidade@jvdigital.com.br\nPrazo de resposta: até 15 dias úteis." },
-        { title: "11. Segurança", body: "Utilizamos criptografia em trânsito (HTTPS/TLS) e em repouso. Senhas nunca são armazenadas em texto puro. Em caso de incidente de segurança com risco aos titulares, notificaremos a ANPD e os usuários afetados no prazo legal (72 horas)." },
+        { title: "11. Segurança", body: "Utilizamos criptografia em trânsito (HTTPS/TLS) e em repouso. Senhas nunca são armazenadas em texto puro. Em caso de incidente de segurança que possa ocasionar risco ou dano relevante aos titulares, notificaremos a ANPD e os usuários afetados quando exigido e dentro do prazo legal aplicável." },
         { title: "12. Alterações", body: "Podemos atualizar estes termos. Alterações relevantes serão comunicadas por e-mail ou notificação no app com antecedência mínima de 15 dias. O uso continuado após a vigência das alterações implica aceitação." },
         { title: "13. Foro e legislação aplicável", body: "Estes termos são regidos pela legislação brasileira. Fica eleito o foro da comarca de Maringá/PR para dirimir quaisquer controvérsias, com renúncia a qualquer outro, por mais privilegiado que seja." },
         { title: "14. Contato", body: "JV Digital\nE-mail: contato@jvdigital.com.br\nPrivacidade/LGPD: privacidade@jvdigital.com.br\nWhatsApp: (44) 99114-1555" },
@@ -912,25 +911,29 @@ const TermsModal = ({ onClose }) => (
       ))}
 
       <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 }}>
-        Última atualização: 28 de maio de 2026 · v2.0
+        Última atualização: {TERMS_LAST_UPDATED_LABEL}
       </div>
       <button onClick={onClose} style={{ width: "100%", marginTop: 24, padding: "14px", borderRadius: 16, border: "none", background: T.primary, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
         ✅ Entendido
       </button>
     </div>
   </div>
-);
-
-// Versão atual dos Termos/Política — bump aqui força novo aceite.
-const TERMS_VERSION = "2026-06-28";
+  );
+};
 
 // Bloco de erro de carregamento (dashboards) — evita tela "vazia" silenciosa.
-const LoadErrorBlock = ({ onRetry }) => (
+const LoadErrorBlock = ({
+  onRetry,
+  onSignOut,
+  title = "Não foi possível carregar seus dados",
+  message = "Verifique sua conexão e tente novamente.",
+}) => (
   <div style={{ padding: "48px 24px", textAlign: "center" }}>
     <div style={{ fontSize: 44, marginBottom: 12 }}>📡</div>
-    <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Não foi possível carregar seus dados</div>
-    <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>Verifique sua conexão e tente novamente.</div>
+    <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{title}</div>
+    <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>{message}</div>
     <button onClick={onRetry} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
+    {onSignOut && <button onClick={onSignOut} style={{ display: "block", margin: "14px auto 0", padding: "10px 18px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sair e usar outra conta</button>}
   </div>
 );
 
@@ -965,9 +968,9 @@ const TermsGate = ({ onAccept, onSignOut }) => {
           <li>pode <strong style={{ color: T.text }}>revogar o consentimento e excluir os dados</strong> a qualquer momento pelo próprio app.</li>
         </ul>
       </div>
-      <div onClick={() => setShowFull(true)} style={{ color: T.primary, fontWeight: 700, fontSize: 13, textDecoration: "underline", cursor: "pointer", textAlign: "center", marginBottom: 16 }}>
+      <button type="button" onClick={() => setShowFull(true)} style={{ ...TEXT_BUTTON_STYLE, display: "block", width: "100%", color: T.primary, fontWeight: 700, fontSize: 13, textDecoration: "underline", cursor: "pointer", textAlign: "center", marginBottom: 16 }}>
         Ler os Termos de Uso e Política de Privacidade completos
-      </div>
+      </button>
       <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 16 }}>
         <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: T.accent, flexShrink: 0 }} />
         <span style={{ color: T.text, fontSize: 13, lineHeight: 1.5 }}>Li e concordo com os Termos de Uso e a Política de Privacidade, como responsável legal.</span>
@@ -985,10 +988,9 @@ const TermsGate = ({ onAccept, onSignOut }) => {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
-const AuthScreen = ({ initialMode = "login" }) => {
+const AuthScreen = ({ initialMode = "login", onTermsAccepted }) => {
   const [showTerms, setShowTerms] = useState(false);
   const [mode, setMode]           = useState(initialMode);
-  const [userType, setUserType] = useState("parent");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [name, setName]         = useState("");
@@ -1042,14 +1044,20 @@ const AuthScreen = ({ initialMode = "login" }) => {
       } else {
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { display_name: name, role: userType } }
+          options: { data: { display_name: name, role: "parent" } }
         });
         if (error) throw error;
         if (data?.session) {
           // Confirmação de e-mail desligada: já entra direto (onAuthStateChange navega).
           // Registra o aceite dos termos (o checkbox foi marcado).
-          await supabase.rpc("accept_terms", { p_terms_version: TERMS_VERSION }).catch(() => {});
-          notify("✅ Conta criada! Bem-vindo(a) ao RotinUp! 🎉");
+          const { error: termsError } = await supabase.rpc("accept_terms", { p_terms_version: TERMS_VERSION });
+          if (termsError) {
+            console.error("[Auth] Falha ao registrar aceite dos termos:", termsError);
+            notify("Conta criada. Confirme os Termos na próxima tela.", "error");
+          } else {
+            await onTermsAccepted?.(data.session.user.id);
+            notify("✅ Conta criada! Bem-vindo(a) ao RotinUp! 🎉");
+          }
         } else {
           // Confirmação de e-mail ligada: precisa confirmar antes de entrar
           notify("✅ Conta criada! Confirme seu e-mail para entrar.");
@@ -1080,7 +1088,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
       <Notif msg={notif} type={notifType} />
       <div style={{ textAlign: "center", paddingTop: 50, marginBottom: 32 }}>
         <img src="/icon.png" alt="RotinUp" style={{ width: 80, height: 80, borderRadius: 22, marginBottom: 12, filter: "drop-shadow(0 0 16px #9B5DE555)" }} />
-        <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -1, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: 0, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
       </div>
 
@@ -1106,7 +1114,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
             {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
             <Btn onClick={handleEmail} disabled={loading}>{loading ? "Enviando..." : "📧 Enviar link de recuperação"}</Btn>
             <div style={{ textAlign: "center", marginTop: 16 }}>
-              <span onClick={() => setMode("login")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>← Voltar ao login</span>
+              <button type="button" onClick={() => setMode("login")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>← Voltar ao login</button>
             </div>
           </>
         ) : (
@@ -1117,7 +1125,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
             {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
             {mode === "login" && (
               <div style={{ textAlign: "right", marginBottom: 12, marginTop: -4 }}>
-                <span onClick={() => setMode("forgot")} style={{ color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</span>
+                <button type="button" onClick={() => setMode("forgot")} style={{ ...TEXT_BUTTON_STYLE, color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</button>
               </div>
             )}
             <Btn onClick={handleEmail} disabled={loading || (mode === "signup" && !agreedTerms)}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
@@ -1125,15 +1133,15 @@ const AuthScreen = ({ initialMode = "login" }) => {
         )}
 
         {mode === "signup" && (
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, cursor: "pointer" }}>
-            <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); setInlineErr(""); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12 }}>
+            <input id="signup-terms-consent" type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); setInlineErr(""); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: T.textMuted, lineHeight: 1.5 }}>
-              Sou o responsável legal e concordo com os{" "}
-              <span onClick={(e) => { e.preventDefault(); setShowTerms(true); }} style={{ color: T.primary, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+              <label htmlFor="signup-terms-consent" style={{ cursor: "pointer" }}>Sou o responsável legal e concordo com os </label>
+              <button type="button" onClick={() => setShowTerms(true)} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
                 Termos de Uso e Política de Privacidade
-              </span>{" "}(tratamento de dados de menores, IA e pagamento).
+              </button>{" "}(tratamento de dados de menores, IA e pagamento).
             </span>
-          </label>
+          </div>
         )}
 
         {mode !== "forgot" && <><div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
@@ -1155,15 +1163,15 @@ const AuthScreen = ({ initialMode = "login" }) => {
 
       {mode !== "forgot" && <div style={{ textAlign: "center", padding: "24px 0 40px", color: T.textMuted, fontSize: 14 }}>
         {mode === "login"
-          ? <> Novo por aqui? <span onClick={() => setMode("signup")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Criar conta grátis</span></>
-          : <> Já tem conta? <span onClick={() => setMode("login")} style={{ color: T.primary, fontWeight: 800, cursor: "pointer" }}>Fazer login</span></>
+          ? <> Novo por aqui? <button type="button" onClick={() => setMode("signup")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer" }}>Criar conta grátis</button></>
+          : <> Já tem conta? <button type="button" onClick={() => setMode("login")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer" }}>Fazer login</button></>
         }
       </div>}
 
       <div style={{ textAlign: "center", paddingBottom: 20 }}>
-        <span onClick={() => setShowTerms(true)} style={{ color: T.textMuted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+        <button type="button" onClick={() => setShowTerms(true)} style={{ ...TEXT_BUTTON_STYLE, color: T.textMuted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
           Termos de Uso e Política de Privacidade
-        </span>
+        </button>
       </div>
 
       {showTerms && createPortal(<TermsModal onClose={() => setShowTerms(false)} />, document.body)}
@@ -1174,7 +1182,7 @@ const AuthScreen = ({ initialMode = "login" }) => {
 // ═══════════════════════════════════════════════════════════
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════
-const Onboarding = ({ user, onDone }) => {
+const Onboarding = ({ onDone }) => {
   // step: "recovering" | "choice" | "create" | "addchild" | "join"
   const [step, setStep]               = useState("recovering");
   const [familyName, setFamilyName]   = useState("");
@@ -1196,7 +1204,7 @@ const Onboarding = ({ user, onDone }) => {
       }
     };
     tryRecover();
-  }, []);
+  }, [onDone]);
 
   const createFamily = async () => {
     if (!familyName) return;
@@ -1346,7 +1354,7 @@ const Onboarding = ({ user, onDone }) => {
 // ═══════════════════════════════════════════════════════════
 // Contagem regressiva ao vivo (recompensa de tempo). Tica a cada segundo.
 function Countdown({ endsAt }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -1385,12 +1393,13 @@ function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
 // Controle do cronômetro de recompensa: ▶️ Iniciar/Retomar · ⏸️ Pausar · contagem ao vivo
 function TimerControl({ t, onStart, onPause, onFinish, busy }) {
   const [confirming, setConfirming] = useState(false);
+  const [confirmationNow, setConfirmationNow] = useState(() => Date.now());
   const pad = (n) => String(n).padStart(2, "0");
   const running = t.timer_state === "running";
-  const remaining = Math.max(0, running ? (new Date(t.timer_ends_at).getTime() - Date.now()) / 1000 : (t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60));
+  const remaining = Math.max(0, running ? (new Date(t.timer_ends_at).getTime() - confirmationNow) / 1000 : (t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60));
   const fmt = (secs) => { secs = Math.max(0, Math.floor(secs)); const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60; return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`; };
   const doneBtn = (
-    <button onClick={() => setConfirming(true)} disabled={busy} title="Concluir agora" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.accent}55`, background: `${T.accent}18`, color: T.accent, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+    <button onClick={() => { setConfirmationNow(Date.now()); setConfirming(true); }} disabled={busy} title="Concluir agora" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.accent}55`, background: `${T.accent}18`, color: T.accent, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
   );
 
   if (confirming) {
@@ -1446,6 +1455,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   // Profile editing
   const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_emoji || avatarUrl("Luna"));
   const [editingAvatar, setEditingAvatar] = useState(false);
+  const avatarDialogRef = useModalDialog(() => setEditingAvatar(false), editingAvatar);
   const [siblings, setSiblings] = useState([]);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [demeritLogs, setDemeritLogs] = useState([]);
@@ -1461,9 +1471,6 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const [pendingReds, setPendingReds] = useState([]);
   const [activeTimers, setActiveTimers] = useState([]);
   const [timerBusy, setTimerBusy] = useState(null);
-  const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
-  const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
-  const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro ao concluir", "error"); notify("✅ Recompensa concluída!"); load(); };
   const [cancellingRed, setCancellingRed] = useState(null);
 
   // ── Fase 2B: missões de duração (▶️ Iniciar). Cronômetro local por criança.
@@ -1483,17 +1490,22 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     } catch { return {}; }
   };
   const [runs, setRuns] = useState(loadRuns);
-  const [nowTick, setNowTick] = useState(Date.now());
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const firedRef = useRef(new Set());
   const persistRuns = (next) => {
     setRuns(next);
-    try { localStorage.setItem(runsKey, JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(runsKey, JSON.stringify(next)); } catch {
+      // Timers still work in memory when storage is unavailable.
+    }
   };
   const startRun = (m) => {
     const mins = m.duration_minutes || 0;
     if (mins <= 0) return;
     firedRef.current.delete(m.id);
+    // Wall-clock access happens only after a user action, never during render.
+    // eslint-disable-next-line react-hooks/purity
     persistRuns({ ...runs, [m.id]: Date.now() + mins * 60000 });
+    // eslint-disable-next-line react-hooks/purity
     setNowTick(Date.now());
   };
   const cancelRun = (mid) => {
@@ -1506,16 +1518,6 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     const t = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, [runs]);
-  // ao terminar a contagem, envia a missão sozinha para aprovação
-  useEffect(() => {
-    const expired = Object.entries(runs).filter(([mid, e]) => e <= Date.now() && !firedRef.current.has(mid));
-    if (expired.length === 0) return;
-    const next = { ...runs };
-    expired.forEach(([mid]) => { firedRef.current.add(mid); delete next[mid]; submit(mid); });
-    try { localStorage.setItem(runsKey, JSON.stringify(next)); } catch {}
-    setRuns(next);
-  }, [nowTick]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const qty    = (rid) => quantities[rid] || 1;
   const setQty = (rid, delta, max) =>
     setQuantities(prev => ({ ...prev, [rid]: Math.min(max, Math.max(1, (prev[rid] || 1) + delta)) }));
@@ -1527,6 +1529,8 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
   // Atualização otimista de coins — não depende do onRefresh() terminar
   const [localCoins, setLocalCoins] = useState(profile.kidcoins || 0);
+  // Sincroniza o saldo confirmado depois que a atualização otimista retorna do servidor.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalCoins(profile.kidcoins || 0); }, [profile.kidcoins]);
 
   // ─── Capitão Rotina: saudação + incentivo na home (IA bounded, via única) ───
@@ -1584,7 +1588,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   useEffect(() => {
-    if (!loading) loadCompanion();
+    if (loading) return;
+    const timer = window.setTimeout(() => loadCompanion(), 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
@@ -1610,55 +1616,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const missionsRef = useRef([]);
   const loadIdRef = useRef(0);
 
-  useEffect(() => {
-    load();
-    // Realtime — escuta aprovação de missão
-    const channel = supabase
-      .channel(`approved-${profile.id}`)
-      .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "mission_logs",
-        filter: `child_id=eq.${profile.id}`,
-      }, async (payload) => {
-        if (payload.new.status === "approved") {
-          load();
-          if (onRefresh) onRefresh();
-          let mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
-          // Fallback: ref vazio se load() ainda não completou — busca direto no banco
-          if (!mission) {
-            const { data } = await supabase.from("missions").select("*").eq("id", payload.new.mission_id).single();
-            if (data) mission = data;
-          }
-          const coinsEarned = mission?.coins_reward || 0;
-          const xpGained = mission?.xp_reward || 0;
-          const oldLevel = getLvl(profile.xp || 0);
-          const newLevel = getLvl((profile.xp || 0) + xpGained);
-          const levelUp = newLevel.level > oldLevel.level ? newLevel : null;
-          try {
-            const msg = await callAI("motivational", {
-              childName: profile.display_name,
-              age: profile.age,
-              level: newLevel.level,
-              missionName: mission?.title || "essa missão",
-              coins: coinsEarned,
-              xp: xpGained,
-            });
-            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
-          } catch {
-            const fallbacks = [
-              `Incrível, ${profile.display_name}! Você completou mais uma missão! Continue assim, campeão! 🚀`,
-              `Uhuuul! Missão concluída! Você está arrasando! Cada missão te deixa mais forte! 💪⭐`,
-              `Que aventureiro incrível! Missão cumprida com sucesso! O Capitão Rotina está orgulhoso! 🎖️`,
-            ];
-            const msg = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
-          }
-        }
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, []);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     const myId = ++loadIdRef.current;
     setLoading(true);
     try {
@@ -1691,13 +1649,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
     }
-  };
+  }, [profile.family_id, profile.id]);
 
-  useEffect(() => {
-    if (tab === "profile") loadProfileExtras();
-  }, [tab]);
-
-  const loadProfileExtras = async () => {
+  const loadProfileExtras = useCallback(async () => {
     setHistoryLoading(true);
     try {
       const [{ data: sibs }, { data: hist }, { data: dem }] = await Promise.all([
@@ -1726,7 +1680,87 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     } finally {
       setHistoryLoading(false);
     }
+  }, [profile.family_id, profile.id]);
+
+  const startTimer = async (id) => {
+    setTimerBusy(id);
+    const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id });
+    setTimerBusy(null);
+    if (error) return notify(error.message || "Erro no cronômetro", "error");
+    load();
   };
+
+  const pauseTimer = async (id) => {
+    setTimerBusy(id);
+    const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id });
+    setTimerBusy(null);
+    if (error) return notify(error.message || "Erro no cronômetro", "error");
+    load();
+  };
+
+  const finishTimer = async (id) => {
+    setTimerBusy(id);
+    const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id });
+    setTimerBusy(null);
+    if (error) return notify(error.message || "Erro ao concluir", "error");
+    notify("✅ Recompensa concluída!");
+    load();
+  };
+
+  useEffect(() => {
+    // Initial remote load is intentional synchronization with Supabase.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+    const channel = supabase
+      .channel(`approved-${profile.id}`)
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "mission_logs",
+        filter: `child_id=eq.${profile.id}`,
+      }, async (payload) => {
+        if (payload.new.status === "approved") {
+          load();
+          await onRefresh?.();
+          let mission = missionsRef.current.find(m => m.id === payload.new.mission_id);
+          if (!mission) {
+            const { data } = await supabase.from("missions").select("*").eq("id", payload.new.mission_id).single();
+            if (data) mission = data;
+          }
+          const coinsEarned = mission?.coins_reward || 0;
+          const xpGained = mission?.xp_reward || 0;
+          const oldLevel = getLvl(profile.xp || 0);
+          const newLevel = getLvl((profile.xp || 0) + xpGained);
+          const levelUp = newLevel.level > oldLevel.level ? newLevel : null;
+          try {
+            const msg = await callAI("motivational", {
+              childName: profile.display_name,
+              age: profile.age,
+              level: newLevel.level,
+              missionName: mission?.title || "essa missão",
+              coins: coinsEarned,
+              xp: xpGained,
+            });
+            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
+          } catch {
+            const fallbacks = [
+              `Incrível, ${profile.display_name}! Você completou mais uma missão! Continue assim, campeão! 🚀`,
+              "Uhuuul! Missão concluída! Você está arrasando! Cada missão te deixa mais forte! 💪⭐",
+              "Que aventureiro incrível! Missão cumprida com sucesso! O Capitão Rotina está orgulhoso! 🎖️",
+            ];
+            const msg = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            setCelebration({ msg, coins: coinsEarned, xp: xpGained, levelUp });
+          }
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [load, onRefresh, profile.age, profile.display_name, profile.id, profile.xp]);
+
+  useEffect(() => {
+    if (tab !== "profile") return;
+    // Profile history is fetched only when its tab becomes visible.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadProfileExtras();
+  }, [loadProfileExtras, tab]);
 
   const saveAvatar = async (emoji) => {
     setAvatarEmoji(emoji);
@@ -1789,9 +1823,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
     const cutoffStr = localDateStr(cutoffDays);
     return logs.filter(l => l.mission_id === mid && l.due_date >= cutoffStr && l.status !== "rejected").length;
-  };
+  }
 
-  const submit = async (mid) => {
+  async function submit(mid) {
     setSubmitting(mid);
     const { error } = await supabase.rpc("submit_mission", { p_mission_id: mid, p_due_date: localDateStr(0) });
     setSubmitting(null);
@@ -1801,7 +1835,24 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     supabase.functions.invoke("push-notify", {
       body: { family_id: profile.family_id, title: "Nova missão para aprovar! 📋", body: `${mission?.emoji || "✅"} ${mission?.title || "Missão"} foi enviada por ${profile.display_name}` },
     }).catch(() => {});
-  };
+  }
+
+  useEffect(() => {
+    const expired = Object.entries(runs).filter(([mid, endsAt]) => endsAt <= Date.now() && !firedRef.current.has(mid));
+    if (expired.length === 0) return;
+    const nextRuns = { ...runs };
+    expired.forEach(([missionId]) => {
+      firedRef.current.add(missionId);
+      delete nextRuns[missionId];
+      submit(missionId);
+    });
+    try { localStorage.setItem(runsKey, JSON.stringify(nextRuns)); } catch {
+      // Timers still work in memory when storage is unavailable.
+    }
+    setRuns(nextRuns);
+    // The interval tick is the trigger; including transient handlers would restart this check every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowTick]);
 
   const redeem = async (rid, cost) => {
     const n     = qty(rid);
@@ -2250,7 +2301,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
               {/* Avatar picker modal */}
               {editingAvatar && (
                 <div onClick={() => setEditingAvatar(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                  <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 430 }}>
+                  <div ref={avatarDialogRef} role="dialog" aria-modal="true" aria-label="Escolher avatar" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 430 }}>
                     <button onClick={() => setEditingAvatar(false)} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
                     <div style={{ color: T.text, fontWeight: 900, fontSize: 17, textAlign: "center", marginBottom: 16 }}>✏️ Escolher avatar</div>
                     <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -2264,14 +2315,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
               {/* Avatar + nome */}
               <div style={{ textAlign: "center", marginBottom: 24 }}>
-                <div onClick={() => setEditingAvatar(true)} style={{ position: "relative", display: "inline-block", cursor: "pointer", marginBottom: 12 }}>
+                <button type="button" onClick={() => setEditingAvatar(true)} aria-label="Editar avatar" style={{ position: "relative", display: "inline-block", cursor: "pointer", marginBottom: 12, padding: 0, border: "none", background: "transparent" }}>
                   <XPRing size={116} stroke={6} pct={xpFor ? xpIn / xpFor : 0} color={lvl.color}>
                     <div style={{ width: 96, height: 96, borderRadius: "50%", background: `linear-gradient(135deg, ${T.purple}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                       <AvatarImg value={avatarEmoji} size={96} radius={48} />
                     </div>
                   </XPRing>
                   <div style={{ position: "absolute", bottom: 2, right: 2, width: 28, height: 28, borderRadius: 10, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: `2px solid ${T.darker}`, zIndex: 1 }}>✏️</div>
-                </div>
+                </button>
                 <div style={{ color: T.text, fontWeight: 900, fontSize: 22 }}>{profile.display_name}</div>
                 <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{profile.age ? `${profile.age} anos · ` : ""}{lvl.name} {lvl.emoji}</div>
               </div>
@@ -2397,19 +2448,17 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 
 // ─── Upgrade Modal ────────────────────────────────────────
 const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [billing, setBilling] = useState("annual");
   const [claiming, setClaiming] = useState(false);
   const plan = PLANS[billing];
-  const base = billing === "annual" ? HOTMART_ANNUAL : HOTMART_MONTHLY;
+  const base = HOTMART_CHECKOUT_URLS[billing];
   // pré-preenche o e-mail da conta no checkout → o webhook casa a compra automaticamente
   const checkoutUrl = userEmail ? `${base}&email=${encodeURIComponent(userEmail)}` : base;
 
-  const FREE_ITEMS = ["1 filho", "1 responsável (só você)", "Até 5 missões ativas", "Até 3 recompensas ativas", "IA: sugestão de missões (limitado)", "Gamificação completa (XP, níveis, streak, conquistas)"];
-
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "28px 28px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 430, maxHeight: "92vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Conheça o plano Premium" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "28px 28px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 430, maxHeight: "92vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -2462,7 +2511,7 @@ const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
           <div style={{ background: T.darker, borderRadius: 20, padding: "16px 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>GRÁTIS</div>
-            {FREE_ITEMS.map((item, i) => (
+            {FREE_FEATURES.map((item, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
                 <span style={{ color: T.textMuted, fontSize: 12, marginTop: 1, flexShrink: 0 }}>◦</span>
                 <span style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.4 }}>{item}</span>
@@ -2471,7 +2520,7 @@ const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
           </div>
           <div style={{ background: `linear-gradient(160deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "16px 14px", border: `2px solid ${T.purple}55` }}>
             <div style={{ color: T.purple, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>PREMIUM 👑</div>
-            {PREM_ITEMS.map((item, i) => (
+            {PREMIUM_FEATURES.map((item, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
                 <span style={{ color: T.accent, fontSize: 12, marginTop: 1, flexShrink: 0 }}>✓</span>
                 <span style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>{item}</span>
@@ -2505,7 +2554,7 @@ const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
 
 // ─── Mission Modal ────────────────────────────────────────
 const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [title, setTitle]     = useState(mission.title || "");
   const [emoji, setEmoji]     = useState(mission.emoji || "⭐");
   const [coins, setCoins]     = useState(mission.coins_reward ?? 20);
@@ -2524,7 +2573,7 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Editar missão" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Missão</div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
@@ -2575,7 +2624,7 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
 
 // ─── Reward Modal ─────────────────────────────────────────
 const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [title, setTitle]   = useState(reward.title || "");
   const [emoji, setEmoji]   = useState(reward.emoji || "🎁");
   const [cost, setCost]     = useState(reward.coin_cost ?? 50);
@@ -2592,7 +2641,7 @@ const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose })
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Editar recompensa" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Recompensa</div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
@@ -2629,7 +2678,7 @@ const nullif0 = v => (v === 0 || v === null || v === undefined) ? null : v;
 
 // ─── Extrato Modal ────────────────────────────────────────
 const ExtratoModal = ({ child, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [freshKidcoins, setFreshKidcoins] = useState(null);
@@ -2714,7 +2763,7 @@ const ExtratoModal = ({ child, onClose }) => {
       setLoading(false);
     };
     fetchData();
-  }, [child.id]);
+  }, [child.id, child.kidcoins]);
 
   const typeColor = { mission: T.accent, redemption: T.secondary, demerit: T.pink, streak: T.primary };
   const typeLabel = { mission: "Missão", redemption: "Resgate", demerit: "Tropeço", streak: "Sequência" };
@@ -2725,7 +2774,7 @@ const ExtratoModal = ({ child, onClose }) => {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Extrato de ${child.display_name}`} tabIndex={-1} onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexShrink: 0 }}>
           <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
@@ -2788,7 +2837,7 @@ const ExtratoModal = ({ child, onClose }) => {
 
 // ─── Demerit Modal ────────────────────────────────────────
 const DemeritModal = ({ child, onApply, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [selected, setSelected] = useState(null);
   const [customTitle, setCustomTitle] = useState("");
   const [customEmoji, setCustomEmoji] = useState("⚠️");
@@ -2800,10 +2849,16 @@ const DemeritModal = ({ child, onApply, onClose }) => {
   const emoji = preset ? preset.emoji : customEmoji;
   const canApply = selected !== null && title.trim().length > 0 && coins >= 0;
 
-  useEffect(() => {
-    if (preset) setCoins(preset.coins);
-    else if (selected === -1) { setCustomTitle(""); setCoins(0); }
-  }, [selected]);
+  const selectPreset = (index) => {
+    setSelected(index);
+    setCoins(DEMERIT_PRESETS[index].coins);
+  };
+
+  const selectCustom = () => {
+    setSelected(-1);
+    setCustomTitle("");
+    setCoins(0);
+  };
 
   const handleApply = async () => {
     if (!canApply) return;
@@ -2814,7 +2869,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Registrar tropeço de ${child.display_name}`} tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
@@ -2827,14 +2882,14 @@ const DemeritModal = ({ child, onApply, onClose }) => {
         <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginBottom: 10 }}>TIPO DE TROPEÇO</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
           {DEMERIT_PRESETS.map((p, i) => (
-            <button key={i} onClick={() => setSelected(i)}
+            <button key={i} onClick={() => selectPreset(i)}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 14, border: `2px solid ${selected === i ? T.pink : "rgba(255,255,255,0.1)"}`, background: selected === i ? `${T.pink}15` : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left" }}>
               <span style={{ fontSize: 22, flexShrink: 0 }}>{p.emoji}</span>
               <div style={{ flex: 1, color: selected === i ? T.text : T.textMuted, fontWeight: 700, fontSize: 13 }}>{p.title}</div>
               <span style={{ color: T.pink, fontWeight: 900, fontSize: 12, flexShrink: 0 }}>-🪙{p.coins}</span>
             </button>
           ))}
-          <button onClick={() => setSelected(-1)}
+          <button onClick={selectCustom}
             style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 14, border: `2px solid ${selected === -1 ? T.pink : "rgba(255,255,255,0.1)"}`, background: selected === -1 ? `${T.pink}15` : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left" }}>
             <span style={{ fontSize: 22, flexShrink: 0 }}>✏️</span>
             <div style={{ color: selected === -1 ? T.text : T.textMuted, fontWeight: 700, fontSize: 13 }}>Personalizado</div>
@@ -2880,7 +2935,7 @@ const DemeritModal = ({ child, onApply, onClose }) => {
 
 // Resgatar recompensa em nome do filho — responsável escolhe e resgata pro filho
 const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }) => {
-  useEscClose(onClose);
+  const dialogRef = useModalDialog(onClose);
   const [balance, setBalance] = useState(child.kidcoins || 0);
   const active = (rewards || []).filter(r => r.is_active !== false);
   const handle = async (r) => {
@@ -2890,7 +2945,7 @@ const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }
   };
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", zIndex: 9300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, maxHeight: "88vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Resgatar recompensa para ${child.display_name}`} tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, maxHeight: "88vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
         <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
           <AvatarImg value={child.avatar_emoji} size={44} radius={14} />
@@ -2936,6 +2991,7 @@ const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }
 // ═══════════════════════════════════════════════════════════
 const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const isDesktop = useIsDesktop();
+  const [viewOpenedAt] = useState(() => Date.now());
   const [tab, setTab]             = useState("home");
   const [children, setChildren]   = useState([]);
   const [missions, setMissions]   = useState([]);
@@ -2993,11 +3049,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const loadIdRef = useRef(0);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
-  const tryAddChild = () => { if (familyPlan === "free" && children.length >= 1) { setShowUpgrade(true); } else { setShowAddChild(true); } };
-
-  useEffect(() => {
-    setLocalMissions([...missions].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
-  }, [missions]);
+  const tryAddChild = () => { if (familyPlan === "free" && children.length >= PLAN_LIMITS.free.children) { setShowUpgrade(true); } else { setShowAddChild(true); } };
 
   const handleDragOver = (e, overId) => {
     e.preventDefault();
@@ -3117,12 +3169,14 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   // Reconciliação de pagamento: ativa Premium se houver compra no Hotmart com o e-mail da conta.
   const claimPremium = async (silent) => {
     const { data } = await supabase.rpc("claim_premium_by_email");
+    if (data?.plan) await loadFamilyPlan(familyPlan);
     if (data?.ok) { if (!silent) notify("👑 Premium ativado! Aproveite."); load(); return; }
     if (!silent) notify("Nenhuma assinatura encontrada nesse e-mail. Confira se pagou com o e-mail da conta.", "error");
   };
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyEmail(data?.user?.email || ""));
-    claimPremium(true); // auto-reconcilia (silencioso) compra feita antes/depois do cadastro
+    const timer = window.setTimeout(() => claimPremium(true), 0);
+    return () => window.clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reactivateMission = async (missionId) => {
@@ -3144,10 +3198,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   useEffect(() => {
-    load();
-    loadInviteCode();
-    loadFamilyPlan();
-    loadCoParents();
+    const initialLoad = window.setTimeout(() => {
+      load();
+      loadInviteCode();
+      loadFamilyPlan();
+      loadCoParents();
+    }, 0);
     // Realtime — nova missão pendente
     const channel = supabase
       .channel(`parent-${profile.id}`)
@@ -3159,10 +3215,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         load();
       })
       .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, []);
+    return () => {
+      window.clearTimeout(initialLoad);
+      supabase.removeChannel(channel);
+    };
+    // The realtime subscription is keyed only by the stable family/user identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.family_id, profile.id]);
 
-  const load = async () => {
+  async function load() {
     const myId = ++loadIdRef.current;
     setLoading(true);
     try {
@@ -3178,14 +3239,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,child_id,child_name,duration_minutes,timer_state,timer_ends_at,timer_remaining_seconds").eq("family_id", profile.family_id).eq("status","delivered").in("timer_state",["idle","running","paused"]).order("created_at", { ascending: false }),
       ]);
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
-      setChildren(ch||[]); setMissions(m||[]); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
+      const orderedMissions = [...(m || [])].sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0));
+      setChildren(ch||[]); setMissions(orderedMissions); setLocalMissions(orderedMissions); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
       setLoadError(null);
     } catch {
       if (myId === loadIdRef.current) setLoadError("Não foi possível carregar seus dados. Tente novamente.");
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
     }
-  };
+  }
 
   const getChildLog = (childId, missionId, frequency = "daily") => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
@@ -3545,9 +3607,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             </button>
           ))}
           {pending.length > 0 && (
-            <div onClick={() => { setTab("home"); setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} style={{ marginTop: 10, padding: "10px 14px", borderRadius: 12, background: T.warning, color: T.darker, fontWeight: 900, fontSize: 13, cursor: "pointer", textAlign: "center", animation: "pulse 2s infinite" }}>
+            <button type="button" onClick={() => { setTab("home"); setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} style={{ marginTop: 10, padding: "10px 14px", borderRadius: 12, border: "none", background: T.warning, color: T.darker, fontWeight: 900, fontSize: 13, cursor: "pointer", textAlign: "center", animation: "pulse 2s infinite", fontFamily: "'Nunito', sans-serif" }}>
               ⏳ {pending.length} pendente{pending.length > 1 ? "s" : ""}
-            </div>
+            </button>
           )}
           <div style={{ flex: 1 }} />
         </div>
@@ -3564,9 +3626,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <div style={{ color: T.text, fontSize: 20, fontWeight: 900 }}>👋 {profile.display_name}!</div>
           </div>
           {pending.length > 0 && (
-            <div onClick={() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: T.warning, color: T.darker, borderRadius: 12, padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite", cursor: "pointer" }}>
+            <button type="button" onClick={() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: T.warning, color: T.darker, borderRadius: 12, border: "none", padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite", cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
               {pending.length} pendente{pending.length>1?"s":""}
-            </div>
+            </button>
           )}
         </div>
         {/* Chips de resumo do dia — bate o olho e entende */}
@@ -3592,7 +3654,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             <span style={{ fontSize: 18 }}>👑</span>
             <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontWeight: 800, color: T.purple }}>Upgrade para Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>10 filhos, missões ilimitadas + IA completa · R$ 14,90/mês</div>
+              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>{PLAN_LIMITS.premium.children} filhos, missões ilimitadas + IA completa · R$ 14,90/mês</div>
             </div>
             <span style={{ color: T.purple, fontWeight: 900 }}>→</span>
           </button>
@@ -3656,7 +3718,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 const pedidos  = redemptions.filter(r => r.status === "requested");
                 const entregas = redemptions.filter(r => r.status === "approved");
                 const tempo = (r) => {
-                  const d = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86400000);
+                  const d = Math.floor((viewOpenedAt - new Date(r.created_at).getTime()) / 86400000);
                   return d <= 0 ? "hoje" : d === 1 ? "ontem" : `há ${d} dias`;
                 };
                 const nome = (r) => r.child_name || children.find(c => c.id === r.child_id)?.display_name || "";
@@ -3877,7 +3939,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                       </button>
                     </div>
                     <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt) < new Date(Date.now() + 3600000) ? T.secondary : T.textMuted, fontSize: 11 }}>
+                      <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt).getTime() < viewOpenedAt + 3600000 ? T.secondary : T.textMuted, fontSize: 11 }}>
                         ⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}
                       </span>
                       <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
@@ -3907,12 +3969,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões</div>
                   {familyPlan === "free" && (
-                    <span onClick={() => setShowUpgrade(true)} style={{ background: missions.length >= 5 ? `${T.pink}22` : `${T.accent}18`, color: missions.length >= 5 ? T.pink : T.accent, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
-                      {missions.length}/5 {missions.length >= 5 ? "• upgrade 👑" : ""}
-                    </span>
+                    <button type="button" onClick={() => setShowUpgrade(true)} style={{ ...TEXT_BUTTON_STYLE, background: missions.length >= PLAN_LIMITS.free.activeMissions ? `${T.pink}22` : `${T.accent}18`, color: missions.length >= PLAN_LIMITS.free.activeMissions ? T.pink : T.accent, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
+                      {missions.length}/{PLAN_LIMITS.free.activeMissions} {missions.length >= PLAN_LIMITS.free.activeMissions ? "• upgrade 👑" : ""}
+                    </button>
                   )}
                 </div>
-                <button onClick={() => { if (familyPlan === "free" && missions.length >= 5) { setShowUpgrade(true); return; } setShowMission(!showMission); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
+                <button onClick={() => { if (familyPlan === "free" && missions.length >= PLAN_LIMITS.free.activeMissions) { setShowUpgrade(true); return; } setShowMission(!showMission); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showMission && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
@@ -4015,12 +4077,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎁 Recompensas</div>
                   {familyPlan === "free" && (() => { const activeR = rewards.filter(r => r.is_active !== false).length; return (
-                    <span onClick={() => setShowUpgrade(true)} style={{ background: activeR >= 3 ? `${T.pink}22` : `${T.secondary}18`, color: activeR >= 3 ? T.pink : T.secondary, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
-                      {activeR}/3 {activeR >= 3 ? "• upgrade 👑" : ""}
-                    </span>
+                    <button type="button" onClick={() => setShowUpgrade(true)} style={{ ...TEXT_BUTTON_STYLE, background: activeR >= PLAN_LIMITS.free.activeRewards ? `${T.pink}22` : `${T.secondary}18`, color: activeR >= PLAN_LIMITS.free.activeRewards ? T.pink : T.secondary, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
+                      {activeR}/{PLAN_LIMITS.free.activeRewards} {activeR >= PLAN_LIMITS.free.activeRewards ? "• upgrade 👑" : ""}
+                    </button>
                   ); })()}
                 </div>
-                <button onClick={() => { if (familyPlan === "free" && rewards.filter(r => r.is_active !== false).length >= 3) { setShowUpgrade(true); return; } setShowReward(!showReward); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
+                <button onClick={() => { if (familyPlan === "free" && rewards.filter(r => r.is_active !== false).length >= PLAN_LIMITS.free.activeRewards) { setShowUpgrade(true); return; } setShowReward(!showReward); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
               </div>
               {showReward && (
                 <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
@@ -4285,7 +4347,7 @@ const AdminPanel = ({ onBack }) => {
 
   const [loadError, setLoadError] = useState(null);
 
-  const load = async () => {
+  async function load() {
     setLoading(true);
     setLoadError(null);
     const { data, error } = await supabase.rpc("admin_get_families");
@@ -4296,10 +4358,16 @@ const AdminPanel = ({ onBack }) => {
       setLoadError(error.message || "Erro desconhecido");
       return;
     }
-    setFamilies(data || []);
-  };
+    setFamilies((data || []).map((family) => ({
+      ...family,
+      child_count: getAdminChildCount(family),
+    })));
+  }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => load(), 0);
+    return () => window.clearTimeout(initialLoad);
+  }, []);
 
   const togglePlan = async (familyId, currentPlan) => {
     const newPlan = currentPlan === "premium" ? "free" : "premium";
@@ -4400,7 +4468,7 @@ const AdminPanel = ({ onBack }) => {
           <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>⚠️ Erro ao carregar famílias</div>
           <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10, wordBreak: "break-all" }}>{loadError}</div>
           <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
-            Verifique se <strong style={{ color: T.text }}>supabase_admin.sql</strong> foi executado no Supabase SQL Editor.
+            Tente novamente. Se o erro persistir, verifique a RPC segura <strong style={{ color: T.text }}>admin_get_families</strong> e os logs do Supabase.
           </div>
           <button onClick={load} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
         </div>
@@ -4492,9 +4560,11 @@ export default function App() {
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoadError, setProfileLoadError] = useState(null);
   const [authMode, setAuthMode]           = useState("login");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstall, setShowInstall]     = useState(false);
+  const finishSplash = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
@@ -4510,21 +4580,64 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  useEffect(() => {
-    if (!splashDone || loading) return;
-    if (screen !== "splash") return;
-    if (user && profile) {
-      const r = profile.role;
-      if (!profile.family_id && (r === "parent" || r === "admin")) setScreen("onboarding");
-      else if (!profile.family_id && r === "child") setScreen("child_join");
-      else setScreen(r === "parent" || r === "admin" ? "parent" : "child");
-    } else {
-      setScreen("landing");
+  const loadProfile = useCallback(async (uid) => {
+    setLoading(true);
+    setProfileLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", uid)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        setProfile(null);
+        setProfileLoadError("Seu login existe, mas o perfil do aplicativo ainda não está disponível.");
+        setScreen("profile_error");
+        return;
+      }
+
+      const nextProfile = { ...data };
+      if (!nextProfile.role) {
+        const { error: roleError } = await supabase
+          .from("profiles")
+          .update({ role: "parent" })
+          .eq("id", uid);
+        if (roleError) throw roleError;
+        nextProfile.role = "parent";
+      }
+
+      setProfile(nextProfile);
+      const isAdminPath = window.location.pathname === "/admin";
+      const isParentRole = nextProfile.role === "parent" || nextProfile.role === "admin";
+      if (isParentRole && nextProfile.terms_version !== TERMS_VERSION) {
+        setScreen("terms");
+      } else {
+        setScreen(
+          isAdminPath ? "admin"
+          : !nextProfile.family_id && isParentRole ? "onboarding"
+          : !nextProfile.family_id && nextProfile.role === "child" ? "child_join"
+          : isParentRole ? "parent" : "child"
+        );
+      }
+    } catch (error) {
+      console.error("[App] Falha ao carregar perfil:", error);
+      setProfileLoadError("Não foi possível consultar seu perfil. Sua sessão foi preservada para você tentar novamente.");
+      setScreen("profile_error");
+    } finally {
+      setLoading(false);
     }
-  }, [splashDone, loading]);
+  }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("[App] Falha ao restaurar sessão:", error);
+        setProfileLoadError("Não foi possível restaurar sua sessão.");
+        setScreen("profile_error");
+        setLoading(false);
+        return;
+      }
       if (session?.user) { setUser(session.user); loadProfile(session.user.id); }
       else setLoading(false);
     });
@@ -4533,65 +4646,46 @@ export default function App() {
       else { setUser(null); setProfile(null); setScreen("landing"); setLoading(false); }
     });
     return () => subscription.unsubscribe();
-  }, []);
-
-  const loadProfile = async (uid) => {
-    setLoading(true);
-    try {
-      const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-      if (data) {
-        // Google OAuth users may arrive without a role — default to parent
-        if (!data.role) {
-          await supabase.from("profiles").update({ role: "parent" }).eq("id", uid);
-          data.role = "parent";
-        }
-        setProfile(data);
-        const isAdmin = window.location.pathname === "/admin";
-        const isParentRole = data.role === "parent" || data.role === "admin";
-        // Gate de consentimento LGPD (responsável legal): exige aceite da versão atual.
-        if (isParentRole && data.terms_version !== TERMS_VERSION) {
-          setScreen("terms");
-        } else {
-          setScreen(
-            isAdmin ? "admin"
-            : !data.family_id && isParentRole   ? "onboarding"
-            : !data.family_id && data.role === "child" ? "child_join"
-            : isParentRole ? "parent" : "child"
-          );
-        }
-      } else {
-        await supabase.auth.signOut();
-      }
-    } catch {
-      await supabase.auth.signOut();
-    }
-    setLoading(false);
-  };
+  }, [loadProfile]);
 
   const signOut = async () => { await supabase.auth.signOut(); };
+
+  let activeScreen = screen;
+  if (screen === "splash" && splashDone && !loading) {
+    if (!user || !profile) activeScreen = "landing";
+    else if (!profile.family_id && (profile.role === "parent" || profile.role === "admin")) activeScreen = "onboarding";
+    else if (!profile.family_id && profile.role === "child") activeScreen = "child_join";
+    else activeScreen = profile.role === "parent" || profile.role === "admin" ? "parent" : "child";
+  }
 
   return (
     <>
       <style>{CSS}</style>
       <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: screen === "admin" ? 700 : (screen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
-          {screen === "admin" && (
+        <div style={{ width: "100%", maxWidth: activeScreen === "admin" ? 700 : (activeScreen === "landing" && isDesktop ? 1040 : activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+          {activeScreen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
               setScreen((profile?.role === "parent" || profile?.role === "admin") ? "parent" : "child");
             }} />
           )}
-          {screen !== "admin" && <>
-          {screen === "splash" && <Splash onDone={() => setSplashDone(true)} />}
-          {screen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
-          {screen === "auth"       && <AuthScreen initialMode={authMode} />}
-          {screen === "terms"      && user && <TermsGate onAccept={() => loadProfile(user.id)} onSignOut={signOut} />}
-          {screen === "onboarding" && user && <Onboarding user={user} onDone={() => loadProfile(user.id)} />}
-          {screen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
-          {screen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
-          {screen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
+          {activeScreen !== "admin" && <>
+          {activeScreen === "splash" && <Splash onDone={finishSplash} />}
+          {activeScreen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
+          {activeScreen === "auth"       && <AuthScreen initialMode={authMode} onTermsAccepted={loadProfile} />}
+          {activeScreen === "profile_error" && <LoadErrorBlock
+            title="Não foi possível abrir sua conta"
+            message={profileLoadError || "Tente novamente em alguns instantes."}
+            onRetry={() => user ? loadProfile(user.id) : window.location.reload()}
+            onSignOut={user ? signOut : undefined}
+          />}
+          {activeScreen === "terms"      && user && <TermsGate onAccept={() => loadProfile(user.id)} onSignOut={signOut} />}
+          {activeScreen === "onboarding" && user && <Onboarding onDone={() => loadProfile(user.id)} />}
+          {activeScreen === "child_join" && <ChildJoin onDone={() => loadProfile(user.id)} />}
+          {activeScreen === "parent"     && profile && <ParentDash profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
+          {activeScreen === "child"      && profile && <ChildDash  profile={profile} onSignOut={signOut} onRefresh={() => loadProfile(user.id)} />}
           </>}
-          {loading && screen !== "splash" && (
+          {loading && activeScreen !== "splash" && (
             <div style={{ position: "fixed", inset: 0, background: T.darker, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 48, animation: "pulse 1s infinite" }}>🚀</div>
               <div style={{ color: T.textMuted, fontSize: 14 }}>Carregando...</div>

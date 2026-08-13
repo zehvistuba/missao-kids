@@ -1,5 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- RotinUp — Fixes de Auditoria P0/P1 — Parte 2
+-- HISTORICO - NAO REAPLICAR: add_child usa limite Premium antigo de 20.
+-- Fonte vigente para limites: supabase_fix_plan_limits_canonical.sql.
 -- URL: https://supabase.com/dashboard/project/intieqgjmprxatvogxkh/sql
 -- Data: 2026-06-02
 -- Origem: relatório do Claude Chrome (add_child quebrado, surprise mission ausente,

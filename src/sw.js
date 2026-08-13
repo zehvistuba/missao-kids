@@ -1,6 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { registerRoute } from 'workbox-routing';
+import { CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
@@ -39,7 +39,7 @@ registerRoute(
 // ─── Push Notifications ─────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
-  let data = {};
+  let data;
   try { data = event.data.json(); } catch { data = { title: 'RotinUp', body: event.data.text() }; }
 
   const title   = data.title  || 'RotinUp 🚀';
@@ -58,12 +58,21 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  let targetUrl = new URL('/', self.location.origin).href;
+  try {
+    const requestedUrl = new URL(event.notification.data?.url || '/', self.location.origin);
+    if (requestedUrl.origin === self.location.origin) targetUrl = requestedUrl.href;
+  } catch {
+    // Payloads malformados sempre retornam para a raiz segura.
+  }
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      const existing = windowClients.find(c => c.url.includes(self.location.origin));
-      if (existing) { existing.focus(); return existing.navigate(targetUrl); }
-      return clients.openWindow(targetUrl);
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
+      const existing = windowClients.find((client) => new URL(client.url).origin === self.location.origin);
+      if (existing) {
+        await existing.focus();
+        return existing.navigate(targetUrl);
+      }
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

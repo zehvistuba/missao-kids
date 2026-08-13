@@ -4,7 +4,7 @@
 > Atualize sempre que uma correção for aplicada, validada, reprovada ou enviada para QA.
 > Papéis dos chats/agentes e prompts de handoff ficam em `PROTOCOLO_AGENTES.md`.
 
-Última atualização manual: 2026-07-26 (QA API create_family + achado de escalada de role)
+Última atualização manual: 2026-08-13 (lote de engenharia pré-venda v4 validado localmente)
 
 ---
 
@@ -21,10 +21,11 @@
 | Cronômetro | ✅ Fechado | Cumulativo + concluir reportados como aprovados |
 | QA API black-box — `create_family` | ✅ Provado | Teste API em prod (2026-07-26): RPC cria família, grava `owner_id`/`family_id`/`invite_code`, bloqueia criança e duplicidade. O P0 anterior já havia sido corrigido pelo commit `31e0706` |
 | **Escalada de role no signup** | ✅ Provado (aplicado em produção) | Achado 2026-07-26: `signup` aceitava `role='admin'` → `admin_get_families` vazava 6 famílias + emails. Fix v3.1 aplicado em prod; FASE 2 verde; **prova de runtime por API 10/10 PASS** (signup admin→parent, PATCH bloqueado, falso admin "Acesso negado", `is_platform_admin()=false`). SHA aplicado `7d546fb9…`. Ver §2 |
-| QA Chrome UI completo | ⏳ Pendente | Nenhum P0 aberto bloqueando; pode ser disparado |
+| QA UI pública/local | ✅ Parcial aprovado | Landing/auth/Termos em 390x844 e 1440x900: sem overflow, console limpo, consentimento e foco/Esc aprovados |
+| QA Chrome autenticado completo | ⏳ Pendente | Exige contas Free, Premium, co-responsável e admin no ambiente alvo |
 | Venda aberta | ⏳ Pendente | Requer QA sem P0/P1 + Hotmart token + domínio/Resend |
 
-Veredito atual: **Sem P0 aberto.** `create_family` e a escalada de privilégio (auto-admin no signup) estão ambos **provados**. Falta para o beta pago: (1) smoke manual do dono no painel admin; (2) QA Chrome UI completo; (3) triagem do P1 `get_family_id_by_email`. Decisão final de GO/NO-GO do beta é do Codex/dono.
+Veredito atual: **sem P0 conhecido no ambiente vivo**, com gates locais verdes. `create_family` e a escalada de privilégio (auto-admin no signup) estão provados em produção; o hardening adicional de concorrência/ACL de `create_family` está apenas preparado. Falta para o beta pago: smoke manual do admin e QA autenticado completo. Decisão final de GO/NO-GO depende dessas provas e dos deploys do lote local.
 
 ---
 
@@ -85,7 +86,7 @@ Veredito atual: **Sem P0 aberto.** `create_family` e a escalada de privilégio (
 | P0 | Escalada de role no signup (auto-admin) | ✅ Provado | Aplicado em prod; FASE 2 verde; API 10/10 PASS. Falta só smoke manual do dono no painel |
 | P2 | `get_family_id_by_email` sem gate + defesa-em-profundidade nas admin_* | ✅ Provado (aplicado em prod) | `supabase_hardening_grants.sql` aplicado (SHA `07172e57…`); FASE 2 **9/9 ok=true**; smoke webhook via service_role **PASS** (family_id resolvido); anon sem EXECUTE em todas. `get_family_id_by_email` só `service_role` |
 | P3 | Default privileges amplos (anon/authenticated/service_role em funções novas) | 🟡 Aceito/tech-debt | Toda função nova nasce com EXECUTE p/ as 3 roles; exige hardening individual OU revisar `ALTER DEFAULT PRIVILEGES` (escopo próprio). Não bloqueia |
-| P1 | QA Chrome UI completo | ⏳ Pendente | Sem P0/P1 reais |
+| P1 | QA Chrome autenticado completo | ⏳ Pendente | Sem P0/P1 reais nos papéis Free, Premium, co-responsável e admin |
 | P1 | Triagem final dos achados Chrome | ⏳ Pendente | Separar bug real, falso positivo e risco aceito |
 
 ---
@@ -96,8 +97,9 @@ Veredito atual: **Sem P0 aberto.** `create_family` e a escalada de privilégio (
 |---|---|---|---|
 | P1 Operacional | Rotacionar `HOTMART_HOTTOK` | ⏳ Pendente | Token fraco/antigo deve ser trocado no Hotmart e Supabase |
 | P1 Operacional | Domínio + Resend | ⏳ Pendente | Depois religar confirmação de email no Supabase |
+| P1 Legal | Identificação completa do fornecedor | ⏳ Pendente | Substituir “CNPJ em processo de abertura” por nome empresarial e CPF/CNPJ/endereço reais antes da venda aberta; exige dados do dono e revisão jurídica |
 | P1 QA | QA Chrome sem P0/P1 | ⏳ Pendente | Adulto, criança, admin e cross-family |
-| P2 Técnica | Lint/modularização gradual | ⏳ Pendente | Não bloqueia beta; reduz risco de regressão |
+| P2 Técnica | Modularização gradual do `App.jsx` | 🟡 Em andamento | Lint está em 0/0; contratos, modal e Supabase extraídos; dashboards ainda estão no monólito |
 
 ---
 
@@ -342,6 +344,71 @@ Critério de pronto:
 | 2026-07-26 | QA Chrome UI (1ª rodada) + triagem Claude | Parcial | Segurança 100% confirmada black-box (admin_get_families/get_family_id_by_email/RLS/signup/create_family). Free core sólido. **Nenhum P0/P1 de produto.** NO-GO do Premium = ambiente (contas QA não semeadas/sem plano premium). Achados reais: só P3 UX (Esc, dupla LGPD, texto convite). Falta: semear Premium + smoke admin do dono |
 | 2026-07-27 | QA Chrome ciclo 1+2 consolidado + correções P3 (frontend) | Parcial | Relatório final: 0 P0, segurança sem regressão nas 2 rodadas, Free sólido, Premium BLOCKED (ambiente). Corrigidos na branch (aguardam deploy): **F5** texto de onboarding parent-managed; **F21/Esc** hook `useEscClose` nos 8 modais-diálogo (build ✅). **F16 (dupla LGPD) SEGURADO** — é o consentimento versionado autoritativo (TermsGate) + corrida com `accept_terms`; mexer é sensível (LGPD), aguarda decisão do Codex/dono |
 | 2026-07-26 | Esclarecimento arquitetural: criança é parent-managed | ✅ Decidido | `add_child` cria perfil `role='child'` **sem login** (FK removido de propósito); child-login ficou órfão pós-**SEC-03**. **Dono CONFIRMOU: MVP do beta é parent-managed** (criança não loga; responsável cria/marca/aprova). F3/F4 = working-as-designed. Ações resultantes: (a) atualizar roteiro de QA; (b) corrigir texto de onboarding que promete "código de convite" p/ criança (F5, P3); (c) child-login órfão = tech-debt. Nada bloqueia beta |
+| 2026-08-13 | Lote de engenharia pré-venda v3 | 🟡 Preparado localmente | Contratos Free/Premium centralizados; migrations canônicas de limites e idempotência Hotmart; webhook e delete-account endurecidos; modais acessíveis; consentimento v3; PWA segura; testes automatizados e gates de qualidade. **Nenhum SQL, Edge Function ou frontend deste lote foi aplicado em produção.** Ver `SQL_SOURCE_OF_TRUTH.md` e `QA_PRE_VENDA_LOTE3.md` |
+| 2026-08-13 | Lote de qualidade e performance v4 | ✅ Validado localmente | Lint estrito 0/0; 14/14 testes; audit 0 vulnerabilidades; bundle principal 612→226 kB; singleton Supabase; hardening `create_family`; landing desktop responsiva; QA público mobile/desktop aprovado. **Sem deploy ou SQL aplicado.** |
+| 2026-08-13 | Revisao final de receita Hotmart | ✅ Corrigido localmente | Webhook agora exige produto RotinUp em allowlist, versao 2.0.0 e corpo real <=1 MB; cancelamento preserva Premium ate `date_next_charge`. Runbook e preflight criados. **Exige configurar produto/segredo antes do deploy.** |
+
+---
+
+## 7.1 Estado do Lote v3 — 2026-08-13
+
+Este lote está **implementado e validado localmente**, mas ainda não altera o estado vivo do produto.
+
+Entregas preparadas:
+
+- Limites comerciais canônicos: Free = 1 filho/1 responsável; Premium = 10 filhos/10 responsáveis.
+- `add_child` e `join_family_by_code` com bloqueio transacional para impedir estouro de limite por concorrência.
+- Hotmart com Hottok por header, parser estrito, minimização de PII, deduplicação por `event_id`, ordenação temporal e múltiplas assinaturas.
+- Exclusão de conta recuperável após falha parcial entre banco e `auth.users`.
+- Consentimento atualizado para v3 (`2026-08-13`), termos alinhados aos planos mensal/anual e prazo legal de incidente sem valor obsoleto.
+- Diálogos com `role=dialog`, `aria-modal`, foco inicial, foco preso, `Esc`, bloqueio de scroll e retorno de foco.
+- Landing mobile 390x844 sem overflow horizontal; controles legais e de autenticação acessíveis por teclado.
+- Service Worker bloqueando navegação de notificação para origem externa.
+- SQL histórico perigoso neutralizado e fonte de verdade documentada.
+- Gate automatizado `npm run check`: lint sem erros, testes de contratos e build PWA.
+- CI em `.github/workflows/quality.yml`: `npm ci`, check completo e audit de dependências de produção.
+
+Evidência local acumulada da rodada:
+
+- Testes Node: 14 cenários de contrato, SQL e Hotmart.
+- Lint estrito: 0 erros e 0 avisos (`--max-warnings=0`).
+- Build Vite/PWA: concluído; aplicação separada em `index` 225,60 kB, React 189,64 kB e Supabase 196,30 kB, todos abaixo do limite de 500 kB.
+- Dependências de produção: `npm audit --omit=dev --audit-level=high` com 0 vulnerabilidades.
+- Browser: consentimento bloqueia cadastro quando desmarcado e libera após aceite; modal legal prende foco, fecha com `Esc` e devolve foco; mobile 390x844 e desktop 1440x900 sem overflow nem erro de console.
+
+Para considerar o lote fechado em produção:
+
+1. Revisar os SQLs e aplicar na ordem definida em `SQL_SOURCE_OF_TRUTH.md`.
+2. Publicar `hotmart-webhook` e `delete-account` somente depois das migrations correspondentes.
+3. Rotacionar `HOTMART_HOTTOK` e validar o header oficial no endpoint vivo.
+4. Rodar a matriz `QA_PRE_VENDA_LOTE3.md` com contas Free, Premium, co-responsável e famílias distintas.
+5. Executar smoke pós-deploy e registrar evidências neste arquivo.
+6. Informar os dados reais do fornecedor e obter revisão jurídica dos Termos antes da venda aberta.
+
+Veredito deste lote: **código local aprovado com ressalvas; produção inalterada; não promover para venda aberta antes dos gates acima.**
+
+## 7.2 Estado do Lote v4 — 2026-08-13
+
+Melhorias concluídas localmente:
+
+- Estado derivado de navegação e carregamentos ajustados para conformidade com React Hooks.
+- Lint promovido a gate estrito: qualquer novo aviso reprova `npm run check` e a CI.
+- Cliente Supabase extraído para singleton em desenvolvimento, evitando múltiplos clientes Auth durante hot reload.
+- Hook de diálogo acessível e contratos comerciais extraídos do monólito.
+- Preços, ofertas Hotmart e limites Free/Premium centralizados e testados.
+- Bundle dividido por domínio: aplicação, React e Supabase; o alerta de chunk acima de 500 kB foi eliminado.
+- Landing desktop passou de 430 px para composição responsiva de 1040 px, com grades; mobile preservado.
+- `supabase_harden_create_family.sql` preparado com `search_path` seguro, ACL explícita, trava por responsável, colisão atômica de convite e limite de nome.
+- Webhook Hotmart falha fechado sem allowlist do produto e rejeita eventos de outros produtos da mesma conta.
+- Cancelamento de assinatura respeita `date_next_charge`; reembolso e chargeback continuam imediatos.
+- `DEPLOY_PRE_VENDA.md` e `supabase_preflight_lote4.sql` definem publicacao, parada, evidencia e rollback.
+
+Restrições desta evidência:
+
+- O QA local não autenticou nem alterou dados; dashboards de responsável, criança e admin continuam pendentes no ambiente alvo.
+- `supabase_harden_create_family.sql`, migrations do lote v3, Edge Functions e frontend não foram publicados.
+- O aviso `inlineDynamicImports` vem do build interno do service worker do plugin PWA; não afeta o bundle web e deve ser acompanhado em atualização do plugin.
+- Venda aberta continua bloqueada pelos dados jurídicos reais, rotação do Hottok, domínio/e-mail e regressão autenticada.
 
 ---
 
