@@ -11,6 +11,7 @@ import {
   TERMS_VERSION,
 } from "./config/product.js";
 import { useModalDialog } from "./hooks/useModalDialog.js";
+import { reportAppError, reportUserIssue } from "./lib/errorReporter.js";
 import { supabase } from "./lib/supabase.js";
 
 const TEXT_BUTTON_STYLE = {
@@ -67,6 +68,10 @@ const callAI = async (action, context) => {
   }
   if (data?.error) throw new Error(data.error);
   return data?.result;
+};
+
+const captureActionError = (error, source, action, screen) => {
+  void reportAppError({ error, source, action, screen });
 };
 
 const FREQ_OPTS = [
@@ -938,6 +943,70 @@ const LoadErrorBlock = ({
 );
 
 // Tela de aceite de termos (responsável legal) — gate antes de onboarding/dashboard.
+const ReportIssueModal = ({ onClose }) => {
+  const dialogRef = useModalDialog(onClose);
+  const [category, setCategory] = useState("unexpected_behavior");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [reference, setReference] = useState("");
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (description.trim().length < 10) {
+      setError("Conte um pouco mais sobre o que aconteceu.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      const result = await reportUserIssue({ category, description: description.trim() });
+      setReference(result?.reference || "registrado");
+    } catch {
+      setError("Nao foi possivel enviar agora. Tente novamente em alguns instantes.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="report-issue-title" tabIndex={-1} onClick={(event) => event.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 430, background: T.card, borderRadius: "20px 20px 0 0", padding: "26px 22px 36px", boxSizing: "border-box" }}>
+        <button type="button" onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 12, right: 12, width: 34, height: 34, border: 0, borderRadius: 8, background: "rgba(255,255,255,0.08)", color: T.textMuted, cursor: "pointer", fontSize: 18 }}>x</button>
+        <h2 id="report-issue-title" style={{ margin: "0 42px 6px 0", color: T.text, fontSize: 18 }}>Reportar um problema</h2>
+        <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: 12, lineHeight: 1.5 }}>Descreva o que tentou fazer e o resultado. Nao inclua senhas, documentos ou dados de pagamento.</p>
+
+        {reference ? (
+          <div aria-live="polite" style={{ textAlign: "center", padding: "18px 4px 4px" }}>
+            <div style={{ color: T.accent, fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Problema registrado</div>
+            <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 18 }}>Referencia: <strong style={{ color: T.text }}>{reference}</strong></div>
+            <button type="button" onClick={onClose} style={{ width: "100%", padding: 12, border: 0, borderRadius: 8, background: T.primary, color: "#fff", fontWeight: 800, cursor: "pointer" }}>Concluir</button>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <label htmlFor="issue-category" style={{ display: "block", color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>TIPO DE PROBLEMA</label>
+            <select id="issue-category" value={category} onChange={(event) => setCategory(event.target.value)} style={{ width: "100%", padding: "12px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: T.darker, color: T.text, marginBottom: 14, fontFamily: "inherit" }}>
+              <option value="unexpected_behavior">Algo funcionou errado</option>
+              <option value="missing_data">Dados nao apareceram</option>
+              <option value="payment">Pagamento ou Premium</option>
+              <option value="access">Acesso ou conta</option>
+              <option value="suggestion">Sugestao de melhoria</option>
+            </select>
+
+            <label htmlFor="issue-description" style={{ display: "block", color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>O QUE ACONTECEU</label>
+            <textarea id="issue-description" value={description} onChange={(event) => setDescription(event.target.value.slice(0, 500))} maxLength={500} rows={5} placeholder="Ex.: toquei em concluir o cronometro e a tela continuou carregando..." style={{ width: "100%", resize: "vertical", minHeight: 112, padding: 12, boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: T.darker, color: T.text, fontFamily: "inherit", fontSize: 13 }} />
+            <div style={{ color: T.textMuted, fontSize: 10, textAlign: "right", marginTop: 4 }}>{description.length}/500</div>
+            {error && <div role="alert" style={{ marginTop: 10, color: T.pink, fontSize: 12, fontWeight: 700 }}>{error}</div>}
+            <button type="submit" disabled={submitting || description.trim().length < 10} style={{ width: "100%", marginTop: 14, padding: 13, border: 0, borderRadius: 8, background: T.primary, color: "#fff", opacity: submitting || description.trim().length < 10 ? 0.5 : 1, fontWeight: 900, cursor: submitting ? "wait" : "pointer" }}>{submitting ? "Enviando..." : "Enviar reporte"}</button>
+          </form>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 const TermsGate = ({ onAccept, onSignOut }) => {
   const [agreed, setAgreed]   = useState(false);
   const [saving, setSaving]   = useState(false);
@@ -1607,7 +1676,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setDeletingAccount(true);
     // Edge function: apaga dados do app + remove do Auth (LGPD)
     const { data, error } = await supabase.functions.invoke("delete-account");
-    if (error || data?.error) { setDeletingAccount(false); return notify(data?.error || error?.message || "Erro ao excluir conta", "error"); }
+    if (error || data?.error) {
+      captureActionError(error || new Error(data.error), "child_account", "delete", "child_profile");
+      setDeletingAccount(false);
+      return notify(data?.error || error?.message || "Erro ao excluir conta", "error");
+    }
     await supabase.auth.signOut();
     setDeletingAccount(false);
     onSignOut();
@@ -1622,7 +1695,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     try {
       const last7  = Array.from({length: 7},  (_, i) => localDateStr(i));
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }, { data: pr }, { data: td }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("rewards").select("*").eq("family_id", profile.family_id).eq("is_active", true),
         supabase.from("achievements").select("*").order("condition_val"),
@@ -1632,6 +1705,9 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,coin_cost,created_at,status").eq("child_id", profile.id).in("status", ["requested","approved"]).order("created_at", { ascending: false }),
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,duration_minutes,timer_state,timer_ends_at,timer_remaining_seconds").eq("child_id", profile.id).eq("status","delivered").in("timer_state",["idle","running","paused"]).order("created_at", { ascending: false }),
       ]);
+      const failedQuery = results.find((result) => result.error)?.error;
+      if (failedQuery) throw failedQuery;
+      const [{ data: m }, { data: r }, { data: a }, { data: l }, { data: sd }, { data: planData }, { data: pr }, { data: td }] = results;
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       setFamilyPlan(planData || "free");
       missionsRef.current = m || [];
@@ -1639,12 +1715,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
       const activeDaysSet = new Set((sd || []).map(x => x.due_date));
       setStreakDays(last7.reverse().map(d => activeDaysSet.has(d)));
       if (a) {
-        const { data: earned } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
+        const { data: earned, error: earnedError } = await supabase.from("child_achievements").select("achievement_id").eq("child_id", profile.id);
+        if (earnedError) throw earnedError;
         const earnedSet = new Set((earned || []).map(e => e.achievement_id));
         setAch(a.map(ach => ({ ...ach, earned: earnedSet.has(ach.id) })));
       }
       setLoadError(null);
-    } catch {
+    } catch (error) {
+      void reportAppError({ error, source: "child_dashboard", action: "load", screen: "child" });
       if (myId === loadIdRef.current) setLoadError("Não foi possível carregar seus dados. Tente novamente.");
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
@@ -1654,7 +1732,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
   const loadProfileExtras = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const [{ data: sibs }, { data: hist }, { data: dem }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from("profiles")
           .select("id,display_name,avatar_emoji,xp,kidcoins,streak")
           .eq("family_id", profile.family_id)
@@ -1672,10 +1750,14 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
+      const failedQuery = results.find((result) => result.error)?.error;
+      if (failedQuery) throw failedQuery;
+      const [{ data: sibs }, { data: hist }, { data: dem }] = results;
       setSiblings(sibs || []);
       setHistoryLogs(hist || []);
       setDemeritLogs(dem || []);
-    } catch {
+    } catch (error) {
+      void reportAppError({ error, source: "child_profile", action: "load_extras", screen: "child_profile" });
       // silent — profile extras are optional
     } finally {
       setHistoryLoading(false);
@@ -1686,7 +1768,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setTimerBusy(id);
     const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id });
     setTimerBusy(null);
-    if (error) return notify(error.message || "Erro no cronômetro", "error");
+    if (error) { captureActionError(error, "reward_timer", "start", "child"); return notify(error.message || "Erro no cronômetro", "error"); }
     load();
   };
 
@@ -1694,7 +1776,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setTimerBusy(id);
     const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id });
     setTimerBusy(null);
-    if (error) return notify(error.message || "Erro no cronômetro", "error");
+    if (error) { captureActionError(error, "reward_timer", "pause", "child"); return notify(error.message || "Erro no cronômetro", "error"); }
     load();
   };
 
@@ -1702,7 +1784,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setTimerBusy(id);
     const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id });
     setTimerBusy(null);
-    if (error) return notify(error.message || "Erro ao concluir", "error");
+    if (error) { captureActionError(error, "reward_timer", "finish", "child"); return notify(error.message || "Erro ao concluir", "error"); }
     notify("✅ Recompensa concluída!");
     load();
   };
@@ -1861,6 +1943,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     setLocalCoins(prev => prev - total); // otimista
     const { error } = await supabase.rpc("request_redemption_bulk", { p_reward_id: rid, p_quantity: n });
     if (error) {
+      captureActionError(error, "redemption", "request", "child_store");
       setLocalCoins(profile.kidcoins || 0); // rollback
       return notify(error.message || "Erro ao resgatar", "error");
     }
@@ -1876,6 +1959,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redId });
     setCancellingRed(null);
     if (error) {
+      captureActionError(error, "redemption", "cancel", "child_store");
       setLocalCoins(profile.kidcoins || 0); // rollback
       return notify(error.message || "Erro ao cancelar", "error");
     }
@@ -3044,6 +3128,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [inactiveMissions, setInactiveMissions] = useState([]);
   const [showArchivedMissions, setShowArchivedMissions] = useState(false);
   const [showArchivedRewards, setShowArchivedRewards]   = useState(false);
+  const [showReportIssue, setShowReportIssue] = useState(false);
   const [reactivating, setReactivating]       = useState(null);
   const pendingRef = useRef(null);
   const loadIdRef = useRef(0);
@@ -3160,7 +3245,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setDeletingAccount(true);
     // Edge function: apaga dados do app + remove do Auth (LGPD)
     const { data, error } = await supabase.functions.invoke("delete-account");
-    if (error || data?.error) { setDeletingAccount(false); return notify(data?.error || error?.message || "Erro ao excluir conta", "error"); }
+    if (error || data?.error) {
+      captureActionError(error || new Error(data.error), "parent_account", "delete", "parent_settings");
+      setDeletingAccount(false);
+      return notify(data?.error || error?.message || "Erro ao excluir conta", "error");
+    }
     await supabase.auth.signOut();
     setDeletingAccount(false);
     onSignOut();
@@ -3168,7 +3257,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   // Reconciliação de pagamento: ativa Premium se houver compra no Hotmart com o e-mail da conta.
   const claimPremium = async (silent) => {
-    const { data } = await supabase.rpc("claim_premium_by_email");
+    const { data, error } = await supabase.rpc("claim_premium_by_email");
+    if (error) {
+      captureActionError(error, "premium", "claim_by_email", "upgrade");
+      if (!silent) notify("Nao foi possivel verificar sua assinatura agora.", "error");
+      return;
+    }
     if (data?.plan) await loadFamilyPlan(familyPlan);
     if (data?.ok) { if (!silent) notify("👑 Premium ativado! Aproveite."); load(); return; }
     if (!silent) notify("Nenhuma assinatura encontrada nesse e-mail. Confira se pagou com o e-mail da conta.", "error");
@@ -3228,7 +3322,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setLoading(true);
     try {
       const last30 = Array.from({length: 30}, (_, i) => localDateStr(i));
-      const [{ data: ch }, { data: m }, { data: mi }, { data: p }, { data: r }, { data: cl }, { data: rd }, { data: td }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from("profiles").select("*").eq("family_id", profile.family_id).eq("role","child"),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",true),
         supabase.from("missions").select("*").eq("family_id", profile.family_id).eq("is_active",false),
@@ -3238,11 +3332,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         supabase.from("redemption_logs").select("*").eq("family_id", profile.family_id).in("status",["requested","approved"]).order("created_at", { ascending: false }),
         supabase.from("redemption_logs").select("id,reward_title,reward_emoji,child_id,child_name,duration_minutes,timer_state,timer_ends_at,timer_remaining_seconds").eq("family_id", profile.family_id).eq("status","delivered").in("timer_state",["idle","running","paused"]).order("created_at", { ascending: false }),
       ]);
+      const failedQuery = results.find((result) => result.error)?.error;
+      if (failedQuery) throw failedQuery;
+      const [{ data: ch }, { data: m }, { data: mi }, { data: p }, { data: r }, { data: cl }, { data: rd }, { data: td }] = results;
       if (myId !== loadIdRef.current) return; // load mais recente já está em andamento
       const orderedMissions = [...(m || [])].sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0));
       setChildren(ch||[]); setMissions(orderedMissions); setLocalMissions(orderedMissions); setInactiveMissions(mi||[]); setPending(p||[]); setRewards(r||[]); setChildLogs(cl||[]); setRedemptions(rd||[]); setActiveTimers(td||[]);
       setLoadError(null);
-    } catch {
+    } catch (error) {
+      void reportAppError({ error, source: "parent_dashboard", action: "load", screen: "parent" });
       if (myId === loadIdRef.current) setLoadError("Não foi possível carregar seus dados. Tente novamente.");
     } finally {
       if (myId === loadIdRef.current) setLoading(false);
@@ -3284,23 +3382,23 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setRedeemingFor(reward.id);
     const { error } = await supabase.rpc("redeem_for_child", { p_child_id: redeemTarget.id, p_reward_id: reward.id, p_quantity: 1 });
     setRedeemingFor(null);
-    if (error) { notify(error.message || "Erro ao resgatar", "error"); return false; }
+    if (error) { captureActionError(error, "redemption", "redeem_for_child", "parent_rewards"); notify(error.message || "Erro ao resgatar", "error"); return false; }
     notify(`🎁 ${reward.title} resgatado para ${redeemTarget.display_name}! Veja em "Aguardando entrega".`);
     load();
     return true;
   };
 
   // Cronômetro de recompensa (responsável pode iniciar/pausar pelo filho)
-  const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
-  const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro no cronômetro", "error"); load(); };
-  const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) return notify(error.message || "Erro ao concluir", "error"); notify("✅ Recompensa concluída!"); load(); };
+  const startTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("start_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) { captureActionError(error, "reward_timer", "start", "parent_rewards"); return notify(error.message || "Erro no cronômetro", "error"); } load(); };
+  const pauseTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("pause_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) { captureActionError(error, "reward_timer", "pause", "parent_rewards"); return notify(error.message || "Erro no cronômetro", "error"); } load(); };
+  const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) { captureActionError(error, "reward_timer", "finish", "parent_rewards"); return notify(error.message || "Erro ao concluir", "error"); } notify("✅ Recompensa concluída!"); load(); };
 
   const confirmDelivery = async (redemptionId) => {
     setConfirmingRed(redemptionId);
     const red = redemptions.find(r => r.id === redemptionId);
     const { error } = await supabase.rpc("confirm_redemption", { p_log_id: redemptionId });
     setConfirmingRed(null);
-    if (error) return notify(error.message || "Erro ao confirmar entrega", "error");
+    if (error) { captureActionError(error, "redemption", "confirm_delivery", "parent_rewards"); return notify(error.message || "Erro ao confirmar entrega", "error"); }
     notify("✅ Entrega confirmada!"); load();
     if (red?.child_id) pushNotify([red.child_id], "Recompensa entregue! 🎁", `${red.reward_emoji || "🎁"} ${red.reward_title} foi entregue!`);
   };
@@ -3309,7 +3407,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setCancellingRed(redemptionId);
     const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redemptionId });
     setCancellingRed(null);
-    if (error) return notify(error.message || "Erro ao cancelar", "error");
+    if (error) { captureActionError(error, "redemption", "cancel", "parent_rewards"); return notify(error.message || "Erro ao cancelar", "error"); }
     notify("🔄 Resgate cancelado. Coins devolvidos."); load();
   };
 
@@ -3318,7 +3416,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     const red = redemptions.find(r => r.id === redemptionId);
     const { error } = await supabase.rpc("approve_redemption", { p_log_id: redemptionId });
     setConfirmingRed(null);
-    if (error) return notify(error.message || "Erro ao aprovar", "error");
+    if (error) { captureActionError(error, "redemption", "approve", "parent_rewards"); return notify(error.message || "Erro ao aprovar", "error"); }
     notify("✅ Resgate aprovado! Aguardando entrega."); load();
     if (red?.child_id) pushNotify([red.child_id], "Resgate aprovado! ✅", `${red.reward_emoji || "🎁"} ${red.reward_title} foi aprovado! Em breve você recebe.`);
   };
@@ -3477,6 +3575,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: isDesktop ? "row" : "column" }}>
       <Notif msg={notif} type={notifType} />
+
+      {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
 
       {/* Modal upgrade */}
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} userEmail={myEmail} onClaim={() => claimPremium(false)} />}
@@ -4252,6 +4352,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               </div>
 
               <NotifyToggle userId={profile.id} />
+              <button type="button" onClick={() => setShowReportIssue(true)}
+                style={{ width: "100%", padding: "13px", borderRadius: 8, border: `1px solid ${T.blue}44`, background: `${T.blue}12`, color: T.blue, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 }}>
+                Reportar um problema
+              </button>
               {(profile.role === "admin") && (
                 <button onClick={() => { window.history.pushState({}, "", "/admin"); window.location.reload(); }}
                   style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 }}>
@@ -4333,6 +4437,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 // ADMIN PANEL
 // ═══════════════════════════════════════════════════════════
 const AdminPanel = ({ onBack }) => {
+  const [adminView, setAdminView] = useState("families");
   const [families, setFamilies]   = useState([]);
   const [loading, setLoading]     = useState(true);
   const [toggling, setToggling]       = useState(null);
@@ -4342,6 +4447,11 @@ const AdminPanel = ({ onBack }) => {
   const [denied, setDenied]           = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(null); // family_id
   const [deleting, setDeleting]       = useState(null);           // family_id
+  const [errorReports, setErrorReports] = useState([]);
+  const [errorStatus, setErrorStatus] = useState("open");
+  const [errorsLoading, setErrorsLoading] = useState(false);
+  const [errorsLoadError, setErrorsLoadError] = useState(null);
+  const [updatingReport, setUpdatingReport] = useState(null);
 
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
 
@@ -4355,6 +4465,7 @@ const AdminPanel = ({ onBack }) => {
     if (error) {
       console.error("[Admin] admin_get_families error:", error);
       if (error.message?.includes("Acesso negado")) { setDenied(true); return; }
+      void reportAppError({ error, source: "admin", action: "load_families", screen: "admin" });
       setLoadError(error.message || "Erro desconhecido");
       return;
     }
@@ -4364,17 +4475,39 @@ const AdminPanel = ({ onBack }) => {
     })));
   }
 
+  const loadErrorReports = useCallback(async (status) => {
+    setErrorsLoading(true);
+    setErrorsLoadError(null);
+    const { data, error } = await supabase.rpc("platform_get_error_reports", {
+      p_status: status,
+      p_limit: 100,
+    });
+    setErrorsLoading(false);
+    if (error) {
+      void reportAppError({ error, source: "admin", action: "load_error_reports", screen: "admin_errors" });
+      setErrorsLoadError(error.message || "Erro ao carregar reportes");
+      return;
+    }
+    setErrorReports(data || []);
+  }, []);
+
   useEffect(() => {
     const initialLoad = window.setTimeout(() => load(), 0);
     return () => window.clearTimeout(initialLoad);
   }, []);
+
+  useEffect(() => {
+    if (adminView !== "errors") return undefined;
+    const initialLoad = window.setTimeout(() => loadErrorReports(errorStatus), 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [adminView, errorStatus, loadErrorReports]);
 
   const togglePlan = async (familyId, currentPlan) => {
     const newPlan = currentPlan === "premium" ? "free" : "premium";
     setToggling(familyId);
     const { error } = await supabase.rpc("admin_set_plan", { p_family_id: familyId, p_plan: newPlan });
     setToggling(null);
-    if (error) { notify("Erro: " + error.message, "error"); return; }
+    if (error) { captureActionError(error, "admin", "set_plan", "admin_families"); notify("Erro: " + error.message, "error"); return; }
     notify(newPlan === "premium" ? "👑 Premium ativado!" : "✅ Voltou para Free");
     setFamilies(prev => prev.map(f => f.family_id === familyId ? { ...f, plan: newPlan } : f));
   };
@@ -4384,9 +4517,25 @@ const AdminPanel = ({ onBack }) => {
     const { error } = await supabase.rpc("admin_delete_family", { p_family_id: familyId });
     setDeleting(null);
     setConfirmingDelete(null);
-    if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
+    if (error) { captureActionError(error, "admin", "delete_family", "admin_families"); notify("Erro ao remover: " + error.message, "error"); return; }
     notify("🗑️ Família removida.");
     setFamilies(prev => prev.filter(f => f.family_id !== familyId));
+  };
+
+  const updateErrorReport = async (reportId, status) => {
+    setUpdatingReport(reportId);
+    const { error } = await supabase.rpc("platform_update_error_report", {
+      p_report_id: reportId,
+      p_status: status,
+    });
+    setUpdatingReport(null);
+    if (error) {
+      void reportAppError({ error, source: "admin", action: "update_error_report", screen: "admin_errors" });
+      notify("Erro ao atualizar reporte", "error");
+      return;
+    }
+    setErrorReports((current) => current.filter((report) => report.report_id !== reportId));
+    notify(status === "resolved" ? "Reporte resolvido." : status === "ignored" ? "Reporte ignorado." : "Reporte reaberto.");
   };
 
   const filtered = families.filter(f =>
@@ -4453,17 +4602,26 @@ const AdminPanel = ({ onBack }) => {
         })()}
       </div>
 
+      <div role="tablist" aria-label="Visao administrativa" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, margin: "14px 20px 0", padding: 4, background: "rgba(255,255,255,0.05)", borderRadius: 8 }}>
+        {[
+          { key: "families", label: "Familias" },
+          { key: "errors", label: `Erros${errorStatus === "open" && errorReports.length ? ` (${errorReports.length})` : ""}` },
+        ].map((item) => (
+          <button key={item.key} type="button" role="tab" aria-selected={adminView === item.key} onClick={() => setAdminView(item.key)} style={{ minHeight: 38, border: 0, borderRadius: 6, background: adminView === item.key ? T.cardLight : "transparent", color: adminView === item.key ? T.text : T.textMuted, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{item.label}</button>
+        ))}
+      </div>
+
       {/* Busca */}
-      <div style={{ padding: "14px 20px 0" }}>
+      {adminView === "families" && <div style={{ padding: "14px 20px 0" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar família, email ou responsável..."
           style={{ width: "100%", padding: "12px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box" }}
           onFocus={e => e.target.style.borderColor = T.purple}
           onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
         />
-      </div>
+      </div>}
 
       {/* Erro persistente de carregamento */}
-      {loadError && (
+      {adminView === "families" && loadError && (
         <div style={{ margin: "12px 20px 0", padding: "14px 18px", borderRadius: 16, background: `${T.pink}15`, border: `1px solid ${T.pink}44`, color: T.pink }}>
           <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>⚠️ Erro ao carregar famílias</div>
           <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10, wordBreak: "break-all" }}>{loadError}</div>
@@ -4474,8 +4632,60 @@ const AdminPanel = ({ onBack }) => {
         </div>
       )}
 
+      {adminView === "errors" && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px" }}>
+          <div role="tablist" aria-label="Status dos reportes" style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            {[
+              { key: "open", label: "Abertos" },
+              { key: "resolved", label: "Resolvidos" },
+              { key: "ignored", label: "Ignorados" },
+            ].map((item) => (
+              <button key={item.key} type="button" role="tab" aria-selected={errorStatus === item.key} onClick={() => setErrorStatus(item.key)} style={{ flex: 1, minHeight: 36, borderRadius: 8, border: `1px solid ${errorStatus === item.key ? T.blue + "66" : "rgba(255,255,255,0.08)"}`, background: errorStatus === item.key ? `${T.blue}18` : "transparent", color: errorStatus === item.key ? T.blue : T.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{item.label}</button>
+            ))}
+          </div>
+
+          {errorsLoadError && (
+            <div role="alert" style={{ padding: 14, marginBottom: 12, borderRadius: 8, border: `1px solid ${T.pink}44`, background: `${T.pink}12`, color: T.pink, fontSize: 12 }}>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Nao foi possivel carregar os reportes.</div>
+              <button type="button" onClick={() => loadErrorReports(errorStatus)} style={{ padding: "7px 12px", border: 0, borderRadius: 6, background: `${T.pink}22`, color: T.pink, fontWeight: 800, cursor: "pointer" }}>Tentar novamente</button>
+            </div>
+          )}
+
+          {errorsLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando reportes...</div>
+          ) : !errorsLoadError && errorReports.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhum reporte neste status.</div>
+          ) : errorReports.map((report) => (
+            <article key={report.report_id} style={{ background: T.card, borderRadius: 8, padding: 16, marginBottom: 10, border: `1px solid ${report.report_kind === "user" ? T.blue + "44" : "rgba(255,255,255,0.08)"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: report.report_kind === "user" ? T.blue : T.primary, fontSize: 10, fontWeight: 900 }}>{report.report_kind === "user" ? "USUARIO" : "AUTOMATICO"} · #{report.reference}</div>
+                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginTop: 4, overflowWrap: "anywhere" }}>{report.report_kind === "user" ? report.action : report.error_name || report.action || "Erro"}</div>
+                </div>
+                <div style={{ color: T.secondary, fontWeight: 900, fontSize: 12, flexShrink: 0 }}>{report.occurrences}x</div>
+              </div>
+              <div style={{ color: T.text, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{report.message}</div>
+              <div style={{ color: T.textMuted, fontSize: 10, lineHeight: 1.6, marginTop: 10 }}>
+                {report.source} / {report.action || "-"} / {report.screen || "-"}<br />
+                Ultimo: {new Date(report.last_seen_at).toLocaleString("pt-BR")} · versao {report.app_version || "unknown"}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                {errorStatus === "open" ? (
+                  <>
+                    <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "resolved")} style={{ flex: 1, padding: 9, border: 0, borderRadius: 6, background: `${T.accent}22`, color: T.accent, fontWeight: 800, cursor: "pointer" }}>Resolver</button>
+                    <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "ignored")} style={{ flex: 1, padding: 9, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "transparent", color: T.textMuted, fontWeight: 800, cursor: "pointer" }}>Ignorar</button>
+                  </>
+                ) : (
+                  <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "open")} style={{ width: "100%", padding: 9, border: `1px solid ${T.blue}44`, borderRadius: 6, background: `${T.blue}12`, color: T.blue, fontWeight: 800, cursor: "pointer" }}>Reabrir</button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
       {/* Lista */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px", display: adminView === "families" ? "block" : "none" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando famílias... ⏳</div>
         ) : !loadError && filtered.length === 0 ? (
@@ -4622,6 +4832,7 @@ export default function App() {
       }
     } catch (error) {
       console.error("[App] Falha ao carregar perfil:", error);
+      void reportAppError({ error, source: "app", action: "load_profile", screen: "bootstrap" });
       setProfileLoadError("Não foi possível consultar seu perfil. Sua sessão foi preservada para você tentar novamente.");
       setScreen("profile_error");
     } finally {
@@ -4633,6 +4844,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error("[App] Falha ao restaurar sessão:", error);
+        void reportAppError({ error, source: "auth", action: "restore_session", screen: "bootstrap" });
         setProfileLoadError("Não foi possível restaurar sua sessão.");
         setScreen("profile_error");
         setLoading(false);

@@ -90,6 +90,22 @@ Rollback deve ser definido antes da etapa 1. Não publicar a Edge Function Hotma
 
 Reexecutar K1–K10 do `AUDITORIA_CODEX.md`: RLS cross-family, mutação cross-family, `pending_approvals`, escalada de role/kidcoins, insert direto em missões, push, resgate por filho externo, rate-limit IA e claim Premium sem compra. Todos devem permanecer PASS.
 
+## 7.1 Observabilidade e reporte
+
+| ID | Cenario | Papel | Esperado |
+|---|---|---|---|
+| O1 | Falha de consulta no dashboard | Responsavel/crianca | bloco de retry e um reporte automatico aberto |
+| O2 | Mesma falha repetida apos 30 s | Responsavel/crianca | mesmo reporte; `occurrences` incrementado |
+| O3 | Mesma falha repetida em menos de 30 s | Responsavel/crianca | sem inundacao; contador nao incrementa |
+| O4 | Envio em Conta > Reportar um problema | Responsavel | confirma e mostra referencia curta |
+| O5 | Texto com email, CPF, telefone, UUID e token | Responsavel | dados sensiveis redigidos no registro |
+| O6 | 21 reportes distintos em uma hora | Responsavel | 21o bloqueado por rate limit |
+| O7 | SELECT/INSERT direto em `app_error_reports` | Usuario comum | bloqueado; nenhum grant direto |
+| O8 | `platform_get_error_reports`/`platform_update_error_report` | Usuario comum | acesso negado |
+| O9 | Fila Erros: resolver, ignorar e reabrir | Admin real | estado atualizado e item movido da lista |
+| O10 | Erro de render React controlado | Usuario autenticado | fallback recuperavel e reporte sem stack bruto |
+| O11 | Retencao de dados | Operacao | fechados >90 dias e abertos >180 dias sao removidos no proximo reporte |
+
 ## 8. Gate de venda
 
 Beta controlado exige: matriz central sem P0/P1, Hotmart vivo idempotente, exclusão viva, smoke Free/Premium e token rotacionado.

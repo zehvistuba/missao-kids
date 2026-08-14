@@ -347,6 +347,7 @@ Critério de pronto:
 | 2026-08-13 | Lote de engenharia pré-venda v3 | 🟡 Preparado localmente | Contratos Free/Premium centralizados; migrations canônicas de limites e idempotência Hotmart; webhook e delete-account endurecidos; modais acessíveis; consentimento v3; PWA segura; testes automatizados e gates de qualidade. **Nenhum SQL, Edge Function ou frontend deste lote foi aplicado em produção.** Ver `SQL_SOURCE_OF_TRUTH.md` e `QA_PRE_VENDA_LOTE3.md` |
 | 2026-08-13 | Lote de qualidade e performance v4 | ✅ Validado localmente | Lint estrito 0/0; 14/14 testes; audit 0 vulnerabilidades; bundle principal 612→226 kB; singleton Supabase; hardening `create_family`; landing desktop responsiva; QA público mobile/desktop aprovado. **Sem deploy ou SQL aplicado.** |
 | 2026-08-13 | Revisao final de receita Hotmart | ✅ Corrigido localmente | Webhook agora exige produto RotinUp em allowlist, versao 2.0.0 e corpo real <=1 MB; cancelamento preserva Premium ate `date_next_charge`. Runbook e preflight criados. **Exige configurar produto/segredo antes do deploy.** |
+| 2026-08-13 | Observabilidade de erros de uso v5 | Validado localmente | Reporte automatico e manual com sanitizacao de PII, deduplicacao, rate limit, RLS/ACL fechadas, Error Boundary e fila administrativa. Migration `supabase_app_error_reporting.sql` preparada. **Sem SQL ou frontend publicado.** |
 
 ---
 
@@ -411,6 +412,25 @@ Restrições desta evidência:
 - Venda aberta continua bloqueada pelos dados jurídicos reais, rotação do Hottok, domínio/e-mail e regressão autenticada.
 
 ---
+
+## 7.3 Estado do Lote v5 - Reporte de erros
+
+Implementado e validado localmente em 2026-08-13:
+
+- Captura global de erros JavaScript, rejeicoes nao tratadas e falhas de render React.
+- Registro contextual de falhas em loads, cronometro, resgates, Premium, exclusao de conta e operacoes administrativas.
+- Formulario acessivel em `Conta > Reportar um problema`, com referencia curta para suporte.
+- Agrupamento por assinatura, deduplicacao de 30 segundos e contador de ocorrencias.
+- Sanitizacao no cliente e no banco para email, UUID, telefone, documento, cartao e tokens.
+- Rate limit de 20 reportes distintos por hora e 50 por dia, serializado por usuario.
+- Retencao automatica: 90 dias para fechados/ignorados e 180 dias para abertos.
+- Tabela sem acesso direto para `anon`/`authenticated`; leitura e triagem apenas via gate `is_platform_admin()`.
+- Fila administrativa com filtros de status, resolver, ignorar e reabrir.
+- Versao do app associada ao reporte por `VITE_APP_VERSION` ou SHA da Vercel.
+
+Evidencia local: `npm run check` verde, 17 testes PASS, audit de producao com 0 vulnerabilidades, build PWA concluido e QA publico 390x844/1440x900 sem overflow ou erros de console.
+
+Estado vivo: **nao aplicado**. A migration `supabase_app_error_reporting.sql` deve ser aplicada e verificada antes de publicar o frontend deste lote. Depois, executar O1-O11 de `QA_PRE_VENDA_LOTE3.md` com contas descartaveis.
 
 ## 8. Modelo Para Novas Entradas
 

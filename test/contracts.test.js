@@ -18,6 +18,11 @@ import {
   minimizeHotmartPayload,
   parseHotmartWebhook,
 } from "../supabase/functions/hotmart-webhook/domain.js";
+import {
+  createReportKey,
+  normalizeReportField,
+  sanitizeErrorText,
+} from "../src/lib/errorSanitizer.js";
 
 const approvedPayload = {
   id: "evt-approved-1",
@@ -181,4 +186,40 @@ test("edge Hotmart exige header por padrão e limita payload", async () => {
   assert.match(source, /isAllowedHotmartProduct/);
   assert.match(source, /payload_too_large/);
   assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test("reporte de erro remove PII e produz chave estavel", () => {
+  const raw = "Falhou para pessoa@example.com, CPF 123.456.789-00, telefone (44) 99114-1555, cartao 4111 1111 1111 1111, token abcdefghijklmnopqrstuvwxyz123456 e id 7a8c3ff8-8010-4e83-92b0-95bf1b668ee8";
+  const sanitized = sanitizeErrorText(raw);
+  assert.equal(sanitized.includes("pessoa@example.com"), false);
+  assert.equal(sanitized.includes("123.456.789-00"), false);
+  assert.equal(sanitized.includes("99114-1555"), false);
+  assert.equal(sanitized.includes("4111 1111 1111 1111"), false);
+  assert.equal(sanitized.includes("abcdefghijklmnopqrstuvwxyz123456"), false);
+  assert.equal(sanitized.includes("7a8c3ff8"), false);
+  assert.equal(createReportKey([raw]), createReportKey([raw]));
+  assert.match(createReportKey([raw]), /^[0-9a-f]{16}$/);
+  assert.equal(normalizeReportField("Painel Família / Carregar"), "painel_fam_lia_/_carregar");
+});
+
+test("migracao de reportes fecha acesso direto, limita abuso e exige gate admin", async () => {
+  const sql = await readFile(new URL("../supabase_app_error_reporting.sql", import.meta.url), "utf8");
+  assert.match(sql, /ALTER TABLE public\.app_error_reports ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql, /REVOKE ALL ON TABLE public\.app_error_reports FROM PUBLIC, anon, authenticated/);
+  assert.match(sql, /v_new_reports >= 20/);
+  assert.match(sql, /v_daily_reports >= 50/);
+  assert.match(sql, /interval '90 days'/);
+  assert.match(sql, /interval '180 days'/);
+  assert.match(sql, /pg_advisory_xact_lock/);
+  assert.match(sql, /\[payment\]/);
+  assert.match(sql, /\[token\]/);
+  assert.match(sql, /public\.is_platform_admin\(\) IS NOT TRUE/g);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.platform_get_error_reports/);
+  assert.doesNotMatch(sql, /RETURNS TABLE[\s\S]*user_id UUID/);
+});
+
+test("bootstrap instala captura global e Error Boundary", async () => {
+  const source = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+  assert.match(source, /installGlobalErrorReporting\(\)/);
+  assert.match(source, /<AppErrorBoundary>/);
 });

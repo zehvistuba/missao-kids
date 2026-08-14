@@ -28,7 +28,10 @@ WHERE n.nspname = 'public'
     'add_child',
     'join_family_by_code',
     'process_hotmart_event',
-    'claim_premium_by_email'
+    'claim_premium_by_email',
+    'report_app_error',
+    'platform_get_error_reports',
+    'platform_update_error_report'
   )
 ORDER BY p.proname, identity_arguments;
 
@@ -62,7 +65,7 @@ SELECT
   column_default
 FROM information_schema.columns
 WHERE table_schema = 'public'
-  AND table_name IN ('hotmart_events', 'hotmart_entitlements')
+  AND table_name IN ('hotmart_events', 'hotmart_entitlements', 'app_error_reports')
 ORDER BY table_name, ordinal_position;
 
 -- Contagens sem PII para reconciliar antes/depois.
@@ -89,7 +92,7 @@ SELECT
 FROM pg_catalog.pg_class c
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
-  AND c.relname IN ('families', 'profiles', 'hotmart_events', 'hotmart_entitlements');
+  AND c.relname IN ('families', 'profiles', 'hotmart_events', 'hotmart_entitlements', 'app_error_reports');
 
 SELECT
   tablename,
@@ -101,7 +104,7 @@ SELECT
   with_check
 FROM pg_catalog.pg_policies
 WHERE schemaname = 'public'
-  AND tablename IN ('families', 'profiles', 'hotmart_events', 'hotmart_entitlements')
+  AND tablename IN ('families', 'profiles', 'hotmart_events', 'hotmart_entitlements', 'app_error_reports')
 ORDER BY tablename, policyname;
 
 COMMIT;

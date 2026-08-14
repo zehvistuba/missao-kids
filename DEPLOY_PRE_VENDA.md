@@ -26,6 +26,7 @@ Configure os segredos da Edge Function `hotmart-webhook` antes de publicar a nov
 - `HOTMART_PRODUCT_UCODES`: `ucode`s permitidos, separados por virgula.
 - `SERVICE_ROLE_KEY`: chave de servico existente no ambiente.
 - `ALLOW_LEGACY_HOTTOK_QUERY`: ausente ou `false`.
+- `VITE_APP_VERSION`: opcional; use o SHA do deploy. Na Vercel, o build usa `VERCEL_GIT_COMMIT_SHA` como fallback.
 
 Ao menos uma allowlist de produto e obrigatoria. Sem ela, o webhook falha fechado com HTTP 500. Nunca use o codigo da pagina de checkout (`E105936971D`) como `product.id` sem confirmar no payload oficial.
 
@@ -38,13 +39,15 @@ Execute uma etapa por vez e pare ao primeiro resultado divergente:
 3. Smoke API de `create_family`: criar, validar campos e excluir a conta descartavel.
 4. Aplicar `supabase_fix_plan_limits_canonical.sql`; exigir quatro verificacoes finais verdadeiras.
 5. Smoke de limites Free, Premium, convite expirado e concorrencia no ultimo slot.
-6. Aplicar `supabase_fix_hotmart_idempotency.sql`; conferir tabela, RPC e ACL finais.
-7. Configurar os segredos/allowlist e publicar `hotmart-webhook` sem verificacao JWT da plataforma, pois a autenticacao e o header `X-HOTMART-HOTTOK`.
-8. Publicar `delete-account` mantendo verificacao JWT.
-9. Executar toda a secao Hotmart de `QA_PRE_VENDA_LOTE3.md` antes do frontend.
-10. Publicar o frontend e executar smoke publico em mobile e desktop.
-11. Executar QA autenticado completo e regressao K1-K10.
-12. Registrar hashes, horario, operador, respostas e decisao em `CONTROLE_EVOLUCOES.md`.
+6. Aplicar `supabase_app_error_reporting.sql`; confirmar RLS, ausencia de grants diretos e as tres RPCs com ACL esperada.
+7. Smoke autenticado de reporte manual, deduplicacao e rate limit; provar que usuario comum nao lista nem atualiza reportes.
+8. Aplicar `supabase_fix_hotmart_idempotency.sql`; conferir tabela, RPC e ACL finais.
+9. Configurar os segredos/allowlist e publicar `hotmart-webhook` sem verificacao JWT da plataforma, pois a autenticacao e o header `X-HOTMART-HOTTOK`.
+10. Publicar `delete-account` mantendo verificacao JWT.
+11. Executar toda a secao Hotmart de `QA_PRE_VENDA_LOTE3.md` antes do frontend.
+12. Publicar o frontend e executar smoke publico em mobile e desktop.
+13. Executar QA autenticado completo, fila administrativa de erros e regressao K1-K10.
+14. Registrar hashes, horario, operador, respostas e decisao em `CONTROLE_EVOLUCOES.md`.
 
 ## 4. Criterios de parada
 
@@ -59,6 +62,8 @@ Pare e inicie rollback se ocorrer qualquer um destes casos:
 - Reembolso ou chargeback nao remover o ultimo direito imediatamente.
 - Exclusao de conta remover familia que deveria ter sucessor, ou deixar login ativo apos resposta de sucesso.
 - Erro P0/P1 novo no QA autenticado.
+- Usuario comum conseguir ler a tabela ou executar as RPCs `platform_*`.
+- Reporte armazenar email, documento, telefone, token ou stack trace bruto.
 
 ## 5. Rollback
 

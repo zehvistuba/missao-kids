@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import process from 'node:process'
+
+const appVersion = (process.env.VITE_APP_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 40)
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+  },
   build: {
     rolldownOptions: {
       output: {
