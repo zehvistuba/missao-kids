@@ -353,6 +353,7 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 1 - landing | Validado localmente | Landing reconstruida a partir da direcao Lovable, com asset proprio, contratos comerciais preservados e QA em 1440x900, 768x1024 e 390x844. 22 testes PASS, lint/build/audit verdes. **Sem push, deploy, SQL ou liberacao.** Ver `PLANO_REFRESH_VISUAL.md`. |
 | 2026-08-16 | Refresh visual Etapa 2 - entrada e onboarding | Validado localmente | Auth, recuperacao, termos, consentimento e onboarding migrados para o novo sistema visual. 23 testes PASS; QA publico responsivo e modal legal verdes; `recover_family` agora diferencia erro de rede de conta sem familia. **Smoke autenticado pendente; sem push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Smoke autenticado do refresh Etapa 2 | Fechado e limpo | Conta QA iniciou sem termos, aceitou `2026-08-13`, criou familia Free e crianca ficticia, abriu o painel e foi excluida pela Edge LGPD. Perfil/familia/crianca ausentes, Auth ausente e relogin=`invalid_credentials`. Scroll entre telas corrigido. **Sem residuo QA, push, deploy ou SQL.** |
+| 2026-08-16 | Refresh visual Etapa 3 - shell do responsavel | Validado localmente | Sidebar desktop, topbar contextual, navegacao inferior mobile e largura total implantadas sem alterar fluxos internos. 24 testes PASS; browser autenticado em 1440x900, 768x1024 e 390x844 sem overflow; console limpo em aba nova. Conta QA removida e relogin recusado. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -499,6 +500,25 @@ Smoke autenticado concluido com conta descartavel:
 - Sessao do browser foi encerrada e voltou para a landing sem o nome QA.
 
 Estado vivo do produto: **codigo inalterado e sem dados QA residuais**. Nenhum push, deploy ou SQL foi realizado. Etapa 2 fechada localmente; Etapa 3 pode iniciar em lote separado.
+
+## 7.7 Estado do Refresh Visual - Etapa 3
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-3`, baseada na Etapa 2 aprovada.
+- Painel do responsavel deixou o enquadramento estreito e agora usa toda a viewport com sidebar no desktop.
+- Mobile usa navegacao inferior de cinco destinos, labels compactas, area segura do dispositivo e indicador de pendencias.
+- Topbar mostra saudacao, aba atual, filhos, plano e resumo operacional sem adicionar consultas ao backend.
+- As chaves `home`, `missions`, `rewards`, `stats` e `settings` e todos os componentes internos foram preservados.
+- Plano Free/Premium, limites, permissoes, pendencias, resgates, timers, loading, erro e retry continuam consumindo os mesmos estados.
+- Troca de aba restaura o topo; no desktop somente o workspace rola e o header fica estavel; no mobile a pagina rola naturalmente.
+- Contrato automatizado cobre destinos, `aria-current`, breakpoint 767 px, safe area, foco, largura total e ausencia de gradiente no novo shell.
+- QA autenticado somente leitura: 1440x900, 768x1024 e 390x844 sem overflow; todas as abas abriram o titulo correto e voltaram ao topo.
+- Uma nova aba do preview carregou o painel sem erros ou avisos no console.
+- Conta descartavel criada para isolamento foi eliminada pela Edge LGPD; perfil ausente e novo login retornou `Invalid login credentials`.
+- Gates: 24/24 testes, lint estrito, build PWA e `git diff --check` aprovados.
+
+Estado vivo do produto: **codigo e release inalterados, sem dados QA residuais**. Nenhum push, deploy, SQL ou liberacao foi realizado. O conteudo interno do painel permanece no visual anterior e sera migrado de forma segmentada na Etapa 4.
 
 ## 8. Modelo Para Novas Entradas
 

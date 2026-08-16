@@ -16,6 +16,7 @@ import { supabase } from "./lib/supabase.js";
 import heroFamilyImage from "./assets/rotinup-hero-family.webp";
 import "./styles/landing-refresh.css";
 import "./styles/flow-refresh.css";
+import "./styles/parent-shell-refresh.css";
 
 const TEXT_BUTTON_STYLE = {
   padding: 0,
@@ -3263,7 +3264,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showReportIssue, setShowReportIssue] = useState(false);
   const [reactivating, setReactivating]       = useState(null);
   const pendingRef = useRef(null);
+  const contentRef = useRef(null);
   const loadIdRef = useRef(0);
+
+  useEffect(() => {
+    if (isDesktop) contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    else window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [isDesktop, tab]);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= PLAN_LIMITS.free.children) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -3705,10 +3712,29 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     load();
   };
 
-  const navTabs = [{key:"home",icon:"🏠",label:"Início"},{key:"missions",icon:"🎯",label:"Missões"},{key:"rewards",icon:"🎁",label:"Recompensas"},{key:"stats",icon:"📊",label:"Stats"},{key:"settings",icon:"⚙️",label:"Conta"}];
+  const navTabs = [
+    { key: "home", icon: "🏠", label: "Início" },
+    { key: "missions", icon: "🎯", label: "Missões" },
+    { key: "rewards", icon: "🎁", label: "Recompensas", mobileLabel: "Prêmios" },
+    { key: "stats", icon: "📊", label: "Estatísticas", mobileLabel: "Progresso" },
+    { key: "settings", icon: "⚙️", label: "Conta" },
+  ];
+  const activeTab = navTabs.find(item => item.key === tab) || navTabs[0];
+  const requestedRedemptions = redemptions.filter(redemption => redemption.status === "requested").length;
+  const summaryItems = [
+    pending.length > 0 && { icon: "⏳", text: `${pending.length} p/ aprovar`, tone: "attention" },
+    requestedRedemptions > 0 && { icon: "🙋", text: `${requestedRedemptions} resgate${requestedRedemptions > 1 ? "s" : ""}`, tone: "request" },
+    activeTimers.length > 0 && { icon: "⏱️", text: `${activeTimers.length} em andamento`, tone: "timer" },
+    { icon: "👶", text: `${children.length} filho${children.length !== 1 ? "s" : ""}`, tone: "family" },
+  ].filter(Boolean);
+  const jumpToPending = () => {
+    setTab("home");
+    window.setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: isDesktop ? "row" : "column" }}>
+    <div className="ru-parent-shell">
+      <a className="ru-parent-skip-link" href="#ru-parent-content">Pular para o conteúdo</a>
       <Notif msg={notif} type={notifType} />
 
       {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
@@ -3828,76 +3854,92 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         );
       })()}
 
-      {/* Sidebar de navegação — APENAS desktop (mobile usa o menu inferior original) */}
+      {/* Navegação desktop; os fluxos internos continuam isolados na área de trabalho. */}
       {isDesktop && (
-        <div style={{ width: 248, flexShrink: 0, height: "100vh", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", padding: "24px 16px", boxSizing: "border-box" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 8px 24px" }}>
-            <div style={{ fontSize: 26 }}>🚀</div>
-            <div style={{ color: T.text, fontWeight: 900, fontSize: 20 }}>RotinUp</div>
+        <aside className="ru-parent-sidebar" aria-label="Navegação principal">
+          <div className="ru-parent-brand" aria-label="RotinUp">
+            <span className="ru-parent-brand__mark" aria-hidden="true">🚀</span>
+            <span className="ru-parent-brand__name">rotin<strong>up</strong></span>
           </div>
-          {navTabs.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", marginBottom: 6, borderRadius: 14, border: "none", cursor: "pointer", background: tab===t.key ? `${T.primary}1F` : "transparent", color: tab===t.key ? T.primary : T.textMuted, fontWeight: 800, fontSize: 15, fontFamily: "'Nunito', sans-serif", textAlign: "left", transition: "all 0.15s" }}>
-              <span style={{ fontSize: 20, filter: tab===t.key ? "none" : "grayscale(60%)" }}>{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
+          <span className="ru-parent-sidebar__label">Painel da família</span>
+          <nav className="ru-parent-nav">
+            {navTabs.map(item => (
+              <button
+                key={item.key}
+                type="button"
+                className="ru-parent-nav__item"
+                aria-current={tab === item.key ? "page" : undefined}
+                onClick={() => setTab(item.key)}
+              >
+                <span className="ru-parent-nav__icon" aria-hidden="true">{item.icon}</span>
+                <span className="ru-parent-nav__text">{item.label}</span>
+              </button>
+            ))}
+          </nav>
           {pending.length > 0 && (
-            <button type="button" onClick={() => { setTab("home"); setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} style={{ marginTop: 10, padding: "10px 14px", borderRadius: 12, border: "none", background: T.warning, color: T.darker, fontWeight: 900, fontSize: 13, cursor: "pointer", textAlign: "center", animation: "pulse 2s infinite", fontFamily: "'Nunito', sans-serif" }}>
+            <button type="button" className="ru-parent-pending-link" onClick={jumpToPending}>
               ⏳ {pending.length} pendente{pending.length > 1 ? "s" : ""}
             </button>
           )}
-          <div style={{ flex: 1 }} />
-        </div>
+          <div className="ru-parent-sidebar__footer">
+            <span className="ru-parent-plan-label">Plano atual</span>
+            <span className="ru-parent-plan-value" data-plan={familyPlan}>
+              {familyPlan === "premium" ? "Premium" : "Gratuito"}
+            </span>
+          </div>
+        </aside>
       )}
 
-      {/* Área principal (header + conteúdo). display:contents no mobile = idêntico ao original */}
-      <div style={{ display: isDesktop ? "flex" : "contents", flexDirection: "column", flex: 1, minWidth: 0, height: isDesktop ? "100vh" : "auto" }}>
+      <div className="ru-parent-main">
 
-      {/* Header com saudação personalizada */}
-      <div style={{ padding: "16px 20px", background: `linear-gradient(135deg, ${T.primary}18, ${T.pink}0A)`, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 12, color: T.textMuted }}>{getSaudacao()},</div>
-            <div style={{ color: T.text, fontSize: 20, fontWeight: 900 }}>👋 {profile.display_name}!</div>
+      <header className="ru-parent-topbar">
+        <div className="ru-parent-topbar__inner">
+          <div className="ru-parent-topbar__primary">
+            <div className="ru-parent-title">
+              <span className="ru-parent-title__eyebrow">{getSaudacao()}, {profile.display_name}</span>
+              <h1>{activeTab.label}</h1>
+            </div>
+            <div className="ru-parent-family-status" aria-label={`${children.length} filho${children.length !== 1 ? "s" : ""} no plano ${familyPlan === "premium" ? "Premium" : "Gratuito"}`}>
+              {children.length > 0 && (
+                <div className="ru-parent-family-status__avatars" aria-hidden="true">
+                  {children.slice(0, 3).map(child => (
+                    <AvatarImg key={child.id} value={child.avatar_emoji} size={34} radius={8} style={{ background: "#ffffff" }} />
+                  ))}
+                </div>
+              )}
+              <div className="ru-parent-family-status__copy">
+                <strong>{children.length} filho{children.length !== 1 ? "s" : ""}</strong>
+                <span>Plano {familyPlan === "premium" ? "Premium" : "Gratuito"}</span>
+              </div>
+            </div>
           </div>
-          {pending.length > 0 && (
-            <button type="button" onClick={() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: T.warning, color: T.darker, borderRadius: 12, border: "none", padding: "4px 14px", fontWeight: 900, fontSize: 13, animation: "pulse 2s infinite", cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-              {pending.length} pendente{pending.length>1?"s":""}
-            </button>
-          )}
-        </div>
-        {/* Chips de resumo do dia — bate o olho e entende */}
-        {(() => {
-          const pedidos = redemptions.filter(r => r.status === "requested").length;
-          const chips = [
-            pending.length > 0    && { ic: "⏳", txt: `${pending.length} p/ aprovar`, c: T.warning },
-            pedidos > 0           && { ic: "🙋", txt: `${pedidos} resgate${pedidos > 1 ? "s" : ""}`, c: T.purple },
-            activeTimers.length > 0 && { ic: "⏱️", txt: `${activeTimers.length} em andamento`, c: T.accent },
-            { ic: "👶", txt: `${children.length} filho${children.length !== 1 ? "s" : ""}`, c: T.blue },
-          ].filter(Boolean);
-          return (
-            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-              {chips.map((ch, i) => (
-                <span key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${ch.c}1A`, color: ch.c, borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 900 }}>{ch.ic} {ch.txt}</span>
+          <div className="ru-parent-topbar__secondary">
+            <div className="ru-parent-summary" aria-label="Resumo da família">
+              {summaryItems.map(item => (
+                <span key={`${item.tone}-${item.text}`} className="ru-parent-summary__item" data-tone={item.tone}>
+                  <span aria-hidden="true">{item.icon}</span>{item.text}
+                </span>
               ))}
             </div>
-          );
-        })()}
-        {/* Banner upgrade — aparece para free com 1+ filho */}
-        {familyPlan === "free" && children.length >= 1 && (
-          <button onClick={() => setShowUpgrade(true)} style={{ marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 14, border: `1px solid ${T.purple}55`, background: `linear-gradient(135deg, ${T.purple}18, ${T.pink}12)`, color: T.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>👑</span>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontWeight: 800, color: T.purple }}>Upgrade para Premium</div>
-              <div style={{ color: T.textMuted, fontSize: 11, marginTop: 1 }}>{PLAN_LIMITS.premium.children} filhos, missões ilimitadas + IA completa · R$ 14,90/mês</div>
+            <div className="ru-parent-topbar__actions">
+              {pending.length > 0 && (
+                <button type="button" className="ru-parent-action ru-parent-action--pending" onClick={jumpToPending}>
+                  ⏳ <span className="ru-parent-action__long-label">Ver </span>{pending.length}
+                </button>
+              )}
+              {familyPlan === "free" && children.length >= 1 && (
+                <button type="button" className="ru-parent-action ru-parent-action--upgrade" onClick={() => setShowUpgrade(true)}>
+                  👑 <span className="ru-parent-action__long-label">Conhecer </span>Premium
+                </button>
+              )}
             </div>
-            <span style={{ color: T.purple, fontWeight: 900 }}>→</span>
-          </button>
-        )}
-      </div>
+          </div>
+        </div>
+      </header>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: isDesktop ? "24px 32px 48px" : "20px 20px 100px" }}>
-        {loading ? <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} /> : <>
+      <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" tabIndex={-1}>
+        <div className="ru-parent-workspace__inner">
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4551,18 +4593,30 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             </div>
           )}
         </>}
-      </div>
+        </div>
+      </main>
       </div>{/* fecha área principal (header + conteúdo) */}
 
       {!isDesktop && (
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 430, margin: "0 auto", background: `${T.darker}EE`, backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", padding: "12px 0 24px" }}>
-        {navTabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer" }}>
-            <div style={{ fontSize: 22, filter: tab===t.key?"none":"grayscale(80%)", transform: tab===t.key?"scale(1.2)":"scale(1)", transition: "all 0.2s" }}>{t.icon}</div>
-            <span style={{ fontSize: 10, fontWeight: 700, color: tab===t.key?T.primary:T.textMuted }}>{t.label}</span>
-          </button>
-        ))}
-      </div>
+        <nav className="ru-parent-bottom-nav" aria-label="Navegação principal">
+          {navTabs.map(item => (
+            <button
+              key={item.key}
+              type="button"
+              className="ru-parent-bottom-nav__item"
+              aria-current={tab === item.key ? "page" : undefined}
+              onClick={() => setTab(item.key)}
+            >
+              <span className="ru-parent-bottom-nav__icon" aria-hidden="true">{item.icon}</span>
+              <span className="ru-parent-bottom-nav__label">{item.mobileLabel || item.label}</span>
+              {item.key === "home" && pending.length > 0 && (
+                <span className="ru-parent-bottom-nav__badge" aria-label={`${pending.length} pendente${pending.length > 1 ? "s" : ""}`}>
+                  {pending.length > 9 ? "9+" : pending.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
       )}
     </div>
   );
@@ -5009,12 +5063,14 @@ export default function App() {
     else activeScreen = profile.role === "parent" || profile.role === "admin" ? "parent" : "child";
   }
   const isRefreshScreen = ["landing", "auth", "terms", "onboarding"].includes(activeScreen);
+  const isParentRefreshScreen = activeScreen === "parent";
+  const isWideScreen = isRefreshScreen || isParentRefreshScreen;
 
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: isRefreshScreen ? "none" : activeScreen === "admin" ? 700 : (activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : T.darker, boxShadow: isRefreshScreen ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen ? "#101526" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
+        <div style={{ width: "100%", maxWidth: isWideScreen ? "none" : activeScreen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen ? "#101526" : T.darker, boxShadow: isWideScreen ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {activeScreen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");

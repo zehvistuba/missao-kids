@@ -81,11 +81,12 @@ Status: concluida localmente, incluindo smoke autenticado e limpeza comprovada.
 
 ### Etapa 3 - Shell do responsavel
 
-Status: proxima.
+Status: concluida localmente, sem deploy.
 
-- Introduzir navegacao responsiva e tokens visuais no painel adulto.
-- Preservar selecao de filho, plano, familia e permissoes.
-- Validar densidade de informacao e ergonomia no uso recorrente.
+- Navegacao responsiva e tokens visuais aplicados ao painel adulto.
+- Contexto de filhos, plano, familia, alertas e permissoes preservado sem novas consultas ou alteracao de contrato.
+- Densidade de informacao e ergonomia validadas em desktop, tablet e mobile.
+- Conteudo funcional interno permanece no canvas anterior e sera tratado somente na Etapa 4.
 
 ### Etapa 4 - Fluxos centrais do responsavel
 
@@ -164,6 +165,20 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Limpeza: `delete-account` removeu perfil, familia, crianca e `auth.users`; nova autenticacao retornou `invalid_credentials` e a sessao local voltou para a landing.
 - Correcao de QA: mudancas de tela, modo de auth e etapa do onboarding agora restauram o scroll para o topo.
 
-## 8. Proxima Decisao
+## 8. Evidencia da Etapa 3
 
-Iniciar a Etapa 3 em nova branch/commit para o shell do responsavel, mantendo backend e release fora do lote visual.
+- Branch: `codex/refresh-visual-etapa-3`, derivada da Etapa 2 aprovada.
+- Folha isolada: `src/styles/parent-shell-refresh.css`, sem gradientes decorativos.
+- Shell: largura total, sidebar desktop, topbar contextual e navegacao inferior mobile com `aria-current`.
+- Contratos: as abas `home`, `missions`, `rewards`, `stats` e `settings` continuam apontando para os mesmos fluxos.
+- Estado: plano Free/Premium, filhos, pendencias, resgates, timers, loading e retry continuam derivados das mesmas fontes.
+- Rolagem: desktop mantem header fixo e rola somente o workspace; mobile rola a pagina; troca de aba restaura o topo nos dois modos.
+- Browser autenticado em modo somente leitura: 1440x900, 768x1024 e 390x844 sem overflow horizontal; cinco abas e rotulos responsivos aprovados.
+- Console: uma nova aba do preview abriu sem erros ou avisos.
+- Conta QA: criada apenas para isolamento, removida pela Edge `delete-account`; perfil ausente e novo login retornou `Invalid login credentials`.
+- Automacao: 24/24 testes, lint estrito e build PWA aprovados.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao; nenhum dado QA residual.
+
+## 9. Proxima Decisao
+
+Iniciar a Etapa 4 em nova branch/commit para migrar os fluxos centrais do responsavel, com lotes menores para home/aprovacoes, missoes, recompensas e conta, mantendo backend e release fora da atualizacao visual.

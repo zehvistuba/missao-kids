@@ -260,6 +260,7 @@ test("auth, consentimento e onboarding preservam contratos no refresh visual", a
   const css = await readFile(new URL("../src/styles/flow-refresh.css", import.meta.url), "utf8");
   const auth = source.slice(source.indexOf("const AuthScreen"), source.indexOf("const Onboarding"));
   const onboarding = source.slice(source.indexOf("const Onboarding"), source.indexOf("function Countdown"));
+  const appRoot = source.slice(source.indexOf("export default function App"));
 
   assert.match(source, /import "\.\/styles\/flow-refresh\.css"/);
   assert.match(auth, /<form className="ru-auth-form" onSubmit=\{handleEmail\}/);
@@ -275,11 +276,37 @@ test("auth, consentimento e onboarding preservam contratos no refresh visual", a
   assert.match(onboarding, /setStep\("recover_error"\)/);
   assert.match(onboarding, /action: "recover_family"/);
   assert.match(source, /\["landing", "auth", "terms", "onboarding"\]\.includes\(activeScreen\)/);
-  assert.equal((source.match(/window\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/g) || []).length, 3);
+  const entryScrolls = `${auth}\n${onboarding}\n${appRoot}`;
+  assert.equal((entryScrolls.match(/window\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/g) || []).length, 3);
 
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
+test("shell do responsavel preserva navegacao e adapta desktop e mobile", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-shell-refresh.css", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+
+  assert.match(source, /import "\.\/styles\/parent-shell-refresh\.css"/);
+  for (const key of ["home", "missions", "rewards", "stats", "settings"]) {
+    assert.match(parent, new RegExp(`key: "${key}"`));
+    assert.match(parent, new RegExp(`tab === "${key}"`));
+  }
+  assert.match(parent, /aria-current=\{tab === item\.key \? "page" : undefined\}/);
+  assert.match(parent, /const jumpToPending = \(\) =>/);
+  assert.match(parent, /setTab\("home"\)/);
+  assert.match(parent, /ref=\{contentRef\}/);
+  assert.match(parent, /contentRef\.current\?\.scrollTo/);
+  assert.match(source, /const isParentRefreshScreen = activeScreen === "parent"/);
+  assert.match(source, /const isWideScreen = isRefreshScreen \|\| isParentRefreshScreen/);
+
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /env\(safe-area-inset-bottom\)/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /aria-current="page"/);
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });
 
