@@ -351,6 +351,7 @@ Critério de pronto:
 | 2026-08-13 | Briefing mestre de layout para Lovable | Preparado | Escopo visual completo para visitante, responsavel, crianca e admin; preserva contratos comerciais, seguranca, acessibilidade e estados de uso. Proibe publicacao, conexao com producao e migrations. Ver `PROMPT_LOVABLE_LAYOUT_ROTINUP.md`. |
 | 2026-08-13 | Observabilidade e suporte Edge v6 | Validado localmente | Logs JSON correlacionados e sanitizados nas quatro Edge Functions; referencias curtas em erros de IA/exclusao; falhas de push passam ao reporte; runbook operacional criado. 21 testes PASS, lint estrito e parser das quatro funcoes verdes. **Nenhuma funcao, SQL ou frontend publicado.** |
 | 2026-08-16 | Refresh visual Etapa 1 - landing | Validado localmente | Landing reconstruida a partir da direcao Lovable, com asset proprio, contratos comerciais preservados e QA em 1440x900, 768x1024 e 390x844. 22 testes PASS, lint/build/audit verdes. **Sem push, deploy, SQL ou liberacao.** Ver `PLANO_REFRESH_VISUAL.md`. |
+| 2026-08-16 | Refresh visual Etapa 2 - entrada e onboarding | Validado localmente | Auth, recuperacao, termos, consentimento e onboarding migrados para o novo sistema visual. 23 testes PASS; QA publico responsivo e modal legal verdes; `recover_family` agora diferencia erro de rede de conta sem familia. **Smoke autenticado pendente; sem push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -469,6 +470,23 @@ Implementado e validado localmente em 2026-08-16:
 - Gates: 22/22 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 
 Estado vivo: **inalterado**. Nenhum push, deploy, SQL ou liberacao foi realizado. A sequencia visual e controlada por `PLANO_REFRESH_VISUAL.md`; a Etapa 2 cobre autenticacao, termos e onboarding em commit separado.
+
+## 7.6 Estado do Refresh Visual - Etapa 2
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-2`, baseada na landing aprovada.
+- Login, cadastro e recuperacao convertidos em formularios semanticos, com rotulos, autocomplete, envio por formulario e alertas persistentes.
+- Navegacao de retorno para a landing adicionada sem alterar a maquina de estados de autenticacao.
+- Cadastro continua bloqueado ate o checkbox juridico e registra `TERMS_VERSION` pela RPC `accept_terms`.
+- Modal legal claro preserva as 14 secoes, versao vigente, foco preso, `Esc`, bloqueio de scroll e retorno de foco.
+- TermsGate preserva o consentimento explicito do responsavel e a opcao de sair.
+- Onboarding mantem `recover_family`, `create_family`, `add_child` e `join_family_by_code`; nomes sao normalizados e o convite aceita apenas letras e numeros.
+- Falha de `recover_family` nao e mais confundida com ausencia de familia: agora exibe retry e envia reporte operacional sanitizado.
+- QA publico real em 1440x900, 768x1024 e 390x844 sem overflow ou erros de console; login, cadastro, recuperacao e modal legal exercitados sem chamada mutavel.
+- Gates: 23/23 testes, lint estrito, build PWA, audit com 0 vulnerabilidades e contrastes AA aprovados.
+
+Estado vivo: **inalterado**. Nenhum push, deploy, SQL, login ou cadastro de teste foi executado. TermsGate e onboarding exigem smoke autenticado com conta descartavel e limpeza comprovada antes de merge ou publicacao.
 
 ## 8. Modelo Para Novas Entradas
 

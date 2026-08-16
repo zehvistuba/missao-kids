@@ -71,16 +71,17 @@ Status: concluida localmente; nao publicada.
 
 ### Etapa 2 - Autenticacao, termos e onboarding
 
-Status: proxima.
+Status: implementada e validada localmente; smoke autenticado pendente antes de publicacao.
 
-- Atualizar entrar, cadastrar, recuperar senha e estados de erro.
-- Harmonizar TermsGate e modal juridico sem alterar a regra de aceite.
-- Atualizar onboarding do responsavel e criacao de familia.
-- Provar teclado, foco, leitores de tela, loading, offline e retry.
+- Entrar, cadastrar e recuperar senha agora usam formularios semanticos com rotulos, autocomplete e mensagens acessiveis.
+- TermsGate e modal juridico compartilham a nova identidade sem alterar versao, conteudo ou RPC de aceite.
+- Onboarding preserva recuperacao, criacao, convite e cadastro infantil, com tratamento separado para falha de `recover_family`.
+- QA publico real validou teclado semantico, foco do modal, loading, erros locais e responsividade.
+- Smoke autenticado com conta descartavel continua obrigatorio para renderizar TermsGate e onboarding contra o backend vivo.
 
 ### Etapa 3 - Shell do responsavel
 
-Status: pendente.
+Status: proxima.
 
 - Introduzir navegacao responsiva e tokens visuais no painel adulto.
 - Preservar selecao de filho, plano, familia e permissoes.
@@ -147,6 +148,20 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Browser: desktop, tablet e mobile sem overflow; conteudo seguinte visivel no primeiro viewport.
 - Fluxos: plano mensal, checkout, cadastro, consentimento e modal juridico preservados.
 
-## 7. Proxima Decisao
+## 7. Evidencia da Etapa 2
 
-Iniciar a Etapa 2 em novo commit, mantendo a landing como baseline visual. Nao misturar neste lote alteracoes de dashboard, backend ou release.
+- Branch: `codex/refresh-visual-etapa-2`, derivada do commit aprovado da Etapa 1.
+- Folha compartilhada: `src/styles/flow-refresh.css`, sem gradientes decorativos.
+- Automacao: 23/23 testes, lint estrito e build PWA aprovados.
+- Dependencias: 0 vulnerabilidades de producao.
+- Contraste: combinacoes funcionais entre 4,77:1 e 15,04:1.
+- Browser publico: 1440x900, 768x1024 e 390x844 sem overflow ou erro de console.
+- Cadastro: consentimento aparece antes do envio, bloqueia o botao e exibe erro persistente com `role=alert`.
+- Termos: 14 secoes, versao vigente, foco preso, `Esc`, scroll bloqueado e foco devolvido ao gatilho.
+- Recuperacao: formulario proprio, autocomplete de email e validacao local sem chamada de rede invalida.
+- Onboarding: nomes normalizados, codigo limitado a letras/numeros e falha de recuperacao com retry explicito e reporte operacional.
+- Dados reais: nenhum login, cadastro, RPC mutavel ou alteracao de conta foi executado nesta rodada.
+
+## 8. Proxima Decisao
+
+Executar o smoke autenticado da Etapa 2 com conta descartavel e limpeza comprovada. Depois, iniciar a Etapa 3 em novo commit para o shell do responsavel, mantendo backend e release fora do lote visual.

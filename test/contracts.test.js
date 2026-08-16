@@ -255,6 +255,33 @@ test("landing visual preserva contratos e usa asset otimizado", async () => {
   assert.ok(hero.size < 200_000, `hero acima do limite: ${hero.size} bytes`);
 });
 
+test("auth, consentimento e onboarding preservam contratos no refresh visual", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/flow-refresh.css", import.meta.url), "utf8");
+  const auth = source.slice(source.indexOf("const AuthScreen"), source.indexOf("const Onboarding"));
+  const onboarding = source.slice(source.indexOf("const Onboarding"), source.indexOf("function Countdown"));
+
+  assert.match(source, /import "\.\/styles\/flow-refresh\.css"/);
+  assert.match(auth, /<form className="ru-auth-form" onSubmit=\{handleEmail\}/);
+  assert.match(auth, /id="signup-terms-consent"/);
+  assert.ok(auth.indexOf('id="signup-terms-consent"') < auth.indexOf('type="submit" disabled={loading ||'));
+  assert.match(auth, /autocomplete="new-password"|autoComplete=\{mode === "signup" \? "new-password"/i);
+  assert.match(source, /supabase\.rpc\("accept_terms", \{ p_terms_version: TERMS_VERSION \}\)/);
+  assert.match(source, /role="dialog" aria-modal="true" aria-labelledby="ru-legal-title"/);
+
+  assert.match(onboarding, /supabase\.rpc\("create_family", \{ p_family_name: normalizedName \}\)/);
+  assert.match(onboarding, /p_display_name: normalizedChildName/);
+  assert.match(onboarding, /supabase\.rpc\("join_family_by_code", \{ p_code: joinCode\.trim\(\) \}\)/);
+  assert.match(onboarding, /setStep\("recover_error"\)/);
+  assert.match(onboarding, /action: "recover_family"/);
+  assert.match(source, /\["landing", "auth", "terms", "onboarding"\]\.includes\(activeScreen\)/);
+
+  assert.match(css, /@media \(max-width: 900px\)/);
+  assert.match(css, /@media \(max-width: 620px\)/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
 test("IA e push limitam entrada e falham sem vazar detalhes internos", async () => {
   const ai = await readFile(new URL("../supabase/functions/ai-assistant/index.ts", import.meta.url), "utf8");
   const push = await readFile(new URL("../supabase/functions/push-notify/index.ts", import.meta.url), "utf8");

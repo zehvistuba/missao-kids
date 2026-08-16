@@ -15,6 +15,7 @@ import { reportAppError, reportUserIssue } from "./lib/errorReporter.js";
 import { supabase } from "./lib/supabase.js";
 import heroFamilyImage from "./assets/rotinup-hero-family.webp";
 import "./styles/landing-refresh.css";
+import "./styles/flow-refresh.css";
 
 const TEXT_BUTTON_STYLE = {
   padding: 0,
@@ -189,7 +190,7 @@ const DateInp = ({ value, onChange }) => (
 
 // ─── UI Components ────────────────────────────────────────
 const Notif = ({ msg, type }) => msg ? (
-  <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", width: "min(calc(100vw - 32px), 398px)", zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>{msg}</div>
+  <div role={type === "error" ? "alert" : "status"} aria-live={type === "error" ? "assertive" : "polite"} style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", width: "min(calc(100vw - 32px), 398px)", zIndex: 9999, background: T.card, borderRadius: 16, padding: "14px 20px", border: `1px solid ${type === "error" ? T.pink : T.accent}44`, color: T.text, fontWeight: 700, fontSize: 14, textAlign: "center", animation: "slideDown 0.3s ease", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>{msg}</div>
 ) : null;
 
 const Inp = ({ placeholder, type = "text", value, onChange, icon, maxLength }) => (
@@ -243,8 +244,9 @@ const AvatarImg = ({ value, size = 48, radius = 14, style: css = {} }) => {
   );
 };
 
-const DiceBearPicker = ({ value, onChange }) => {
+const DiceBearPicker = ({ value, onChange, tone = "dark" }) => {
   const isEmoji = value && !value.startsWith("http");
+  const isLight = tone === "light";
   const [dbStyle, setDbStyle] = useState(
     isEmoji ? "__emoji__" : (DB_STYLES.find(s => value?.includes(`/${s.key}/`))?.key || "__emoji__")
   );
@@ -252,8 +254,8 @@ const DiceBearPicker = ({ value, onChange }) => {
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
         {DB_STYLES.map(s => (
-          <button key={s.key} onClick={() => setDbStyle(s.key)}
-            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? T.purple : "rgba(255,255,255,0.12)"}`, background: dbStyle === s.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: dbStyle === s.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5, whiteSpace: "nowrap", flexShrink: 0 }}>
+          <button type="button" key={s.key} onClick={() => setDbStyle(s.key)} aria-pressed={dbStyle === s.key}
+            style={{ padding: "5px 10px", borderRadius: 10, border: `2px solid ${dbStyle === s.key ? (isLight ? "#C84734" : T.purple) : (isLight ? "#DCE3ED" : "rgba(255,255,255,0.12)")}`, background: dbStyle === s.key ? (isLight ? "#FFF1ED" : `${T.purple}22`) : (isLight ? "#FFFFFF" : "rgba(255,255,255,0.04)"), color: dbStyle === s.key ? (isLight ? "#A93628" : T.purple) : (isLight ? "#59647B" : T.textMuted), fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.5, whiteSpace: "nowrap", flexShrink: 0 }}>
             {s.label}
           </button>
         ))}
@@ -262,7 +264,7 @@ const DiceBearPicker = ({ value, onChange }) => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxHeight: 210, overflowY: "auto" }}>
           {EMOJI_AVATARS.map(em => (
             <button type="button" key={em} onClick={() => onChange(em)} aria-label={`Usar avatar ${em}`} aria-pressed={value === em}
-              style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === em ? T.purple : "transparent"}`, background: value === em ? `${T.purple}22` : "rgba(255,255,255,0.04)", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontFamily: "'Nunito', sans-serif" }}>
+              style={{ cursor: "pointer", borderRadius: 14, padding: 4, border: `2.5px solid ${value === em ? (isLight ? "#C84734" : T.purple) : "transparent"}`, background: value === em ? (isLight ? "#FFF1ED" : `${T.purple}22`) : (isLight ? "#F7F9FC" : "rgba(255,255,255,0.04)"), transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontFamily: "'Nunito', sans-serif" }}>
               {em}
             </button>
           ))}
@@ -274,7 +276,7 @@ const DiceBearPicker = ({ value, onChange }) => {
             const sel = value === url;
             return (
               <button type="button" key={seed} onClick={() => onChange(url)} aria-label={`Usar avatar ${seed}`} aria-pressed={sel}
-                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? T.purple : "transparent"}`, background: sel ? `${T.purple}22` : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ cursor: "pointer", borderRadius: 14, padding: 3, border: `2.5px solid ${sel ? (isLight ? "#C84734" : T.purple) : "transparent"}`, background: sel ? (isLight ? "#FFF1ED" : `${T.purple}22`) : (isLight ? "#F7F9FC" : "transparent"), transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img src={url} alt={seed} width={46} height={46} style={{ borderRadius: 10, display: "block" }} loading="lazy" />
               </button>
             );
@@ -910,16 +912,35 @@ const LandingPage = ({ onSignup, onLogin }) => {
   );
 };
 
+const FlowHeader = ({ onBack, backLabel = "Voltar" }) => (
+  <header className="ru-flow-header">
+    <div className="ru-flow-header__side">
+      {onBack && <button type="button" className="ru-icon-button" onClick={onBack} aria-label={backLabel}>←</button>}
+    </div>
+    <div className="ru-flow-brand" aria-label="RotinUp">
+      <img src="/icon.png" alt="" />
+      <span>rotin<strong>up</strong></span>
+    </div>
+    <div className="ru-flow-header__side" aria-hidden="true" />
+  </header>
+);
+
 // ─── Terms & Privacy Modal ────────────────────────────────
 const TermsModal = ({ onClose }) => {
   const dialogRef = useModalDialog(onClose);
   return (
-  <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, overflowY: "auto" }}>
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Termos de Uso e Política de Privacidade" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ maxWidth: 430, margin: "0 auto", padding: "28px 20px 60px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <button onClick={onClose} aria-label="Fechar Termos" style={{ background: "none", border: "none", color: T.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>📄 Termos e Privacidade</div>
-      </div>
+  <div className="ru-legal-overlay" onClick={onClose}>
+    <div ref={dialogRef} className="ru-legal-dialog" role="dialog" aria-modal="true" aria-labelledby="ru-legal-title" tabIndex={-1} onClick={e => e.stopPropagation()}>
+      <header className="ru-legal__header">
+        <div>
+          <p>Documento legal</p>
+          <h2 id="ru-legal-title">Termos de Uso e Privacidade</h2>
+        </div>
+        <button type="button" className="ru-icon-button" onClick={onClose} aria-label="Fechar Termos">×</button>
+      </header>
+
+      <div className="ru-legal__content">
+        <div className="ru-legal__version">Versão {TERMS_VERSION} · Atualizada em {TERMS_LAST_UPDATED_LABEL}</div>
 
       {[
         { title: "1. Sobre o RotinUp", body: "O RotinUp é um aplicativo de gamificação de rotinas infantis desenvolvido por JV Digital (CNPJ em processo de abertura). Ao usar o app, você concorda com estes Termos de Uso e Política de Privacidade, em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD) e o Estatuto da Criança e do Adolescente (Lei 8.069/1990 — ECA)." },
@@ -937,18 +958,16 @@ const TermsModal = ({ onClose }) => {
         { title: "13. Foro e legislação aplicável", body: "Estes termos são regidos pela legislação brasileira. Fica eleito o foro da comarca de Maringá/PR para dirimir quaisquer controvérsias, com renúncia a qualquer outro, por mais privilegiado que seja." },
         { title: "14. Contato", body: "JV Digital\nE-mail: contato@jvdigital.com.br\nPrivacidade/LGPD: privacidade@jvdigital.com.br\nWhatsApp: (44) 99114-1555" },
       ].map((s, i) => (
-        <div key={i} style={{ marginBottom: 24 }}>
-          <div style={{ color: T.primary, fontWeight: 800, fontSize: 14, marginBottom: 8 }}>{s.title}</div>
-          <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-line" }}>{s.body}</div>
-        </div>
+        <section className="ru-legal__section" key={i}>
+          <h3>{s.title}</h3>
+          <p>{s.body}</p>
+        </section>
       ))}
-
-      <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 }}>
-        Última atualização: {TERMS_LAST_UPDATED_LABEL}
       </div>
-      <button onClick={onClose} style={{ width: "100%", marginTop: 24, padding: "14px", borderRadius: 16, border: "none", background: T.primary, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-        ✅ Entendido
-      </button>
+      <footer className="ru-legal__footer">
+        <span>Última atualização: {TERMS_LAST_UPDATED_LABEL}</span>
+        <button type="button" className="ru-flow-button ru-flow-button--primary" onClick={onClose}>Entendido</button>
+      </footer>
     </div>
   </div>
   );
@@ -1049,43 +1068,50 @@ const TermsGate = ({ onAccept, onSignOut }) => {
     onAccept();
   };
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, padding: "32px 24px 40px", maxWidth: 430, margin: "0 auto" }}>
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 44, marginBottom: 8 }}>🛡️</div>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 20 }}>Antes de começar</div>
-        <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>Consentimento do responsável legal (LGPD)</div>
+    <main className="ru-flow-page ru-consent-page">
+      <FlowHeader />
+      <div className="ru-consent-shell">
+        <section className="ru-consent-intro" aria-labelledby="ru-consent-title">
+          <span className="ru-flow-kicker">Consentimento versionado · LGPD</span>
+          <div className="ru-consent-shield" aria-hidden="true">✓</div>
+          <h1 id="ru-consent-title">Antes de começar</h1>
+          <p>Precisamos confirmar que você é o responsável legal e entende como os dados da família serão usados.</p>
+          <span className="ru-flow-version">Versão {TERMS_VERSION}</span>
+        </section>
+
+        <section className="ru-consent-panel" aria-label="Resumo do consentimento">
+          <h2>Ao continuar, você declara que:</h2>
+          <ul className="ru-consent-list">
+            <li><span aria-hidden="true">✓</span><p>É o <strong>responsável legal</strong> pelas crianças cadastradas e supervisiona o uso do aplicativo.</p></li>
+            <li><span aria-hidden="true">✓</span><p>Autoriza o tratamento de <strong>nome, idade, avatar e progresso</strong> para operar o RotinUp.</p></li>
+            <li><span aria-hidden="true">✓</span><p>Está ciente de que recursos de <strong>IA do Google Gemini</strong> processam dados mínimos ao gerar conteúdo.</p></li>
+            <li><span aria-hidden="true">✓</span><p>Entende que pagamentos Premium são processados pela <strong>Hotmart</strong>.</p></li>
+            <li><span aria-hidden="true">✓</span><p>Pode <strong>revogar o consentimento e excluir os dados</strong> pelo aplicativo.</p></li>
+          </ul>
+
+          <button type="button" className="ru-flow-link" onClick={() => setShowFull(true)}>Ler Termos de Uso e Política de Privacidade completos</button>
+
+          <div className="ru-check-row">
+            <input id="terms-gate-consent" type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+            <label htmlFor="terms-gate-consent">Li e concordo com os Termos de Uso e a Política de Privacidade como responsável legal.</label>
+          </div>
+
+          {err && <div className="ru-form-alert" role="alert">{err}</div>}
+          <div className="ru-consent-actions">
+            <button type="button" className="ru-flow-button ru-flow-button--primary" onClick={accept} disabled={!agreed || saving}>{saving ? "Registrando..." : "Aceitar e continuar"}</button>
+            <button type="button" className="ru-flow-button ru-flow-button--secondary" onClick={onSignOut}>Sair</button>
+          </div>
+        </section>
       </div>
-      <div style={{ background: T.card, borderRadius: 18, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.06)", color: T.textMuted, fontSize: 13, lineHeight: 1.7, marginBottom: 16 }}>
-        Ao continuar, você declara que:
-        <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
-          <li>é o <strong style={{ color: T.text }}>responsável legal</strong> pela(s) criança(s) que vai cadastrar e autoriza o uso do app por elas;</li>
-          <li>autoriza o tratamento de <strong style={{ color: T.text }}>dados de menores</strong> (nome, idade, avatar e progresso) para operar o app;</li>
-          <li>está ciente de que os recursos de <strong style={{ color: T.text }}>IA (Google Gemini)</strong> processam nome, idade e progresso da criança para gerar conteúdo;</li>
-          <li>o pagamento do Premium é processado pela <strong style={{ color: T.text }}>Hotmart</strong>;</li>
-          <li>pode <strong style={{ color: T.text }}>revogar o consentimento e excluir os dados</strong> a qualquer momento pelo próprio app.</li>
-        </ul>
-      </div>
-      <button type="button" onClick={() => setShowFull(true)} style={{ ...TEXT_BUTTON_STYLE, display: "block", width: "100%", color: T.primary, fontWeight: 700, fontSize: 13, textDecoration: "underline", cursor: "pointer", textAlign: "center", marginBottom: 16 }}>
-        Ler os Termos de Uso e Política de Privacidade completos
-      </button>
-      <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 16 }}>
-        <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: T.accent, flexShrink: 0 }} />
-        <span style={{ color: T.text, fontSize: 13, lineHeight: 1.5 }}>Li e concordo com os Termos de Uso e a Política de Privacidade, como responsável legal.</span>
-      </label>
-      {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>⚠️ {err}</div>}
-      <button onClick={accept} disabled={!agreed || saving} style={{ width: "100%", padding: "15px", borderRadius: 16, border: "none", background: agreed ? `linear-gradient(135deg, ${T.accent}, ${T.blue})` : "rgba(255,255,255,0.06)", color: agreed ? "#fff" : T.textMuted, fontWeight: 900, fontSize: 15, cursor: agreed && !saving ? "pointer" : "not-allowed", fontFamily: "'Nunito', sans-serif", marginBottom: 12 }}>
-        {saving ? "Registrando..." : "Aceitar e continuar"}
-      </button>
-      <button onClick={onSignOut} style={{ width: "100%", padding: "12px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sair</button>
       {showFull && createPortal(<TermsModal onClose={() => setShowFull(false)} />, document.body)}
-    </div>
+    </main>
   );
 };
 
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
-const AuthScreen = ({ initialMode = "login", onTermsAccepted }) => {
+const AuthScreen = ({ initialMode = "login", onTermsAccepted, onBack }) => {
   const [showTerms, setShowTerms] = useState(false);
   const [mode, setMode]           = useState(initialMode);
   const [email, setEmail]       = useState("");
@@ -1113,7 +1139,8 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted }) => {
 
   const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-  const handleEmail = async () => {
+  const handleEmail = async (event) => {
+    event?.preventDefault();
     setInlineErr("");
     if (mode === "forgot") {
       if (!email) { setInlineErr("Digite seu email"); return; }
@@ -1177,102 +1204,119 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted }) => {
       provider: "google",
       options: { redirectTo: window.location.origin }
     });
-    if (error) { notify(error.message, "error"); setLoading(false); }
+    if (error) { notify(authErrPT(error.message), "error"); setLoading(false); }
+  };
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setInlineErr("");
+    setPassword("");
+    if (nextMode !== "signup") setAgreedTerms(false);
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
+    <main className="ru-auth-page">
       <Notif msg={notif} type={notifType} />
-      <div style={{ textAlign: "center", paddingTop: 50, marginBottom: 32 }}>
-        <img src="/icon.png" alt="RotinUp" style={{ width: 80, height: 80, borderRadius: 22, marginBottom: 12, filter: "drop-shadow(0 0 16px #9B5DE555)" }} />
-        <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: 0, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
-        <div style={{ color: T.textMuted, fontSize: 13, marginTop: 4 }}>{mode === "login" ? "Bem-vindo de volta!" : "Crie sua conta gratuita"}</div>
-      </div>
+      <aside className="ru-auth-visual" aria-hidden="true">
+        <img src={heroFamilyImage} alt="" />
+        <div className="ru-auth-visual__copy">
+          <span>Rotina compartilhada</span>
+          <p>Combine, acompanhe e reconheça cada pequena conquista.</p>
+        </div>
+      </aside>
+
+      <section className="ru-auth-main">
+        <FlowHeader onBack={onBack} backLabel="Voltar para a página inicial" />
+        <div className="ru-auth-form-wrap">
+          <header className="ru-auth-heading">
+            <span className="ru-flow-kicker">Acesso do responsável</span>
+            <h1>{mode === "login" ? "Entre na sua conta" : mode === "forgot" ? "Recupere sua senha" : "Crie sua conta"}</h1>
+            <p>{mode === "login" ? "Continue de onde sua família parou." : mode === "forgot" ? "Enviaremos um link seguro para o email cadastrado." : "Comece gratuitamente e organize a rotina da família."}</p>
+          </header>
 
       {mode === "signup" && (
-        <div style={{ background: `${T.primary}14`, borderRadius: 16, padding: "14px 16px", marginBottom: 20, border: `1px solid ${T.primary}33`, display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <span style={{ fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
+        <div className="ru-auth-note">
+          <span aria-hidden="true">✓</span>
           <div>
-            <div style={{ color: T.text, fontWeight: 800, fontSize: 13, marginBottom: 4 }}>Cadastro para Responsáveis</div>
-            <div style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.5 }}>
-              Você adiciona seus filhos direto no app, em <strong style={{ color: T.primary }}>“Adicionar filho”</strong> — eles não criam conta nem precisam de e-mail.
-            </div>
+            <strong>Cadastro para responsáveis</strong>
+            <p>Você adiciona as crianças pelo painel. Elas não criam conta nem precisam de email.</p>
           </div>
         </div>
       )}
 
-      <div style={{ flex: 1 }}>
-        {mode === "forgot" ? (
-          <>
-            <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 16, textAlign: "center", lineHeight: 1.6 }}>
-              Informe o email cadastrado e enviaremos um link para redefinir sua senha.
-            </div>
-            <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
-            {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
-            <Btn onClick={handleEmail} disabled={loading}>{loading ? "Enviando..." : "📧 Enviar link de recuperação"}</Btn>
-            <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button type="button" onClick={() => setMode("login")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>← Voltar ao login</button>
-            </div>
-          </>
-        ) : (
-          <>
-            {mode !== "login" && <Inp icon="👤" placeholder="Seu nome" value={name} onChange={e => { setName(e.target.value); setInlineErr(""); }} />}
-            <Inp icon="✉️" placeholder="Email" type="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} />
-            <Inp icon="🔒" placeholder="Senha" type="password" value={password} onChange={e => { setPassword(e.target.value); setInlineErr(""); }} />
-            {inlineErr && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>⚠️ {inlineErr}</div>}
-            {mode === "login" && (
-              <div style={{ textAlign: "right", marginBottom: 12, marginTop: -4 }}>
-                <button type="button" onClick={() => setMode("forgot")} style={{ ...TEXT_BUTTON_STYLE, color: T.textMuted, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Esqueci a senha</button>
+          {mode === "forgot" ? (
+            <form className="ru-auth-form" onSubmit={handleEmail} noValidate>
+              <div className="ru-field">
+                <label htmlFor="auth-recovery-email">Email</label>
+                <input id="auth-recovery-email" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} placeholder="voce@exemplo.com" aria-describedby={inlineErr ? "auth-error" : undefined} />
               </div>
-            )}
-            <Btn onClick={handleEmail} disabled={loading || (mode === "signup" && !agreedTerms)}>{loading ? "Aguarde..." : mode === "login" ? "🚀 Entrar" : "✨ Criar conta"}</Btn>
-          </>
-        )}
+              {inlineErr && <div id="auth-error" className="ru-form-alert" role="alert">{inlineErr}</div>}
+              <button className="ru-flow-button ru-flow-button--primary" type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar link de recuperação"}</button>
+              <button className="ru-flow-link ru-flow-link--center" type="button" onClick={() => switchMode("login")}>Voltar ao login</button>
+            </form>
+          ) : (
+            <form className="ru-auth-form" onSubmit={handleEmail} noValidate>
+              {mode === "signup" && (
+                <div className="ru-field">
+                  <label htmlFor="auth-name">Seu nome</label>
+                  <input id="auth-name" type="text" autoComplete="name" maxLength={80} value={name} onChange={e => { setName(e.target.value); setInlineErr(""); }} placeholder="Como podemos chamar você?" />
+                </div>
+              )}
+              <div className="ru-field">
+                <label htmlFor="auth-email">Email</label>
+                <input id="auth-email" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => { setEmail(e.target.value); setInlineErr(""); }} placeholder="voce@exemplo.com" aria-describedby={inlineErr ? "auth-error" : undefined} />
+              </div>
+              <div className="ru-field">
+                <div className="ru-field__label-row">
+                  <label htmlFor="auth-password">Senha</label>
+                  {mode === "login" && <button className="ru-flow-link" type="button" onClick={() => switchMode("forgot")}>Esqueci a senha</button>}
+                </div>
+                <input id="auth-password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 6 : undefined} value={password} onChange={e => { setPassword(e.target.value); setInlineErr(""); }} placeholder={mode === "signup" ? "Mínimo de 6 caracteres" : "Sua senha"} aria-describedby={inlineErr ? "auth-error" : undefined} />
+              </div>
 
-        {mode === "signup" && (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12 }}>
-            <input id="signup-terms-consent" type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); setInlineErr(""); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: T.textMuted, lineHeight: 1.5 }}>
-              <label htmlFor="signup-terms-consent" style={{ cursor: "pointer" }}>Sou o responsável legal e concordo com os </label>
-              <button type="button" onClick={() => setShowTerms(true)} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
-                Termos de Uso e Política de Privacidade
-              </button>{" "}(tratamento de dados de menores, IA e pagamento).
-            </span>
-          </div>
-        )}
+              {mode === "signup" && (
+                <div className="ru-check-row ru-check-row--signup">
+                  <input id="signup-terms-consent" type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); setInlineErr(""); }} />
+                  <div>
+                    <label htmlFor="signup-terms-consent">Sou o responsável legal e concordo com o tratamento de dados de menores, uso de IA e pagamento descritos nos termos.</label>
+                    <button type="button" className="ru-flow-link" onClick={() => setShowTerms(true)}>Ler Termos de Uso e Política de Privacidade</button>
+                  </div>
+                </div>
+              )}
 
-        {mode !== "forgot" && <><div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
-          <span style={{ color: T.textMuted, fontSize: 12 }}>ou continue com</span>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+              {inlineErr && <div id="auth-error" className="ru-form-alert" role="alert">{inlineErr}</div>}
+              <button className="ru-flow-button ru-flow-button--primary" type="submit" disabled={loading || (mode === "signup" && !agreedTerms)}>{loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}</button>
+            </form>
+          )}
+
+          {mode !== "forgot" && <>
+            <div className="ru-auth-divider"><span>ou continue com</span></div>
+            <button type="button" className="ru-flow-button ru-flow-button--google" onClick={handleGoogle} disabled={loading}>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Entrar com Google
+            </button>
+
+            <div className="ru-auth-switch">
+              {mode === "login"
+                ? <>Novo por aqui? <button type="button" className="ru-flow-link" onClick={() => switchMode("signup")}>Criar conta grátis</button></>
+                : <>Já tem conta? <button type="button" className="ru-flow-link" onClick={() => switchMode("login")}>Fazer login</button></>
+              }
+            </div>
+          </>}
+
+          <footer className="ru-auth-footer">
+            <button type="button" className="ru-flow-link" onClick={() => setShowTerms(true)}>Termos de Uso e Política de Privacidade</button>
+          </footer>
         </div>
-
-        <button onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "14px 24px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Entrar com Google
-        </button></>}
-      </div>
-
-      {mode !== "forgot" && <div style={{ textAlign: "center", padding: "24px 0 40px", color: T.textMuted, fontSize: 14 }}>
-        {mode === "login"
-          ? <> Novo por aqui? <button type="button" onClick={() => setMode("signup")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer" }}>Criar conta grátis</button></>
-          : <> Já tem conta? <button type="button" onClick={() => setMode("login")} style={{ ...TEXT_BUTTON_STYLE, color: T.primary, fontWeight: 800, cursor: "pointer" }}>Fazer login</button></>
-        }
-      </div>}
-
-      <div style={{ textAlign: "center", paddingBottom: 20 }}>
-        <button type="button" onClick={() => setShowTerms(true)} style={{ ...TEXT_BUTTON_STYLE, color: T.textMuted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
-          Termos de Uso e Política de Privacidade
-        </button>
-      </div>
+      </section>
 
       {showTerms && createPortal(<TermsModal onClose={() => setShowTerms(false)} />, document.body)}
-    </div>
+    </main>
   );
 };
 
@@ -1280,7 +1324,7 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted }) => {
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════
 const Onboarding = ({ onDone }) => {
-  // step: "recovering" | "choice" | "create" | "addchild" | "join"
+  // step: "recovering" | "recover_error" | "choice" | "create" | "addchild" | "join"
   const [step, setStep]               = useState("recovering");
   const [familyName, setFamilyName]   = useState("");
   const [childName, setChildName]     = useState("");
@@ -1289,50 +1333,70 @@ const Onboarding = ({ onDone }) => {
   const [joinCode, setJoinCode]       = useState("");
   const [loading, setLoading]         = useState(false);
   const [err, setErr]                 = useState("");
+  const [recoverAttempt, setRecoverAttempt] = useState(0);
 
   // Tenta reconectar família automaticamente ao entrar no onboarding
   useEffect(() => {
     const tryRecover = async () => {
       const { data, error } = await supabase.rpc("recover_family");
-      if (!error && data?.found) {
+      if (error) {
+        void reportAppError({ error, source: "onboarding", action: "recover_family", screen: "onboarding" });
+        setErr("Não foi possível verificar sua família. Confira a conexão e tente novamente.");
+        setStep("recover_error");
+      } else if (data?.found) {
         onDone(); // reconectado — vai direto pro dashboard
       } else {
         setStep("choice");
       }
     };
     tryRecover();
-  }, [onDone]);
+  }, [onDone, recoverAttempt]);
 
-  const createFamily = async () => {
-    if (!familyName) return;
+  const onboardingError = (error, fallback) => {
+    const message = error?.message || "";
+    if (/nome muito curto/i.test(message)) return "Use um nome de família com pelo menos 2 caracteres.";
+    if (/ja pertence|já pertence/i.test(message)) return "Sua conta já pertence a uma família.";
+    if (/codigo.*(?:invalido|inválido|expirado)/i.test(message)) return "Código inválido ou expirado.";
+    if (/limite/i.test(message)) return "Esta família atingiu o limite do plano atual.";
+    if (/network|fetch/i.test(message)) return "Não foi possível conectar. Verifique sua internet e tente novamente.";
+    return fallback;
+  };
+
+  const createFamily = async (event) => {
+    event?.preventDefault();
+    const normalizedName = familyName.trim();
+    if (normalizedName.length < 2) return;
     setErr(""); setLoading(true);
-    const { error } = await supabase.rpc("create_family", { p_family_name: familyName });
+    const { error } = await supabase.rpc("create_family", { p_family_name: normalizedName });
     setLoading(false);
-    if (error) { setErr(error.message); return; }
+    if (error) { setErr(onboardingError(error, "Não foi possível criar a família. Tente novamente.")); return; }
     setStep("addchild");
   };
 
-  const addChild = async () => {
-    if (!childName || !childBirth) return;
+  const addChild = async (event) => {
+    event?.preventDefault();
+    const normalizedChildName = childName.trim();
+    if (!normalizedChildName || !childBirth) return;
     if (new Date(childBirth) >= new Date()) { setErr("Data de nascimento inválida."); return; }
     setErr(""); setLoading(true);
     const { error } = await supabase.rpc("add_child", {
-      p_display_name: childName,
+      p_display_name: normalizedChildName,
       p_avatar_emoji: avatar,
       p_age: calcAge(childBirth),
       p_birth_date: childBirth || null,
     });
-    if (error) { setLoading(false); setErr(error.message); return; }
+    if (error) { setLoading(false); setErr(onboardingError(error, "Não foi possível adicionar a criança. Tente novamente.")); return; }
     setLoading(false);
     onDone();
   };
 
-  const joinFamily = async () => {
+  const joinFamily = async (event) => {
+    event?.preventDefault();
     if (!joinCode.trim()) return;
     setErr(""); setLoading(true);
     const { error } = await supabase.rpc("join_family_by_code", { p_code: joinCode.trim() });
     setLoading(false);
-    if (error) { setErr(error.message || "Código inválido ou expirado"); return; }
+    if (error) { setErr(onboardingError(error, "Não foi possível entrar na família. Confira o código.")); return; }
     onDone();
   };
 
@@ -1340,109 +1404,138 @@ const Onboarding = ({ onDone }) => {
   const currentStep = step === "choice" ? 0 : step === "create" ? 0 : step === "join" ? 0 : 1;
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", padding: "0 24px" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+    <main className="ru-flow-page ru-onboarding-page">
+      <FlowHeader />
+      <div className={`ru-onboarding-shell ru-onboarding-shell--${step}`}>
 
         {/* RECOVERING */}
         {step === "recovering" && (
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
-            <div style={{ color: T.textMuted, fontSize: 15 }}>Verificando sua conta...</div>
-          </div>
+          <section className="ru-recovering" role="status" aria-live="polite">
+            <span className="ru-flow-spinner" aria-hidden="true" />
+            <h1>Preparando sua conta</h1>
+            <p>Estamos verificando se sua família já está configurada.</p>
+          </section>
+        )}
+
+        {step === "recover_error" && (
+          <section className="ru-recovering" role="alert">
+            <div className="ru-recovering__error" aria-hidden="true">!</div>
+            <h1>Não foi possível verificar sua conta</h1>
+            <p>{err}</p>
+            <button type="button" className="ru-flow-button ru-flow-button--primary" onClick={() => { setErr(""); setStep("recovering"); setRecoverAttempt(value => value + 1); }}>Tentar novamente</button>
+          </section>
         )}
 
         {/* CHOICE */}
         {step === "choice" && (
-          <>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <div style={{ fontSize: 64, marginBottom: 16 }}>🚀</div>
-              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Bem-vindo!</div>
-              <div style={{ color: T.textMuted, fontSize: 15 }}>Como deseja começar?</div>
+          <section className="ru-onboarding-step" aria-labelledby="ru-onboarding-choice-title">
+            <header className="ru-onboarding-heading">
+              <span className="ru-flow-kicker">Primeira configuração</span>
+              <h1 id="ru-onboarding-choice-title">Como você deseja começar?</h1>
+              <p>Crie uma nova família ou use o convite enviado por outro responsável.</p>
+            </header>
+            <div className="ru-onboarding-choice-grid">
+            <button type="button" className="ru-choice-button ru-choice-button--coral" onClick={() => setStep("create")}>
+              <span className="ru-choice-button__icon" aria-hidden="true">⌂</span>
+              <div>
+                <strong>Criar minha família</strong>
+                <p>Comece uma rotina nova e adicione as crianças.</p>
+              </div>
+            </button>
+            <button type="button" className="ru-choice-button ru-choice-button--mint" onClick={() => setStep("join")}>
+              <span className="ru-choice-button__icon" aria-hidden="true">↗</span>
+              <div>
+                <strong>Entrar com convite</strong>
+                <p>Use o código compartilhado por outro responsável.</p>
+              </div>
+            </button>
             </div>
-            <button onClick={() => setStep("create")} style={{ width: "100%", padding: "20px 24px", borderRadius: 20, border: `2px solid ${T.primary}55`, background: `${T.primary}14`, color: T.text, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 14, textAlign: "left", display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ fontSize: 36 }}>🏠</div>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 16, color: T.primary }}>Criar minha família</div>
-                <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3 }}>Comece do zero com sua família</div>
-              </div>
-            </button>
-            <button onClick={() => setStep("join")} style={{ width: "100%", padding: "20px 24px", borderRadius: 20, border: `2px solid ${T.accent}55`, background: `${T.accent}0E`, color: T.text, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "left", display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ fontSize: 36 }}>🔗</div>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 16, color: T.accent }}>Entrar com convite</div>
-                <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3 }}>Tenho um código de outro responsável</div>
-              </div>
-            </button>
-          </>
+          </section>
         )}
 
         {/* CREATE FAMILY */}
         {step === "create" && (
-          <>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <div style={{ fontSize: 64, marginBottom: 16 }}>🏠</div>
-              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Criar família</div>
-              <div style={{ color: T.textMuted, fontSize: 15 }}>Dê um nome para a sua família</div>
-            </div>
-            <Inp icon="🏠" placeholder="Ex: Família Silva" value={familyName} onChange={e => setFamilyName(e.target.value)} />
-            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-            <Btn onClick={createFamily} disabled={loading || !familyName}>{loading ? "Criando..." : "Próximo →"}</Btn>
-            <button onClick={() => { setStep("choice"); setErr(""); }} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Voltar</button>
-          </>
+          <section className="ru-onboarding-step ru-onboarding-step--form" aria-labelledby="ru-create-family-title">
+            <header className="ru-onboarding-heading">
+              <span className="ru-flow-kicker">Etapa 1 de 2</span>
+              <h1 id="ru-create-family-title">Crie sua família</h1>
+              <p>Escolha um nome fácil de reconhecer. Você poderá alterá-lo depois.</p>
+            </header>
+            <form className="ru-onboarding-form" onSubmit={createFamily} noValidate>
+              <div className="ru-field">
+                <label htmlFor="family-name">Nome da família</label>
+                <input id="family-name" type="text" autoComplete="organization" maxLength={60} value={familyName} onChange={e => { setFamilyName(e.target.value); setErr(""); }} placeholder="Ex.: Família Silva" aria-describedby={err ? "onboarding-error" : "family-name-hint"} autoFocus />
+                <span id="family-name-hint" className="ru-field__hint">Use pelo menos 2 caracteres.</span>
+              </div>
+              {err && <div id="onboarding-error" className="ru-form-alert" role="alert">{err}</div>}
+              <button className="ru-flow-button ru-flow-button--primary" type="submit" disabled={loading || familyName.trim().length < 2}>{loading ? "Criando..." : "Continuar"}</button>
+              <button className="ru-flow-link ru-flow-link--center" type="button" onClick={() => { setStep("choice"); setErr(""); }}>Voltar</button>
+            </form>
+          </section>
         )}
 
         {/* ADD CHILD */}
         {step === "addchild" && (
-          <>
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <div style={{ fontSize: 64, marginBottom: 16 }}>👶</div>
-              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Adicionar filho(a)</div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-              <AvatarImg value={avatar} size={72} radius={22} />
-            </div>
-            <DiceBearPicker value={avatar} onChange={setAvatar} />
-            <div style={{ marginTop: 14 }}>
-              <Inp icon="🧒" placeholder="Nome do filho(a)" value={childName} onChange={e => setChildName(e.target.value)} />
-              <DateInp value={childBirth} onChange={e => setChildBirth(e.target.value)} />
-              {childBirth && <div style={{ color: T.textMuted, fontSize: 12, marginTop: -10, marginBottom: 12, paddingLeft: 4 }}>{calcAge(childBirth)} anos</div>}
-              {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-              <Btn onClick={addChild} disabled={loading || !childName || !childBirth} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Salvando..." : "🚀 Começar a aventura!"}</Btn>
-              <button onClick={onDone} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>Pular por agora</button>
-            </div>
-          </>
+          <section className="ru-onboarding-step ru-onboarding-step--child" aria-labelledby="ru-add-child-title">
+            <header className="ru-onboarding-heading">
+              <span className="ru-flow-kicker">Etapa 2 de 2</span>
+              <h1 id="ru-add-child-title">Adicione a primeira criança</h1>
+              <p>Esses dados personalizam missões, níveis e sugestões para a faixa etária.</p>
+            </header>
+            <form className="ru-onboarding-form ru-onboarding-form--child" onSubmit={addChild} noValidate>
+              <div className="ru-avatar-preview">
+                <AvatarImg value={avatar} size={72} radius={18} />
+                <div><strong>Escolha um avatar</strong><span>Ele poderá ser trocado no perfil.</span></div>
+              </div>
+              <div className="ru-avatar-picker"><DiceBearPicker value={avatar} onChange={setAvatar} tone="light" /></div>
+              <div className="ru-onboarding-field-grid">
+                <div className="ru-field">
+                  <label htmlFor="child-name">Nome da criança</label>
+                  <input id="child-name" type="text" autoComplete="off" maxLength={80} value={childName} onChange={e => { setChildName(e.target.value); setErr(""); }} placeholder="Nome ou apelido" />
+                </div>
+                <div className="ru-field">
+                  <label htmlFor="child-birth">Data de nascimento</label>
+                  <input id="child-birth" type="date" value={childBirth} onChange={e => { setChildBirth(e.target.value); setErr(""); }} max={localDateStr(1)} />
+                  {childBirth && <span className="ru-field__hint">Idade calculada: {calcAge(childBirth)} anos</span>}
+                </div>
+              </div>
+              {err && <div id="onboarding-error" className="ru-form-alert" role="alert">{err}</div>}
+              <button className="ru-flow-button ru-flow-button--primary" type="submit" disabled={loading || !childName.trim() || !childBirth}>{loading ? "Salvando..." : "Salvar e abrir o painel"}</button>
+              <button className="ru-flow-link ru-flow-link--center" type="button" onClick={onDone}>Pular por agora</button>
+            </form>
+          </section>
         )}
 
         {/* JOIN WITH CODE */}
         {step === "join" && (
-          <>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <div style={{ fontSize: 64, marginBottom: 16 }}>🔗</div>
-              <div style={{ color: T.text, fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Código de convite</div>
-              <div style={{ color: T.textMuted, fontSize: 15 }}>Digite o código de convite que o responsável compartilhou</div>
-            </div>
-            <input
-              value={joinCode}
-              onChange={e => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Código de convite"
-              maxLength={8}
-              style={{ width: "100%", padding: "18px 24px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: `2px solid ${T.accent}55`, color: T.text, fontSize: 28, fontFamily: "'Nunito', sans-serif", fontWeight: 900, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 8, marginBottom: 16 }}
-            />
-            {err && <div style={{ color: T.pink, fontSize: 13, fontWeight: 700, marginBottom: 12, background: `${T.pink}18`, borderRadius: 12, padding: "10px 14px" }}>⚠️ {err}</div>}
-            <Btn onClick={joinFamily} disabled={loading || joinCode.length < 4} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>{loading ? "Verificando..." : "🔗 Entrar na família"}</Btn>
-            <button onClick={() => { setStep("choice"); setErr(""); }} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", width: "100%", textAlign: "center" }}>← Voltar</button>
-          </>
+          <section className="ru-onboarding-step ru-onboarding-step--form" aria-labelledby="ru-join-family-title">
+            <header className="ru-onboarding-heading">
+              <span className="ru-flow-kicker">Convite de responsável</span>
+              <h1 id="ru-join-family-title">Entre em uma família</h1>
+              <p>Digite o código compartilhado pelo responsável que já administra a família.</p>
+            </header>
+            <form className="ru-onboarding-form" onSubmit={joinFamily} noValidate>
+              <div className="ru-field">
+                <label htmlFor="family-invite-code">Código de convite</label>
+                <input id="family-invite-code" className="ru-code-input" type="text" inputMode="text" autoComplete="off" value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)); setErr(""); }} placeholder="ABC123" maxLength={8} aria-describedby={err ? "onboarding-error" : "invite-code-hint"} autoFocus />
+                <span id="invite-code-hint" className="ru-field__hint">Use apenas letras e números.</span>
+              </div>
+              {err && <div id="onboarding-error" className="ru-form-alert" role="alert">{err}</div>}
+              <button className="ru-flow-button ru-flow-button--primary" type="submit" disabled={loading || joinCode.length < 4}>{loading ? "Verificando..." : "Entrar na família"}</button>
+              <button className="ru-flow-link ru-flow-link--center" type="button" onClick={() => { setStep("choice"); setErr(""); }}>Voltar</button>
+            </form>
+          </section>
         )}
-      </div>
 
       {step !== "choice" && step !== "recovering" && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, paddingBottom: 40 }}>
+        <nav className="ru-onboarding-progress" aria-label="Progresso da configuração">
           {Array.from({length: totalSteps}).map((_, i) => (
-            <div key={i} style={{ width: i === currentStep ? 28 : 8, height: 8, borderRadius: 999, background: i === currentStep ? T.primary : "rgba(255,255,255,0.15)", transition: "all 0.3s" }} />
+            <span key={i} className={i === currentStep ? "is-current" : ""}><span className="sr-only">Etapa {i + 1}{i === currentStep ? " atual" : ""}</span></span>
           ))}
-        </div>
+        </nav>
       )}
-    </div>
+      </div>
+    </main>
   );
 };
 
@@ -4903,12 +4996,13 @@ export default function App() {
     else if (!profile.family_id && profile.role === "child") activeScreen = "child_join";
     else activeScreen = profile.role === "parent" || profile.role === "admin" ? "parent" : "child";
   }
+  const isRefreshScreen = ["landing", "auth", "terms", "onboarding"].includes(activeScreen);
 
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: activeScreen === "landing" ? "#F7F9FC" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: activeScreen === "landing" ? "none" : activeScreen === "admin" ? 700 : (activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: activeScreen === "landing" ? "#F7F9FC" : T.darker, boxShadow: activeScreen === "landing" ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
+        <div style={{ width: "100%", maxWidth: isRefreshScreen ? "none" : activeScreen === "admin" ? 700 : (activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : T.darker, boxShadow: isRefreshScreen ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {activeScreen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
@@ -4918,7 +5012,7 @@ export default function App() {
           {activeScreen !== "admin" && <>
           {activeScreen === "splash" && <Splash onDone={finishSplash} />}
           {activeScreen === "landing"    && <LandingPage onSignup={() => { setAuthMode("signup"); setScreen("auth"); }} onLogin={() => { setAuthMode("login"); setScreen("auth"); }} />}
-          {activeScreen === "auth"       && <AuthScreen initialMode={authMode} onTermsAccepted={loadProfile} />}
+          {activeScreen === "auth"       && <AuthScreen initialMode={authMode} onTermsAccepted={loadProfile} onBack={() => setScreen("landing")} />}
           {activeScreen === "profile_error" && <LoadErrorBlock
             title="Não foi possível abrir sua conta"
             message={profileLoadError || "Tente novamente em alguns instantes."}
