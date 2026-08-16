@@ -357,6 +357,8 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 4A - home do responsavel | Validado localmente | Resumo familiar, timers, central de acoes, filhos, missoes rapidas e convite reorganizados sem alterar contratos. 25 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844, sem overflow nem erro de console. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Backlog funcional pos-refresh do Lovable | Registrado | Funcionalidades extras serao inventariadas e priorizadas somente apos a Etapa 7, com analise de valor, contratos, seguranca, LGPD, custo e suporte. **Nenhuma funcionalidade adicional autorizada nesta fase.** |
 | 2026-08-16 | Refresh visual Etapa 4B - gestao de missoes | Validado localmente | Criacao, recorrencia, ordenacao, edicao, arquivo e reativacao reorganizados; falhas concorrentes e respostas funcionais agora sao tratadas. Migration de limites atomicos preparada, nao aplicada. 27 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Refresh visual Etapa 4C - temas, recompensas e resgates | Validado localmente | Tema claro/escuro persistente, com modo escuro baseado na paleta original do RotinUp; recompensas e fila de resgates migradas para o layout novo com travas de concorrencia e confirmacao de cancelamento. 29 testes PASS; QA autenticado nos dois temas e tres viewports. **Sem acao mutavel confirmada, push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Residuo sintetico do QA visual 4C | Aberto (operacional) | O primeiro seed interrompido deixou `Familia QA Visual 4C`, `Lia QA`, 3 recompensas e 2 resgates aprovados. Dados ficticios, isolados por RLS e sem PII real; requer purga administrativa posterior. A conta da rodada final foi removida e o relogin falhou como esperado. |
 
 ---
 
@@ -562,6 +564,32 @@ Implementado e validado localmente em 2026-08-16:
 - Console limpo e gates aprovados: 27/27 testes, lint estrito, build PWA, `git diff --check` e audit de producao.
 
 Estado vivo do produto: **dados, backend e release inalterados**. Nenhuma missao foi criada, editada, reordenada, arquivada ou reativada durante o QA. Nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4C tratara recompensas, resgates e cancelamento sem duplo estorno; o backlog extra do Lovable permanece adiado ate depois da Etapa 7.
+
+## 7.10 Estado do Refresh Visual - Etapa 4C
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-4c`, baseada na Etapa 4B aprovada.
+- O painel do responsavel ganhou alternancia claro/escuro persistente por dispositivo, com tema claro como padrao para novos navegadores.
+- O modo escuro mantem a composicao nova e usa a identidade original do RotinUp: fundos `#0f0f1a`, superficies `#252540`/`#2e2e50`, texto `#f0f0ff` e acentos coral, amarelo, verde, roxo, azul e rosa.
+- Shell, Home, Missoes e Recompensas compartilham tokens de tema sem mudar as rotas internas, consultas ou contratos de backend.
+- A aba Recompensas separa criacao, fila operacional, catalogo ativo e arquivo, com contagens, limite Free e estados vazios explicitos.
+- Criacao e edicao validam titulo, bloqueiam envio duplicado, tratam erro de transporte e `success: false`; falhas ao salvar duracao permanecem visiveis.
+- Reativacao e acoes de resgate possuem trava imediata por item. Cancelar exige dois cliques intencionais e recarrega o estado autoritativo diante de operacao concorrente ou obsoleta.
+- O contrato SQL existente de cancelamento foi revisado: a transicao com guarda e `RETURNING` ocorre antes do estorno, impedindo duplo credito. Nenhuma migration ou RPC foi alterada.
+- O modal de recompensa possui nome acessivel, foco preso, `Esc`, campos rotulados, controles ocupados e confirmacao em duas etapas para desativacao.
+- QA autenticado em modo somente leitura aprovou claro e escuro em 1440x900, 768x1024 e 390x844; nao houve overflow, corte, botao sem nome ou sobreposicao com a navegacao inferior.
+- A persistencia do tema foi confirmada apos reload. No escuro, os contrastes efetivos amostrados ficaram entre 6,04:1 e 13,13:1.
+- Home e Missoes tambem foram verificadas no tema escuro; console sem erros ou avisos da aplicacao.
+- Gates: 29/29 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Limpeza de QA:
+
+- A conta descartavel da rodada final foi removida pela Edge `delete-account`; novo login retornou `Invalid login credentials`.
+- O primeiro script de seed falhou depois de criar dados e antes de exibir credenciais. Permanece um conjunto totalmente ficticio identificado como `Familia QA Visual 4C`/`Lia QA`, com tres recompensas e dois resgates aprovados.
+- O residuo nao contem PII real, esta isolado por RLS e nao altera a seguranca ou os contratos do produto. A remocao exige acesso administrativo e permanece como pendencia operacional explicita.
+
+Estado vivo do produto: **frontend, backend e release inalterados**. Nenhuma acao mutavel foi confirmada no QA visual e nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4D tratara estatisticas, conta, Premium e exclusao LGPD; o backlog extra do Lovable continua reservado para depois da Etapa 7.
 
 ## 8. Modelo Para Novas Entradas
 

@@ -515,6 +515,12 @@
   color: #a93628;
 }
 
+.ru-home-button--reject[data-confirming="true"] {
+  border-color: #c95a4a;
+  background: #fff1ed;
+  color: #a93628;
+}
+
 .ru-home-button:disabled,
 .ru-home-text-button:disabled,
 .ru-home-invite__locked:disabled,

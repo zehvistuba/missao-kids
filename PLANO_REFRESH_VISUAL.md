@@ -105,12 +105,12 @@ Status: concluida localmente, sem deploy.
 
 ### Etapa 4 - Fluxos centrais do responsavel
 
-Status: em andamento; lotes 4A e 4B concluidos localmente, sem deploy.
+Status: em andamento; lotes 4A, 4B e 4C concluidos localmente, sem deploy.
 
 - Home, resumo familiar, aprovacoes e cronometros: lote 4A concluido.
 - Gestao completa de missoes e recorrencia: lote 4B concluido.
-- Recompensas, resgates e cancelamento sem duplo estorno: proximo lote.
-- Estatisticas, conta, Premium e exclusao LGPD.
+- Recompensas, resgates e cancelamento sem duplo estorno: lote 4C concluido.
+- Estatisticas, conta, Premium e exclusao LGPD: proximo lote.
 - Validar estados vazio, carregando, erro, sucesso e concorrencia.
 
 ### Etapa 5 - Modo crianca parent-managed
@@ -227,6 +227,22 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 27/27 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 - Estado vivo: nenhum dado foi criado, editado, reordenado, reativado ou arquivado; nenhum push, deploy, SQL ou liberacao.
 
-## 11. Proxima Decisao
+## 11. Evidencia da Etapa 4C
 
-Iniciar a Etapa 4C em nova branch/commit para migrar recompensas, resgates e cancelamento sem duplo estorno. Estatisticas, conta e Premium permanecem em lotes posteriores; funcionalidades extras do Lovable continuam reservadas para triagem depois da Etapa 7.
+- Branch: `codex/refresh-visual-etapa-4c`, derivada da Etapa 4B aprovada.
+- Tema: alternancia claro/escuro persistente no dispositivo; o modo escuro preserva o layout novo e recupera a paleta original do RotinUp (`#0f0f1a`, `#252540`, coral, amarelo, verde, roxo, azul e rosa).
+- Abrangencia: shell, Home, Missoes e Recompensas usam os mesmos tokens de tema, sem alterar navegacao, consultas ou contratos de backend.
+- Recompensas: criacao, catalogo ativo, edicao, duracao, arquivo e reativacao foram reorganizados com validacao local, estados ocupados e tratamento de erro funcional.
+- Resgates: as tres etapas continuam operacionais; aprovar, entregar e cancelar bloqueiam concorrencia por item, e o cancelamento exige confirmacao em duas etapas.
+- Corretude: o SQL existente foi inspecionado e ja faz transicao atomica com `UPDATE ... RETURNING` antes do estorno; nenhuma RPC ou migration foi criada ou substituida neste lote.
+- Acessibilidade: dialogo nomeado, foco preso, `Esc`, campos rotulados, `aria-pressed`, `aria-busy`, foco visivel e controles com nomes acessiveis.
+- Browser autenticado em modo somente leitura: tema claro e escuro aprovados em 1440x900, 768x1024 e 390x844, sem overflow, corte ou sobreposicao da navegacao mobile; persistencia apos reload confirmada.
+- Contraste efetivo no tema escuro: textos e controles amostrados entre 6,04:1 e 13,13:1.
+- Console: sem erros ou avisos da aplicacao; nenhuma criacao, edicao, aprovacao, entrega, cancelamento ou reativacao foi confirmada no QA visual.
+- Limpeza: a conta final de QA foi eliminada pela Edge LGPD e o relogin foi recusado. O primeiro seed interrompido deixou um conjunto sintetico isolado (`Familia QA Visual 4C`, `Lia QA`), sem PII real, registrado para purga administrativa.
+- Automacao: 29/29 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado.
+
+## 12. Proxima Decisao
+
+Iniciar a Etapa 4D em nova branch/commit para migrar estatisticas, conta, Premium e exclusao LGPD. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.

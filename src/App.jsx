@@ -19,13 +19,18 @@ import "./styles/flow-refresh.css";
 import "./styles/parent-shell-refresh.css";
 import "./styles/parent-home-refresh.css";
 import "./styles/parent-missions-refresh.css";
+import "./styles/parent-rewards-refresh.css";
+import "./styles/parent-theme-refresh.css";
 
-const TEXT_BUTTON_STYLE = {
-  padding: 0,
-  border: "none",
-  background: "transparent",
-  color: "inherit",
-  font: "inherit",
+const PARENT_THEME_STORAGE_KEY = "rotinup-parent-theme-v1";
+const REWARD_EMOJIS = ["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"];
+
+const getStoredParentTheme = () => {
+  try {
+    return window.localStorage.getItem(PARENT_THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 };
 
 const sanitizeStr = (v, maxLen = 120) =>
@@ -2831,7 +2836,7 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
 
         <div className="ru-mission-field">
           <label htmlFor="edit-mission-title">Nome da missão</label>
-          <div className="ru-mission-title-input"><span aria-hidden="true">{emoji}</span><input id="edit-mission-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={60} autoFocus /></div>
+          <label className="ru-mission-title-input" htmlFor="edit-mission-title"><span aria-hidden="true">{emoji}</span><span className="sr-only">Nome da missão</span><input id="edit-mission-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={60} autoFocus /></label>
         </div>
 
         <fieldset className="ru-mission-frequency">
@@ -2866,48 +2871,62 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
 // ─── Reward Modal ─────────────────────────────────────────
 const RewardModal = ({ reward, emojiCategories, onSave, onDeactivate, onClose }) => {
   const dialogRef = useModalDialog(onClose);
-  const [title, setTitle]   = useState(reward.title || "");
-  const [emoji, setEmoji]   = useState(reward.emoji || "🎁");
-  const [cost, setCost]     = useState(reward.coin_cost ?? 50);
+  const [title, setTitle] = useState(reward.title || "");
+  const [emoji, setEmoji] = useState(reward.emoji || "🎁");
+  const [cost, setCost] = useState(reward.coin_cost ?? 50);
+  const [duration, setDuration] = useState(reward.duration_minutes ?? 0);
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
   const [emojiCat, setEmojiCat] = useState(Object.keys(emojiCategories)[0]);
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (saving || deactivating || title.trim().length < 2) return;
     setSaving(true);
-    await onSave({ title: title.trim(), emoji, coin_cost: cost });
+    await onSave({ title: title.trim(), emoji, coin_cost: cost, duration_minutes: duration });
     setSaving(false);
   };
 
+  const handleDeactivate = async () => {
+    if (!confirm) {
+      setConfirm(true);
+      return;
+    }
+    if (saving || deactivating) return;
+    setDeactivating(true);
+    const deactivated = await onDeactivate();
+    if (deactivated === false) setConfirm(false);
+    setDeactivating(false);
+  };
+
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Editar recompensa" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
-        <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Recompensa</div>
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
+    <div className="ru-reward-dialog-backdrop" onMouseDown={onClose}>
+      <div ref={dialogRef} className="ru-reward-dialog" role="dialog" aria-modal="true" aria-labelledby="ru-reward-dialog-title" tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
+        <header className="ru-reward-dialog__header">
+          <div><span className="ru-rewards-kicker">Configuração</span><h2 id="ru-reward-dialog-title">Editar recompensa</h2></div>
+          <button type="button" className="ru-reward-icon-button" onClick={onClose} disabled={saving || deactivating} aria-label="Fechar edição">×</button>
+        </header>
+        <div className="ru-reward-dialog__categories" aria-label="Categorias de ícones">
           {Object.keys(emojiCategories).map(cat => (
-            <button key={cat} onClick={() => setEmojiCat(cat)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 20, fontSize: 12, border: "none", background: emojiCat === cat ? T.secondary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}</button>
+            <button type="button" key={cat} onClick={() => setEmojiCat(cat)} aria-pressed={emojiCat === cat}>{cat}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-start", marginBottom: 16, maxHeight: 160, overflowY: "auto", padding: "4px 0" }}>
-          {(emojiCategories[emojiCat] || []).map(e => (
-            <button key={e} onClick={() => setEmoji(e)} style={{ width: 42, height: 42, borderRadius: 10, fontSize: 22, border: `2px solid ${emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+        <div className="ru-reward-dialog__emojis">
+          {(emojiCategories[emojiCat] || []).map(option => (
+            <button type="button" key={option} onClick={() => setEmoji(option)} aria-pressed={emoji === option} aria-label={`Usar ${option}`}>{option}</button>
           ))}
         </div>
-        <Inp icon={emoji} placeholder="Nome da recompensa" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
-          <input type="number" value={cost === 0 ? "" : cost} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setCost(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+        <label className="ru-reward-title-input" htmlFor="edit-reward-title"><span aria-hidden="true">{emoji}</span><span className="sr-only">Nome da recompensa</span><input id="edit-reward-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={60} autoFocus /></label>
+        <div className="ru-reward-value-grid">
+          <div className="ru-reward-field"><label htmlFor="edit-reward-cost">Custo em KidCoins</label><input id="edit-reward-cost" type="number" value={cost === 0 ? "" : cost} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setCost(event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0))} /></div>
+          <div className="ru-reward-field"><label htmlFor="edit-reward-duration">Duração (min)</label><input id="edit-reward-duration" type="number" value={duration === 0 ? "" : duration} placeholder="Sem timer" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setDuration(event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0))} /></div>
         </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          <Btn onClick={handleSave} disabled={saving || !title.trim()} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`}>
-            {saving ? "Salvando..." : "✅ Salvar"}
-          </Btn>
-          <Btn onClick={onClose} outline small>Cancelar</Btn>
+        <div className="ru-reward-dialog__actions">
+          <button type="button" className="ru-rewards-button ru-rewards-button--primary" onClick={handleSave} disabled={saving || deactivating || title.trim().length < 2} aria-busy={saving}>{saving ? "Salvando..." : "Salvar alterações"}</button>
+          <button type="button" className="ru-rewards-button ru-rewards-button--secondary" onClick={onClose} disabled={saving || deactivating}>Cancelar</button>
         </div>
-        <button onClick={() => { if (!confirm) { setConfirm(true); return; } onDeactivate(); }} style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${confirm ? T.pink : "rgba(255,255,255,0.1)"}`, background: confirm ? `${T.pink}22` : "transparent", color: confirm ? T.pink : T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
-          {confirm ? "⚠️ Confirmar desativação" : "🗑️ Desativar recompensa"}
+        <button type="button" className="ru-reward-dialog__deactivate" data-confirming={confirm} onClick={handleDeactivate} disabled={saving || deactivating} aria-busy={deactivating}>
+          {deactivating ? "Desativando..." : confirm ? "Confirmar desativação" : "Desativar recompensa"}
         </button>
       </div>
     </div>
@@ -3234,6 +3253,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const isDesktop = useIsDesktop();
   const [viewOpenedAt] = useState(() => Date.now());
   const [tab, setTab]             = useState("home");
+  const [parentTheme, setParentTheme] = useState(getStoredParentTheme);
   const [children, setChildren]   = useState([]);
   const [missions, setMissions]   = useState([]);
   const [pending, setPending]     = useState([]);
@@ -3243,6 +3263,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [notifType, setNotifType] = useState("success");
   const [showMission, setShowMission]   = useState(false);
   const [creatingMission, setCreatingMission] = useState(false);
+  const [creatingReward, setCreatingReward] = useState(false);
   const [dragMissionId, setDragMissionId] = useState(null);
   const [localMissions, setLocalMissions] = useState([]);
   const [orderingMissions, setOrderingMissions] = useState(false);
@@ -3278,6 +3299,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [timerBusy, setTimerBusy]             = useState(null);
   const [confirmingRed, setConfirmingRed]     = useState(null);
   const [cancellingRed, setCancellingRed]     = useState(null);
+  const [confirmCancelRed, setConfirmCancelRed] = useState(null);
   const [demeritTarget, setDemeritTarget]     = useState(null); // child object
   const [extratoTarget, setExtratoTarget]     = useState(null); // child object
   const [redeemTarget, setRedeemTarget]       = useState(null); // child object (resgatar em nome do filho)
@@ -3294,6 +3316,15 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const pendingRef = useRef(null);
   const contentRef = useRef(null);
   const loadIdRef = useRef(0);
+  const redemptionActionsRef = useRef(new Set());
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PARENT_THEME_STORAGE_KEY, parentTheme);
+    } catch {
+      // Mantem a preferencia somente durante a sessao quando o storage falha.
+    }
+  }, [parentTheme]);
 
   useEffect(() => {
     if (isDesktop) contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
@@ -3435,10 +3466,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const reactivateReward = async (rewardId) => {
+    if (reactivating) return;
+    const activeRewardCount = rewards.filter(reward => reward.is_active !== false).length;
+    if (familyPlan !== "premium" && activeRewardCount >= PLAN_LIMITS.free.activeRewards) {
+      setShowUpgrade(true);
+      return;
+    }
     setReactivating(rewardId);
     const { error } = await supabase.rpc("reactivate_reward", { p_reward_id: rewardId });
     setReactivating(null);
-    if (error) return notify(error.message, "error");
+    if (error) {
+      captureActionError(error, "reward", "reactivate", "parent_rewards");
+      return notify(error.message, "error");
+    }
     notify("✅ Recompensa reativada!");
     load();
   };
@@ -3594,31 +3634,51 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const finishTimer = async (id) => { setTimerBusy(id); const { error } = await supabase.rpc("finish_reward_timer", { p_log_id: id }); setTimerBusy(null); if (error) { captureActionError(error, "reward_timer", "finish", "parent_rewards"); return notify(error.message || "Erro ao concluir", "error"); } notify("✅ Recompensa concluída!"); load(); };
 
   const confirmDelivery = async (redemptionId) => {
+    if (redemptionActionsRef.current.has(redemptionId)) return;
+    redemptionActionsRef.current.add(redemptionId);
     setConfirmingRed(redemptionId);
     const red = redemptions.find(r => r.id === redemptionId);
-    const { error } = await supabase.rpc("confirm_redemption", { p_log_id: redemptionId });
-    setConfirmingRed(null);
-    if (error) { captureActionError(error, "redemption", "confirm_delivery", "parent_rewards"); return notify(error.message || "Erro ao confirmar entrega", "error"); }
-    notify("✅ Entrega confirmada!"); load();
-    if (red?.child_id) pushNotify([red.child_id], "Recompensa entregue! 🎁", `${red.reward_emoji || "🎁"} ${red.reward_title} foi entregue!`);
+    try {
+      const { error } = await supabase.rpc("confirm_redemption", { p_log_id: redemptionId });
+      if (error) { captureActionError(error, "redemption", "confirm_delivery", "parent_rewards"); notify(error.message || "Erro ao confirmar entrega", "error"); load(); return; }
+      notify("✅ Entrega confirmada!"); load();
+      if (red?.child_id) pushNotify([red.child_id], "Recompensa entregue! 🎁", `${red.reward_emoji || "🎁"} ${red.reward_title} foi entregue!`);
+    } finally {
+      redemptionActionsRef.current.delete(redemptionId);
+      setConfirmingRed(null);
+    }
   };
 
   const cancelRedemption = async (redemptionId) => {
+    if (redemptionActionsRef.current.has(redemptionId)) return;
+    redemptionActionsRef.current.add(redemptionId);
     setCancellingRed(redemptionId);
-    const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redemptionId });
-    setCancellingRed(null);
-    if (error) { captureActionError(error, "redemption", "cancel", "parent_rewards"); return notify(error.message || "Erro ao cancelar", "error"); }
-    notify("🔄 Resgate cancelado. Coins devolvidos."); load();
+    try {
+      const { error } = await supabase.rpc("cancel_redemption", { p_log_id: redemptionId });
+      if (error) { captureActionError(error, "redemption", "cancel", "parent_rewards"); notify(error.message || "Erro ao cancelar", "error"); load(); return; }
+      setConfirmCancelRed(null);
+      notify("🔄 Resgate cancelado. Coins devolvidos."); load();
+    } finally {
+      redemptionActionsRef.current.delete(redemptionId);
+      setCancellingRed(null);
+    }
   };
 
   const approveRedemption = async (redemptionId) => {
+    if (redemptionActionsRef.current.has(redemptionId)) return;
+    redemptionActionsRef.current.add(redemptionId);
     setConfirmingRed(redemptionId);
     const red = redemptions.find(r => r.id === redemptionId);
-    const { error } = await supabase.rpc("approve_redemption", { p_log_id: redemptionId });
-    setConfirmingRed(null);
-    if (error) { captureActionError(error, "redemption", "approve", "parent_rewards"); return notify(error.message || "Erro ao aprovar", "error"); }
-    notify("✅ Resgate aprovado! Aguardando entrega."); load();
-    if (red?.child_id) pushNotify([red.child_id], "Resgate aprovado! ✅", `${red.reward_emoji || "🎁"} ${red.reward_title} foi aprovado! Em breve você recebe.`);
+    try {
+      const { error } = await supabase.rpc("approve_redemption", { p_log_id: redemptionId });
+      if (error) { captureActionError(error, "redemption", "approve", "parent_rewards"); notify(error.message || "Erro ao aprovar", "error"); load(); return; }
+      setConfirmCancelRed(null);
+      notify("✅ Resgate aprovado! Aguardando entrega."); load();
+      if (red?.child_id) pushNotify([red.child_id], "Resgate aprovado! ✅", `${red.reward_emoji || "🎁"} ${red.reward_title} foi aprovado! Em breve você recebe.`);
+    } finally {
+      redemptionActionsRef.current.delete(redemptionId);
+      setConfirmingRed(null);
+    }
   };
 
   const applyDemerit = async ({ childId, title, emoji, coins }) => {
@@ -3712,26 +3772,48 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const createReward = async () => {
-    if (!newR.title) return notify("Digite o nome da recompensa", "error");
-    const { data, error } = await supabase.rpc("create_reward", {
-      p_title: newR.title, p_emoji: newR.emoji, p_coin_cost: newR.coin_cost,
-    });
-    if (error) {
-      if (isLimitError(error.message)) { setShowReward(false); setShowUpgrade(true); return; }
-      return notify("Erro ao criar recompensa: " + error.message, "error");
+    if (creatingReward) return;
+    const title = newR.title.trim();
+    if (title.length < 2) return notify("Digite um nome com pelo menos 2 caracteres.", "error");
+    setCreatingReward(true);
+    try {
+      const { data, error } = await supabase.rpc("create_reward", {
+        p_title: title, p_emoji: newR.emoji, p_coin_cost: newR.coin_cost,
+      });
+      if (error) {
+        if (isLimitError(error.message)) { setShowReward(false); setShowUpgrade(true); return; }
+        captureActionError(error, "reward", "create", "parent_rewards");
+        notify("Erro ao criar recompensa: " + error.message, "error");
+        return;
+      }
+      if (data?.success === false) {
+        if (isLimitError(data.error || "")) { setShowReward(false); setShowUpgrade(true); return; }
+        notify(data.error || "Erro ao criar recompensa", "error");
+        return;
+      }
+
+      const newRewardId = typeof data === "string" ? data : data?.id;
+      let durationWarning = "";
+      if (newR.duration_minutes > 0) {
+        if (!newRewardId) {
+          durationWarning = "Recompensa criada, mas a duração não pôde ser associada.";
+          captureActionError(new Error(durationWarning), "reward", "set_duration", "parent_rewards");
+        } else {
+          const { error: durationError } = await supabase.rpc("set_reward_duration", { p_reward_id: newRewardId, p_minutes: newR.duration_minutes });
+          if (durationError) {
+            durationWarning = "Recompensa criada, mas a duração não foi salva. Edite e tente novamente.";
+            captureActionError(durationError, "reward", "set_duration", "parent_rewards");
+          }
+        }
+      }
+
+      setShowReward(false);
+      setNewR({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 });
+      load();
+      notify(durationWarning || "🎁 Recompensa criada!", durationWarning ? "error" : "success");
+    } finally {
+      setCreatingReward(false);
     }
-    if (data?.success === false) {
-      if (isLimitError(data.error || "")) { setShowReward(false); setShowUpgrade(true); return; }
-      return notify(data.error || "Erro ao criar recompensa", "error");
-    }
-    // Recompensa de tempo: grava a duração (não toca no create_reward).
-    // create_reward RETURNS UUID → data é a própria string do id.
-    const newRewardId = typeof data === "string" ? data : data?.id;
-    if (newRewardId && newR.duration_minutes > 0) {
-      const { error: durErr } = await supabase.rpc("set_reward_duration", { p_reward_id: newRewardId, p_minutes: newR.duration_minutes });
-      if (durErr) notify("Recompensa criada, mas a duração não foi salva. Edite e tente de novo.", "error");
-    }
-    notify("🎁 Recompensa criada!"); setShowReward(false); setNewR({ title:"", emoji:"🎁", coin_cost:50, duration_minutes:0 }); load();
   };
 
   const suggestMissions = async () => {
@@ -3811,6 +3893,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const activeTab = navTabs.find(item => item.key === tab) || navTabs[0];
   const requestedRedemptions = redemptions.filter(redemption => redemption.status === "requested");
   const deliveryRedemptions = redemptions.filter(redemption => redemption.status === "approved");
+  const activeRewards = rewards.filter(reward => reward.is_active !== false);
+  const inactiveRewards = rewards.filter(reward => reward.is_active === false);
   const familyMissionTotal = children.length * missions.length;
   const familyMissionsDone = children.reduce((sum, child) => (
     sum + missions.filter(mission => getChildLog(child.id, mission.id, mission.frequency)?.status === "approved").length
@@ -3820,6 +3904,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const familyLeader = [...children].sort((left, right) => (right.streak || 0) - (left.streak || 0))[0];
   const attentionCount = pending.length + requestedRedemptions.length + deliveryRedemptions.length;
   const missionLimitReached = familyPlan !== "premium" && missions.length >= PLAN_LIMITS.free.activeMissions;
+  const rewardLimitReached = familyPlan !== "premium" && activeRewards.length >= PLAN_LIMITS.free.activeRewards;
   const redemptionAge = (redemption) => {
     const days = Math.floor((viewOpenedAt - new Date(redemption.created_at).getTime()) / 86400000);
     return days <= 0 ? "hoje" : days === 1 ? "ontem" : `há ${days} dias`;
@@ -3837,7 +3922,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   return (
-    <div className="ru-parent-shell">
+    <div className="ru-parent-shell" data-theme={parentTheme}>
       <a className="ru-parent-skip-link" href="#ru-parent-content">Pular para o conteúdo</a>
       <Notif msg={notif} type={notifType} />
 
@@ -3961,16 +4046,39 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             reward={r}
             emojiCategories={REWARD_EMOJI_CATS}
             onSave={async (data) => {
-              const { error } = await supabase.rpc("update_reward", {
+              const { data: updatedReward, error } = await supabase.rpc("update_reward", {
                 p_reward_id: r.id, p_title: data.title, p_emoji: data.emoji, p_coin_cost: data.coin_cost,
               });
-              if (error) return notify("Erro: " + error.message, "error");
+              if (error) {
+                captureActionError(error, "reward", "update", "parent_rewards");
+                notify("Erro ao atualizar: " + error.message, "error");
+                return false;
+              }
+              if (updatedReward?.success === false) {
+                notify(updatedReward.error || "Não foi possível atualizar a recompensa.", "error");
+                return false;
+              }
+              const { error: durationError } = await supabase.rpc("set_reward_duration", {
+                p_reward_id: r.id,
+                p_minutes: data.duration_minutes,
+              });
+              if (durationError) {
+                captureActionError(durationError, "reward", "set_duration", "parent_rewards");
+                notify("Dados atualizados, mas a duração não foi salva. Tente novamente.", "error");
+                return false;
+              }
               setEditingReward(null); load(); notify("✅ Recompensa atualizada!");
+              return true;
             }}
             onDeactivate={async () => {
               const { error } = await supabase.rpc("deactivate_reward", { p_reward_id: r.id });
-              if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
+              if (error) {
+                captureActionError(error, "reward", "deactivate", "parent_rewards");
+                notify("Erro ao remover: " + error.message, "error");
+                return false;
+              }
               setEditingReward(null); load(); notify("🗑️ Recompensa removida.");
+              return true;
             }}
             onClose={() => setEditingReward(null)}
           />
@@ -4045,6 +4153,17 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               ))}
             </div>
             <div className="ru-parent-topbar__actions">
+              <button
+                type="button"
+                className="ru-parent-theme-toggle"
+                onClick={() => setParentTheme(theme => theme === "dark" ? "light" : "dark")}
+                aria-pressed={parentTheme === "dark"}
+                aria-label={parentTheme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+                title={parentTheme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              >
+                <span aria-hidden="true">{parentTheme === "dark" ? "☀" : "☾"}</span>
+                <span className="ru-parent-theme-toggle__label">{parentTheme === "dark" ? "Claro" : "Escuro"}</span>
+              </button>
               {pending.length > 0 && (
                 <button type="button" className="ru-parent-action ru-parent-action--pending" onClick={jumpToPending}>
                   ⏳ <span className="ru-parent-action__long-label">Ver </span>{pending.length}
@@ -4062,7 +4181,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
       <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={tab} tabIndex={-1}>
         <div className="ru-parent-workspace__inner">
-        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={tab === "home" || tab === "missions" ? "light" : "dark"} /> : <>
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={parentTheme === "light" && ["home", "missions", "rewards"].includes(tab) ? "light" : "dark"} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4115,7 +4234,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           <strong>{timer.reward_title}</strong>
                           <span>{timer.child_name || children.find(child => child.id === timer.child_id)?.display_name || "Criança"}</span>
                         </div>
-                        <TimerControl t={timer} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === timer.id} tone="light" />
+                        <TimerControl t={timer} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === timer.id} tone={parentTheme} />
                       </article>
                     ))}
                   </div>
@@ -4153,7 +4272,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           </div>
                           <div className="ru-home-card-actions">
                             <button type="button" className="ru-home-button ru-home-button--approve" onClick={() => approveRedemption(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Aprovando..." : "✓ Aprovar"}</button>
-                            <button type="button" className="ru-home-button ru-home-button--reject" onClick={() => cancelRedemption(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Recusando..." : "Recusar"}</button>
+                            <button type="button" className="ru-home-button ru-home-button--reject" data-confirming={confirmCancelRed === redemption.id} onClick={() => confirmCancelRed === redemption.id ? cancelRedemption(redemption.id) : setConfirmCancelRed(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Recusando..." : confirmCancelRed === redemption.id ? "Confirmar recusa" : "Recusar"}</button>
                           </div>
                         </article>
                       );
@@ -4174,7 +4293,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           </div>
                           <div className="ru-home-card-actions">
                             <button type="button" className="ru-home-button ru-home-button--approve" onClick={() => confirmDelivery(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Confirmando..." : "✓ Marcar entregue"}</button>
-                            <button type="button" className="ru-home-button ru-home-button--reject" onClick={() => cancelRedemption(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Cancelando..." : "Cancelar"}</button>
+                            <button type="button" className="ru-home-button ru-home-button--reject" data-confirming={confirmCancelRed === redemption.id} onClick={() => confirmCancelRed === redemption.id ? cancelRedemption(redemption.id) : setConfirmCancelRed(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Cancelando..." : confirmCancelRed === redemption.id ? "Confirmar cancelamento" : "Cancelar"}</button>
                           </div>
                         </article>
                       );
@@ -4362,7 +4481,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
                   <div className="ru-mission-field">
                     <label htmlFor="new-mission-title">Nome da missão</label>
-                    <div className="ru-mission-title-input"><span aria-hidden="true">{newM.emoji}</span><input id="new-mission-title" value={newM.title} onChange={event => setNewM(previous => ({...previous, title:event.target.value}))} maxLength={60} required autoFocus /></div>
+                    <label className="ru-mission-title-input" htmlFor="new-mission-title"><span aria-hidden="true">{newM.emoji}</span><span className="sr-only">Nome da missão</span><input id="new-mission-title" value={newM.title} onChange={event => setNewM(previous => ({...previous, title:event.target.value}))} maxLength={60} required autoFocus /></label>
                   </div>
 
                   <fieldset className="ru-mission-frequency">
@@ -4452,78 +4571,110 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
           {/* REWARDS */}
           {tab === "rewards" && (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎁 Recompensas</div>
-                  {familyPlan === "free" && (() => { const activeR = rewards.filter(r => r.is_active !== false).length; return (
-                    <button type="button" onClick={() => setShowUpgrade(true)} style={{ ...TEXT_BUTTON_STYLE, background: activeR >= PLAN_LIMITS.free.activeRewards ? `${T.pink}22` : `${T.secondary}18`, color: activeR >= PLAN_LIMITS.free.activeRewards ? T.pink : T.secondary, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
-                      {activeR}/{PLAN_LIMITS.free.activeRewards} {activeR >= PLAN_LIMITS.free.activeRewards ? "• upgrade 👑" : ""}
+            <div className="ru-rewards-page">
+              <section className="ru-rewards-heading" aria-labelledby="ru-rewards-title">
+                <div><span className="ru-rewards-kicker">Catálogo e entregas</span><h2 id="ru-rewards-title">Recompensas da família</h2><p>{activeRewards.length} ativa{activeRewards.length !== 1 ? "s" : ""} · {inactiveRewards.length} arquivada{inactiveRewards.length !== 1 ? "s" : ""} · {requestedRedemptions.length + deliveryRedemptions.length} em andamento</p></div>
+                <div className="ru-rewards-heading__actions">
+                  {familyPlan !== "premium" && (
+                    <button type="button" className="ru-rewards-limit" data-limit-reached={rewardLimitReached} onClick={() => setShowUpgrade(true)} aria-label={`${activeRewards.length} de ${PLAN_LIMITS.free.activeRewards} recompensas ativas no plano gratuito`}>
+                      {activeRewards.length}/{PLAN_LIMITS.free.activeRewards} no Free{rewardLimitReached ? " · limite" : ""}
                     </button>
-                  ); })()}
+                  )}
+                  <button type="button" className="ru-rewards-button ru-rewards-button--primary" onClick={() => { if (rewardLimitReached) { setShowUpgrade(true); return; } setShowReward(value => !value); }} aria-expanded={showReward} aria-controls="ru-new-reward-form">+ Nova recompensa</button>
                 </div>
-                <button onClick={() => { if (familyPlan === "free" && rewards.filter(r => r.is_active !== false).length >= PLAN_LIMITS.free.activeRewards) { setShowUpgrade(true); return; } setShowReward(!showReward); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.secondary}, ${T.primary})`, color: T.darker, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
-              </div>
+              </section>
+
+              <section className="ru-redemptions" aria-labelledby="ru-redemptions-title">
+                <header><div><span className="ru-rewards-kicker">Fluxo em três etapas</span><h3 id="ru-redemptions-title">Resgates em andamento</h3></div><span>{requestedRedemptions.length + deliveryRedemptions.length}</span></header>
+                {requestedRedemptions.length + deliveryRedemptions.length === 0 ? (
+                  <div className="ru-rewards-empty ru-rewards-empty--compact"><span aria-hidden="true">✓</span><strong>Nenhum resgate pendente</strong><p>Novos pedidos aparecerão aqui para aprovação e entrega.</p></div>
+                ) : (
+                  <div className="ru-redemptions-grid">
+                    {requestedRedemptions.map(redemption => {
+                      const busy = confirmingRed === redemption.id || cancellingRed === redemption.id;
+                      const confirmingCancel = confirmCancelRed === redemption.id;
+                      return (
+                        <article key={redemption.id} className="ru-redemption-card" data-stage="requested">
+                          <span className="ru-redemption-card__icon" aria-hidden="true">{redemption.reward_emoji || "🎁"}</span>
+                          <div className="ru-redemption-card__content"><span className="ru-redemption-stage">Aguardando aprovação</span><h4>{redemption.reward_title}</h4><p>{redemptionChildName(redemption) || "Criança"} · {redemptionAge(redemption)} · 🪙 {redemption.coin_cost}</p></div>
+                          <div className="ru-redemption-card__actions">
+                            <button type="button" className="ru-rewards-button ru-rewards-button--approve" onClick={() => approveRedemption(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Aprovando..." : "Aprovar"}</button>
+                            <button type="button" className="ru-rewards-button ru-rewards-button--danger" data-confirming={confirmingCancel} onClick={() => confirmingCancel ? cancelRedemption(redemption.id) : setConfirmCancelRed(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Recusando..." : confirmingCancel ? "Confirmar recusa" : "Recusar"}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {deliveryRedemptions.map(redemption => {
+                      const busy = confirmingRed === redemption.id || cancellingRed === redemption.id;
+                      const confirmingCancel = confirmCancelRed === redemption.id;
+                      return (
+                        <article key={redemption.id} className="ru-redemption-card" data-stage="approved">
+                          <span className="ru-redemption-card__icon" aria-hidden="true">{redemption.reward_emoji || "🎁"}</span>
+                          <div className="ru-redemption-card__content"><span className="ru-redemption-stage">Aguardando entrega</span><h4>{redemption.reward_title}</h4><p>{redemptionChildName(redemption) || "Criança"} · {redemptionAge(redemption)} · 🪙 {redemption.coin_cost}</p></div>
+                          <div className="ru-redemption-card__actions">
+                            <button type="button" className="ru-rewards-button ru-rewards-button--approve" onClick={() => confirmDelivery(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Confirmando..." : "Marcar entregue"}</button>
+                            <button type="button" className="ru-rewards-button ru-rewards-button--danger" data-confirming={confirmingCancel} onClick={() => confirmingCancel ? cancelRedemption(redemption.id) : setConfirmCancelRed(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Cancelando..." : confirmingCancel ? "Confirmar cancelamento" : "Cancelar"}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
               {showReward && (
-                <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.secondary}44` }}>
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>EMOJI</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"].map(e => (
-                        <button key={e} onClick={() => setNewR(p=>({...p,emoji:e}))} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${newR.emoji === e ? T.secondary : "rgba(255,255,255,0.1)"}`, background: newR.emoji === e ? `${T.secondary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
-                      ))}
-                    </div>
+                <form id="ru-new-reward-form" className="ru-reward-composer" onSubmit={event => { event.preventDefault(); void createReward(); }} aria-busy={creatingReward}>
+                  <header><span className="ru-rewards-kicker">Novo item</span><h3>Criar recompensa</h3></header>
+                  <fieldset className="ru-reward-emoji-picker"><legend>Ícone</legend><div>
+                    {REWARD_EMOJIS.map(option => (
+                      <button type="button" key={option} onClick={() => setNewR(previous => ({...previous, emoji:option}))} aria-pressed={newR.emoji === option} aria-label={`Usar ${option}`}>{option}</button>
+                    ))}
+                  </div></fieldset>
+                  <label className="ru-reward-title-input" htmlFor="new-reward-title"><span aria-hidden="true">{newR.emoji}</span><span className="sr-only">Nome da recompensa</span><input id="new-reward-title" value={newR.title} onChange={event => setNewR(previous => ({...previous, title:event.target.value}))} maxLength={60} required autoFocus /></label>
+                  <div className="ru-reward-value-grid">
+                    <div className="ru-reward-field"><label htmlFor="new-reward-cost">Custo em KidCoins</label><input id="new-reward-cost" type="number" value={newR.coin_cost === 0 ? "" : newR.coin_cost} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setNewR(previous => ({...previous, coin_cost: event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0)}))} /></div>
+                    <div className="ru-reward-field"><label htmlFor="new-reward-duration">Duração (min)</label><input id="new-reward-duration" type="number" value={newR.duration_minutes === 0 ? "" : newR.duration_minutes} placeholder="Sem timer" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setNewR(previous => ({...previous, duration_minutes: event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0)}))} /></div>
                   </div>
-                  <Inp placeholder="Nome da recompensa" value={newR.title} onChange={e => setNewR(p=>({...p,title:e.target.value}))} icon={newR.emoji} maxLength={60} />
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>Custo em KidCoins</div>
-                    <input type="number" value={newR.coin_cost === 0 ? "" : newR.coin_cost} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewR(p=>({...p,coin_cost: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
+                  <div className="ru-reward-composer__actions">
+                    <button type="submit" className="ru-rewards-button ru-rewards-button--primary" disabled={creatingReward || newR.title.trim().length < 2} aria-busy={creatingReward}>{creatingReward ? "Criando..." : "Criar recompensa"}</button>
+                    <button type="button" className="ru-rewards-button ru-rewards-button--secondary" onClick={() => setShowReward(false)} disabled={creatingReward}>Cancelar</button>
                   </div>
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>⏱️ Duração em minutos <span style={{ opacity: 0.7 }}>(opcional — pra recompensa de tempo, ex: 60 = 1h de videogame)</span></div>
-                    <input type="number" value={newR.duration_minutes === 0 ? "" : newR.duration_minutes} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewR(p=>({...p,duration_minutes: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                  </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <Btn onClick={createReward} gradient={`linear-gradient(135deg, ${T.secondary}, ${T.primary})`} small>Criar</Btn>
-                    <Btn onClick={() => setShowReward(false)} outline small>Cancelar</Btn>
-                  </div>
-                </div>
+                </form>
               )}
-              {rewards.filter(r => r.is_active !== false).length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎁</div>Nenhuma recompensa ainda!</div>
-                : <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    {rewards.filter(r => r.is_active !== false).map((r, ri) => (
-                      <div key={r.id} style={{ background: T.card, borderRadius: 20, padding: 16, textAlign: "center", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
-                        <button onClick={() => setEditingReward(r)} style={{ position: "absolute", top: 10, right: 10, padding: "4px 8px", borderRadius: 8, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️</button>
-                        <div style={{ width: 60, height: 60, borderRadius: 18, background: iconGrad(ri + 2), border: `1px solid ${iconBorder(ri + 2)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 10px", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>{r.emoji}</div>
-                        <div style={{ color: T.text, fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{r.title}</div>
-                        <div style={{ color: T.secondary, fontWeight: 900, fontSize: 14 }}>🪙 {r.coin_cost}</div>
-                        {r.duration_minutes > 0 && <div style={{ marginTop: 6, display: "inline-block", fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 8px", fontWeight: 800 }}>⏱️ {r.duration_minutes}min</div>}
-                      </div>
+
+              <section className="ru-rewards-catalog" aria-labelledby="ru-active-rewards-title">
+                <header><h3 id="ru-active-rewards-title">Catálogo ativo</h3><span>{activeRewards.length}</span></header>
+                {activeRewards.length === 0 ? (
+                  <div className="ru-rewards-empty"><span aria-hidden="true">🎁</span><strong>Nenhuma recompensa ativa</strong><p>Crie opções que façam sentido para a rotina da família.</p></div>
+                ) : (
+                  <div className="ru-rewards-grid">
+                    {activeRewards.map(reward => (
+                      <article key={reward.id} className="ru-reward-card">
+                        <span className="ru-reward-card__emoji" aria-hidden="true">{reward.emoji}</span>
+                        <div className="ru-reward-card__content"><h4>{reward.title}</h4><div><span data-kind="cost">🪙 {reward.coin_cost}</span>{reward.duration_minutes > 0 && <span data-kind="duration">⏱ {reward.duration_minutes} min</span>}</div></div>
+                        <button type="button" className="ru-rewards-button ru-rewards-button--edit" onClick={() => setEditingReward(reward)} aria-label={`Editar ${reward.title}`}>✏️ <span>Editar</span></button>
+                      </article>
                     ))}
                   </div>
-              }
+                )}
+              </section>
 
-              {/* Recompensas arquivadas */}
-              {rewards.filter(r => r.is_active === false).length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => setShowArchivedRewards(v => !v)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: "8px 0", width: "100%", textAlign: "left" }}>
-                    {showArchivedRewards ? "▲" : "▼"} {rewards.filter(r => r.is_active === false).length} recompensa(s) arquivada(s)
+              {inactiveRewards.length > 0 && (
+                <section className="ru-rewards-archive" aria-labelledby="ru-archived-rewards-title">
+                  <button type="button" className="ru-rewards-archive__toggle" onClick={() => setShowArchivedRewards(value => !value)} aria-expanded={showArchivedRewards} aria-controls="ru-archived-rewards-list">
+                    <span><strong id="ru-archived-rewards-title">Arquivadas</strong><small>{inactiveRewards.length === 1 ? "1 recompensa" : `${inactiveRewards.length} recompensas`}</small></span><span aria-hidden="true">{showArchivedRewards ? "−" : "+"}</span>
                   </button>
-                  {showArchivedRewards && rewards.filter(r => r.is_active === false).map(r => (
-                    <div key={r.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 14, padding: "12px 14px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 12, opacity: 0.7 }}>
-                      <div style={{ fontSize: 22, flexShrink: 0 }}>{r.emoji}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13, textDecoration: "line-through" }}>{r.title}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11 }}>🪙 {r.coin_cost}</div>
-                      </div>
-                      <button onClick={() => reactivateReward(r.id)} disabled={reactivating === r.id}
-                        style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}18`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                        {reactivating === r.id ? "..." : "↩ Reativar"}
-                      </button>
+                  {showArchivedRewards && (
+                    <div id="ru-archived-rewards-list" className="ru-rewards-archive__list">
+                      {inactiveRewards.map(reward => (
+                        <article key={reward.id} className="ru-reward-archived-card">
+                          <span aria-hidden="true">{reward.emoji}</span><div><h4>{reward.title}</h4><p>🪙 {reward.coin_cost}{reward.duration_minutes > 0 ? ` · ⏱ ${reward.duration_minutes} min` : ""}</p></div>
+                          <button type="button" className="ru-rewards-button ru-rewards-button--secondary" onClick={() => reactivateReward(reward.id)} disabled={Boolean(reactivating)} aria-busy={reactivating === reward.id}>{reactivating === reward.id ? "Reativando..." : rewardLimitReached ? "Ver Premium" : "Reativar"}</button>
+                        </article>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </section>
               )}
             </div>
           )}

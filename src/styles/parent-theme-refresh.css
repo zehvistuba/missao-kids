@@ -1,0 +1,513 @@
+.ru-parent-shell {
+  --ru-parent-bg: #f7f9fc;
+  --ru-parent-surface: #ffffff;
+  --ru-parent-surface-raised: #ffffff;
+  --ru-parent-surface-muted: #f3f6fa;
+  --ru-parent-surface-soft: #edf0f4;
+  --ru-parent-text: #17213e;
+  --ru-parent-text-soft: #33405b;
+  --ru-parent-muted: #59647b;
+  --ru-parent-faint: #68738a;
+  --ru-parent-border: #dfe5ee;
+  --ru-parent-border-soft: #edf0f4;
+  --ru-parent-border-strong: #cfd7e3;
+  --ru-parent-border-hover: #aeb8c9;
+  --ru-parent-shadow: rgba(23, 33, 62, 0.04);
+  --ru-parent-shadow-strong: rgba(23, 33, 62, 0.06);
+  --ru-parent-primary: #c84734;
+  --ru-parent-primary-solid: #c84734;
+  --ru-parent-primary-hover: #ae392a;
+  --ru-parent-primary-soft: #fff0ed;
+  --ru-parent-secondary: #c18b17;
+  --ru-parent-purple: #644489;
+  --ru-parent-blue: #22577d;
+  --ru-parent-pink: #a93662;
+  --ru-parent-warning: #6a4a06;
+  --ru-parent-warning-soft: #fff8e6;
+  --ru-parent-warning-border: #e2c269;
+  --ru-parent-success: #12624f;
+  --ru-parent-success-soft: #e9f7f2;
+  --ru-parent-success-border: #9bcfbe;
+  --ru-parent-info: #22577d;
+  --ru-parent-info-soft: #edf5fb;
+  --ru-parent-danger: #a93628;
+  --ru-parent-danger-soft: #fff0ed;
+  --ru-parent-danger-border: #c95a4a;
+  --ru-parent-focus: #3977a8;
+  --ru-parent-focus-ring: rgba(57, 119, 168, 0.16);
+  color-scheme: light;
+}
+
+.ru-parent-shell[data-theme="dark"] {
+  --ru-parent-bg: #0f0f1a;
+  --ru-parent-surface: #252540;
+  --ru-parent-surface-raised: #2e2e50;
+  --ru-parent-surface-muted: #1b1b30;
+  --ru-parent-surface-soft: #202038;
+  --ru-parent-text: #f0f0ff;
+  --ru-parent-text-soft: #dedeee;
+  --ru-parent-muted: #b5b5d0;
+  --ru-parent-faint: #9090b0;
+  --ru-parent-border: #3a3a5b;
+  --ru-parent-border-soft: #323250;
+  --ru-parent-border-strong: #505079;
+  --ru-parent-border-hover: #6a6a96;
+  --ru-parent-shadow: rgba(0, 0, 0, 0.18);
+  --ru-parent-shadow-strong: rgba(0, 0, 0, 0.26);
+  --ru-parent-primary: #ff6b35;
+  --ru-parent-primary-solid: #c84734;
+  --ru-parent-primary-hover: #df5425;
+  --ru-parent-primary-soft: rgba(255, 107, 53, 0.14);
+  --ru-parent-secondary: #ffd23f;
+  --ru-parent-purple: #9b5de5;
+  --ru-parent-blue: #4cc9f0;
+  --ru-parent-pink: #f72585;
+  --ru-parent-warning: #ffd23f;
+  --ru-parent-warning-soft: rgba(255, 210, 63, 0.12);
+  --ru-parent-warning-border: rgba(255, 210, 63, 0.42);
+  --ru-parent-success: #06d6a0;
+  --ru-parent-success-soft: rgba(6, 214, 160, 0.12);
+  --ru-parent-success-border: rgba(6, 214, 160, 0.4);
+  --ru-parent-info: #4cc9f0;
+  --ru-parent-info-soft: rgba(76, 201, 240, 0.12);
+  --ru-parent-danger: #ff7aa9;
+  --ru-parent-danger-soft: rgba(247, 37, 133, 0.12);
+  --ru-parent-danger-border: rgba(247, 37, 133, 0.48);
+  --ru-parent-focus: #4cc9f0;
+  --ru-parent-focus-ring: rgba(76, 201, 240, 0.2);
+  background: var(--ru-parent-bg);
+  color: var(--ru-parent-text);
+  color-scheme: dark;
+}
+
+.ru-parent-theme-toggle {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid #d4c8eb;
+  border-radius: 8px;
+  background: #f5f0fb;
+  color: #644489;
+  font: 900 10px/1 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-parent-theme-toggle > span:first-child {
+  font-size: 16px;
+}
+
+.ru-parent-theme-toggle:focus-visible {
+  outline: 3px solid var(--ru-parent-focus);
+  outline-offset: 2px;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-theme-toggle {
+  border-color: rgba(155, 93, 229, 0.48);
+  background: rgba(155, 93, 229, 0.14);
+  color: #d7baf8;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-sidebar,
+.ru-parent-shell[data-theme="dark"] .ru-parent-topbar,
+.ru-parent-shell[data-theme="dark"] .ru-parent-bottom-nav {
+  border-color: var(--ru-parent-border);
+  background: #18182a;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-brand__name,
+.ru-parent-shell[data-theme="dark"] .ru-parent-title h1,
+.ru-parent-shell[data-theme="dark"] .ru-parent-family-status__copy strong {
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-brand__name strong,
+.ru-parent-shell[data-theme="dark"] .ru-parent-title__eyebrow {
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-sidebar__label,
+.ru-parent-shell[data-theme="dark"] .ru-parent-plan-label,
+.ru-parent-shell[data-theme="dark"] .ru-parent-family-status__copy span,
+.ru-parent-shell[data-theme="dark"] .ru-parent-loading {
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-nav__item,
+.ru-parent-shell[data-theme="dark"] .ru-parent-bottom-nav__item {
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-nav__item:hover,
+.ru-parent-shell[data-theme="dark"] .ru-parent-bottom-nav__item:hover {
+  background: var(--ru-parent-surface-soft);
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-nav__item[aria-current="page"],
+.ru-parent-shell[data-theme="dark"] .ru-parent-bottom-nav__item[aria-current="page"] {
+  border-color: rgba(255, 107, 53, 0.4);
+  background: var(--ru-parent-primary-soft);
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-pending-link,
+.ru-parent-shell[data-theme="dark"] .ru-parent-summary__item[data-tone="attention"] {
+  border-color: var(--ru-parent-warning-border);
+  background: var(--ru-parent-warning-soft);
+  color: var(--ru-parent-warning);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-sidebar__footer,
+.ru-parent-shell[data-theme="dark"] .ru-parent-topbar__secondary {
+  border-color: var(--ru-parent-border);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-family-status,
+.ru-parent-shell[data-theme="dark"] .ru-parent-summary__item {
+  border-color: var(--ru-parent-border);
+  background: var(--ru-parent-surface-muted);
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-family-status__avatars > * {
+  background: var(--ru-parent-surface-raised) !important;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-summary__item[data-tone="request"] {
+  border-color: rgba(155, 93, 229, 0.42);
+  background: rgba(155, 93, 229, 0.12);
+  color: #d7baf8;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-summary__item[data-tone="timer"] {
+  border-color: rgba(76, 201, 240, 0.42);
+  background: var(--ru-parent-info-soft);
+  color: var(--ru-parent-info);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-action--pending {
+  border-color: var(--ru-parent-warning-border);
+  background: var(--ru-parent-warning-soft);
+  color: var(--ru-parent-warning);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-action--upgrade {
+  border-color: rgba(155, 93, 229, 0.42);
+  background: rgba(155, 93, 229, 0.12);
+  color: #d7baf8;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-parent-workspace {
+  background: var(--ru-parent-bg);
+}
+
+/* Home renovada: a estrutura permanece identica; apenas as superficies mudam. */
+.ru-parent-shell[data-theme="dark"] .ru-parent-workspace[data-tab="home"],
+.ru-parent-shell[data-theme="dark"] .ru-parent-home {
+  background: var(--ru-parent-bg);
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-overview {
+  border-color: var(--ru-parent-border-strong);
+  background: #18182a;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-overview .ru-home-kicker {
+  color: var(--ru-parent-secondary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-overview .ru-home-progress > span {
+  background: var(--ru-parent-secondary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__progress > p,
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__score strong span,
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__stats dt {
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__stats,
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__stats > div,
+.ru-parent-shell[data-theme="dark"] .ru-home-overview__stats > div:nth-child(odd) {
+  border-color: var(--ru-parent-border);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-section h2,
+.ru-parent-shell[data-theme="dark"] .ru-home-invite h2,
+.ru-parent-shell[data-theme="dark"] .ru-home-item-copy > strong,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-card h3,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-progress strong,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-row strong {
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-kicker {
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-count,
+.ru-parent-shell[data-theme="dark"] .ru-home-plan-badge {
+  background: var(--ru-parent-primary-soft);
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-count[data-empty="true"],
+.ru-parent-shell[data-theme="dark"] .ru-home-plan-badge {
+  background: var(--ru-parent-success-soft);
+  color: var(--ru-parent-success);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-timer-card,
+.ru-parent-shell[data-theme="dark"] .ru-home-queue-card,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-card,
+.ru-parent-shell[data-theme="dark"] .ru-home-empty,
+.ru-parent-shell[data-theme="dark"] .ru-home-invite {
+  border-color: var(--ru-parent-border);
+  background: var(--ru-parent-surface);
+  box-shadow: 0 8px 24px var(--ru-parent-shadow-strong);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-queue-card[data-kind="request"] {
+  border-left-color: #9b5de5;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-queue-card[data-kind="delivery"] {
+  border-left-color: var(--ru-parent-info);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-queue-card[data-kind="mission"] {
+  border-left-color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-item-icon,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-edit,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-row__icon {
+  border-color: var(--ru-parent-border);
+  background: var(--ru-parent-surface-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-item-copy > span,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-card__identity p,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-progress span,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-list h4,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-row > div span,
+.ru-parent-shell[data-theme="dark"] .ru-home-invite p,
+.ru-parent-shell[data-theme="dark"] .ru-home-empty p {
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-button--secondary,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-action,
+.ru-parent-shell[data-theme="dark"] .ru-home-text-button,
+.ru-parent-shell[data-theme="dark"] .ru-home-invite__locked,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-row button {
+  border-color: var(--ru-parent-border-strong);
+  background: var(--ru-parent-surface-muted);
+  color: var(--ru-parent-text-soft);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-button--approve,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-action--reward {
+  border-color: var(--ru-parent-success-border);
+  background: var(--ru-parent-success-soft);
+  color: var(--ru-parent-success);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-button--reject,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-action--demerit {
+  border-color: var(--ru-parent-danger-border);
+  background: var(--ru-parent-danger-soft);
+  color: var(--ru-parent-danger);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-button--reject[data-confirming="true"] {
+  border-color: var(--ru-parent-danger-border);
+  background: var(--ru-parent-danger-soft);
+  color: var(--ru-parent-danger);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-child-progress,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-list,
+.ru-parent-shell[data-theme="dark"] .ru-home-mission-row,
+.ru-parent-shell[data-theme="dark"] .ru-home-child-actions__correction,
+.ru-parent-shell[data-theme="dark"] .ru-home-invite__controls {
+  border-color: var(--ru-parent-border-soft);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-progress {
+  background: var(--ru-parent-border);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-progress > span {
+  background: var(--ru-parent-success);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-home-invite__controls code {
+  border-color: var(--ru-parent-border-strong);
+  background: var(--ru-parent-surface-muted);
+  color: var(--ru-parent-secondary);
+}
+
+/* Missoes renovadas no tema original. */
+.ru-parent-shell[data-theme="dark"] .ru-parent-workspace[data-tab="missions"],
+.ru-parent-shell[data-theme="dark"] .ru-missions-page {
+  background: var(--ru-parent-bg);
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-heading,
+.ru-parent-shell[data-theme="dark"] .ru-missions-archive {
+  border-color: var(--ru-parent-border);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-heading p,
+.ru-parent-shell[data-theme="dark"] .ru-mission-emoji-picker legend,
+.ru-parent-shell[data-theme="dark"] .ru-mission-frequency legend,
+.ru-parent-shell[data-theme="dark"] .ru-mission-field label,
+.ru-parent-shell[data-theme="dark"] .ru-missions-archive__toggle small,
+.ru-parent-shell[data-theme="dark"] .ru-mission-archived-card h4,
+.ru-parent-shell[data-theme="dark"] .ru-mission-archived-card p {
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-kicker {
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-limit,
+.ru-parent-shell[data-theme="dark"] .ru-missions-active > header > span {
+  border-color: var(--ru-parent-success-border);
+  background: var(--ru-parent-success-soft);
+  color: var(--ru-parent-success);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-limit[data-limit-reached="true"] {
+  border-color: var(--ru-parent-warning-border);
+  background: var(--ru-parent-warning-soft);
+  color: var(--ru-parent-warning);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-button--secondary,
+.ru-parent-shell[data-theme="dark"] .ru-missions-button--edit,
+.ru-parent-shell[data-theme="dark"] .ru-mission-icon-button,
+.ru-parent-shell[data-theme="dark"] .ru-missions-archive__toggle > span:last-child {
+  border-color: var(--ru-parent-border-strong);
+  background: var(--ru-parent-surface);
+  color: var(--ru-parent-text-soft);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-composer,
+.ru-parent-shell[data-theme="dark"] .ru-mission-card,
+.ru-parent-shell[data-theme="dark"] .ru-missions-empty,
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog {
+  border-color: var(--ru-parent-border-strong);
+  background: var(--ru-parent-surface);
+  color: var(--ru-parent-text);
+  box-shadow: 0 10px 26px var(--ru-parent-shadow-strong);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-composer {
+  border-left-color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-emoji-picker button,
+.ru-parent-shell[data-theme="dark"] .ru-mission-frequency button,
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__categories button,
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__emojis button,
+.ru-parent-shell[data-theme="dark"] .ru-mission-card__emoji,
+.ru-parent-shell[data-theme="dark"] .ru-mission-title-input > span {
+  border-color: var(--ru-parent-border);
+  background: var(--ru-parent-surface-muted);
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-emoji-picker button[aria-pressed="true"],
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__emojis button[aria-pressed="true"],
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__categories button[aria-pressed="true"] {
+  border-color: var(--ru-parent-primary);
+  background: var(--ru-parent-primary-soft);
+  color: var(--ru-parent-primary);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-title-input,
+.ru-parent-shell[data-theme="dark"] .ru-mission-title-input input,
+.ru-parent-shell[data-theme="dark"] .ru-mission-field > input {
+  border-color: var(--ru-parent-border-strong);
+  background: var(--ru-parent-surface);
+  color: var(--ru-parent-text);
+  color-scheme: dark;
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-frequency button[aria-pressed="true"],
+.ru-parent-shell[data-theme="dark"] .ru-mission-card__meta span[data-kind="xp"],
+.ru-parent-shell[data-theme="dark"] .ru-mission-card__meta span[data-kind="duration"] {
+  border-color: rgba(76, 201, 240, 0.4);
+  background: var(--ru-parent-info-soft);
+  color: var(--ru-parent-info);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-card h4 {
+  color: var(--ru-parent-text);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-card__meta span {
+  background: var(--ru-parent-surface-muted);
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-card__meta span[data-kind="coins"] {
+  background: var(--ru-parent-warning-soft);
+  color: var(--ru-parent-warning);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-archived-card {
+  border-color: var(--ru-parent-border-soft);
+  background: var(--ru-parent-surface-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-missions-archive__toggle {
+  color: var(--ru-parent-text-soft);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__deactivate {
+  border-color: var(--ru-parent-border);
+  color: var(--ru-parent-muted);
+}
+
+.ru-parent-shell[data-theme="dark"] .ru-mission-dialog__deactivate[data-confirming="true"] {
+  border-color: var(--ru-parent-danger-border);
+  background: var(--ru-parent-danger-soft);
+  color: var(--ru-parent-danger);
+}
+
+@media (max-width: 767px) {
+  .ru-parent-theme-toggle {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+
+  .ru-parent-theme-toggle__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ru-parent-shell,
+  .ru-parent-sidebar,
+  .ru-parent-topbar,
+  .ru-parent-bottom-nav,
+  .ru-parent-workspace {
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+}

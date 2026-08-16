@@ -319,12 +319,12 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
 
   assert.match(source, /import "\.\/styles\/parent-home-refresh\.css"/);
   assert.match(parent, /data-tab=\{tab\}/);
-  assert.match(parent, /tone=\{tab === "home" \|\| tab === "missions" \? "light" : "dark"\}/);
+  assert.match(parent, /tone=\{parentTheme === "light" && \["home", "missions", "rewards"\]\.includes\(tab\) \? "light" : "dark"\}/);
   assert.match(home, /className="ru-home-overview"/);
   assert.match(home, /role="progressbar"/);
   assert.match(home, /className="ru-home-section ru-home-attention"/);
   assert.match(home, /attentionCount === 0/);
-  assert.match(home, /<TimerControl[\s\S]*onStart=\{startTimer\}[\s\S]*onPause=\{pauseTimer\}[\s\S]*onFinish=\{finishTimer\}[\s\S]*tone="light"/);
+  assert.match(home, /<TimerControl[\s\S]*onStart=\{startTimer\}[\s\S]*onPause=\{pauseTimer\}[\s\S]*onFinish=\{finishTimer\}[\s\S]*tone=\{parentTheme\}/);
   assert.match(home, /approveRedemption\(redemption\.id\)/);
   assert.match(home, /confirmDelivery\(redemption\.id\)/);
   assert.equal((home.match(/cancelRedemption\(redemption\.id\)/g) || []).length, 2);
@@ -374,6 +374,7 @@ test("gestao de missoes preserva contratos e trata falhas concorrentes", async (
   assert.match(source, /import "\.\/styles\/parent-missions-refresh\.css"/);
   assert.match(missions, /className="ru-missions-page"/);
   assert.match(missions, /id="ru-new-mission-form"[\s\S]*onSubmit=/);
+  assert.match(missions, /className="sr-only">Nome da missão/);
   assert.match(missions, /aria-pressed=\{newM\.frequency === o\.key\}/);
   assert.match(missions, /draggable=\{isDesktop && !orderingMissions\}/);
   assert.match(missions, /moveMission\(mission\.id, -1\)/);
@@ -408,6 +409,87 @@ test("gestao de missoes preserva contratos e trata falhas concorrentes", async (
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
   assert.match(plan, /Backlog pos-refresh do Lovable/);
   assert.match(plan, /nao uma autorizacao de implementacao/);
+});
+
+test("tema do painel preserva o layout e recupera a paleta original do RotinUp", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-theme-refresh.css", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+
+  assert.match(source, /const PARENT_THEME_STORAGE_KEY = "rotinup-parent-theme-v1"/);
+  assert.match(source, /const getStoredParentTheme = \(\) =>/);
+  assert.match(source, /import "\.\/styles\/parent-theme-refresh\.css"/);
+  assert.match(parent, /useState\(getStoredParentTheme\)/);
+  assert.match(parent, /window\.localStorage\.setItem\(PARENT_THEME_STORAGE_KEY, parentTheme\)/);
+  assert.match(parent, /className="ru-parent-shell" data-theme=\{parentTheme\}/);
+  assert.match(parent, /aria-pressed=\{parentTheme === "dark"\}/);
+  assert.match(parent, /aria-label=\{parentTheme === "dark" \? "Ativar tema claro" : "Ativar tema escuro"\}/);
+
+  for (const color of ["#0f0f1a", "#252540", "#ff6b35", "#ffd23f", "#06d6a0", "#9b5de5", "#4cc9f0", "#f72585"]) {
+    assert.match(css, new RegExp(color));
+  }
+  assert.match(css, /\.ru-parent-shell\[data-theme="dark"\]/);
+  assert.match(css, /color-scheme: dark/);
+  assert.match(css, /\.ru-parent-theme-toggle:focus-visible/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
+test("recompensas e resgates preservam transicoes e evitam acoes duplicadas", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-rewards-refresh.css", import.meta.url), "utf8");
+  const cancelSql = await readFile(new URL("../supabase_fix_auditoria_p1.sql", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+  const rewards = parent.slice(parent.indexOf('{tab === "rewards"'), parent.indexOf("{/* STATS */}"));
+  const createReward = parent.slice(parent.indexOf("const createReward = async"), parent.indexOf("const suggestMissions"));
+  const redemptionActions = parent.slice(parent.indexOf("const confirmDelivery = async"), parent.indexOf("const applyDemerit"));
+  const editReward = parent.slice(parent.indexOf("{/* Modal editar recompensa */}"), parent.indexOf("{/* Navegação desktop"));
+  const modal = source.slice(source.indexOf("const RewardModal"), source.indexOf("const nullif0"));
+
+  assert.match(source, /import "\.\/styles\/parent-rewards-refresh\.css"/);
+  assert.match(rewards, /className="ru-rewards-page"/);
+  assert.match(rewards, /className="ru-redemption-card" data-stage="requested"/);
+  assert.match(rewards, /className="ru-redemption-card" data-stage="approved"/);
+  assert.match(rewards, /confirmingCancel \? cancelRedemption\(redemption\.id\) : setConfirmCancelRed\(redemption\.id\)/);
+  assert.match(rewards, /id="ru-new-reward-form"[\s\S]*onSubmit=/);
+  assert.match(rewards, /className="sr-only">Nome da recompensa/);
+  assert.match(rewards, /aria-pressed=\{newR\.emoji === option\}/);
+  assert.match(rewards, /aria-expanded=\{showArchivedRewards\}/);
+  assert.match(rewards, /rewardLimitReached \? "Ver Premium" : "Reativar"/);
+
+  assert.match(parent, /familyPlan !== "premium" && activeRewardCount >= PLAN_LIMITS\.free\.activeRewards/);
+  assert.match(createReward, /if \(creatingReward\) return/);
+  assert.match(createReward, /newR\.title\.trim\(\)/);
+  assert.match(createReward, /data\?\.success === false/);
+  assert.ok(createReward.indexOf("durationWarning") < createReward.indexOf('notify(durationWarning || "🎁 Recompensa criada!"'));
+  assert.match(createReward, /captureActionError\(durationError, "reward", "set_duration", "parent_rewards"\)/);
+
+  assert.equal((redemptionActions.match(/redemptionActionsRef\.current\.has\(redemptionId\)/g) || []).length, 3);
+  assert.equal((redemptionActions.match(/redemptionActionsRef\.current\.add\(redemptionId\)/g) || []).length, 3);
+  assert.equal((redemptionActions.match(/redemptionActionsRef\.current\.delete\(redemptionId\)/g) || []).length, 3);
+  assert.match(redemptionActions, /supabase\.rpc\("approve_redemption"/);
+  assert.match(redemptionActions, /supabase\.rpc\("confirm_redemption"/);
+  assert.match(redemptionActions, /supabase\.rpc\("cancel_redemption"/);
+
+  assert.match(editReward, /updatedReward\?\.success === false/);
+  assert.ok(editReward.indexOf("updatedReward?.success === false") < editReward.indexOf("setEditingReward(null)"));
+  assert.match(editReward, /p_minutes: data\.duration_minutes/);
+  assert.match(modal, /reward\.duration_minutes \?\? 0/);
+  assert.match(modal, /aria-labelledby="ru-reward-dialog-title"/);
+  assert.match(modal, /aria-busy=\{saving\}/);
+  assert.match(modal, /aria-busy=\{deactivating\}/);
+
+  const guardedTransition = cancelSql.indexOf("UPDATE redemption_logs");
+  const transitionResult = cancelSql.indexOf("RETURNING * INTO v_log", guardedTransition);
+  const refund = cancelSql.indexOf("UPDATE profiles SET kidcoins", transitionResult);
+  assert.ok(guardedTransition >= 0 && guardedTransition < transitionResult && transitionResult < refund);
+  assert.match(cancelSql, /AND status IN \('requested','approved'\)/);
+
+  assert.match(css, /\.ru-parent-workspace\[data-tab="rewards"\]/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });
 
 test("reativacao de missoes e recompensas respeita limites atomicos", async () => {
