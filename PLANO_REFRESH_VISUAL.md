@@ -188,6 +188,7 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Acoes: aprovacoes, entregas, revisao de missoes, controles de timer e gestao dos filhos preservam os handlers e RPCs existentes.
 - Concorrencia: revisao de missao agora bloqueia reenvio enquanto a chamada esta em andamento; filas e timers mantem estados `disabled` e `aria-busy`.
 - Filhos: progresso acessivel, extrato, tropeço, edicao, resgate e marcacao rapida permanecem disponiveis sem consulta adicional.
+- Hierarquia de acoes: edicao fica no cabecalho do perfil; extrato e resgate formam o grupo operacional; tropeço aparece separado como acao de correcao.
 - Convite: limites Free/Premium, copia e regeneracao continuam usando os contratos comerciais existentes.
 - Acessibilidade: um `main`, barras de progresso nomeadas, nenhum botao sem nome, nenhum `id` duplicado e foco visivel.
 - Browser autenticado em modo somente leitura: 1440x900, 768x1024 e 390x844 sem overflow horizontal ou sobreposicao da navegacao; transicao entre Inicio e Missoes restaura o topo.

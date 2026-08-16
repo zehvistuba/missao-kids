@@ -4142,6 +4142,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                               <div><h3>{child.display_name}</h3>{(child.streak || 0) > 0 && <span className="ru-home-streak">🔥 {child.streak}</span>}</div>
                               <p>{level.name} · 🪙 {child.kidcoins || 0}{age ? ` · ${age} anos` : ""}</p>
                             </div>
+                            <button type="button" className="ru-home-child-edit" onClick={() => setEditingChild(child)} aria-label={`Editar perfil de ${child.display_name}`}>
+                              <span aria-hidden="true">✏️</span>
+                              Editar
+                            </button>
                           </header>
 
                           {missions.length > 0 && (
@@ -4152,10 +4156,22 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                           )}
 
                           <div className="ru-home-child-actions">
-                            <button type="button" onClick={() => setEditingChild(child)}>✏️ Editar</button>
-                            <button type="button" onClick={() => setExtratoTarget(child)}>📋 Extrato</button>
-                            <button type="button" onClick={() => setDemeritTarget(child)}>⚠️ Tropeço</button>
-                            <button type="button" onClick={() => setRedeemTarget(child)}>🎁 Resgatar</button>
+                            <div className="ru-home-child-actions__primary" role="group" aria-label={`Ações de acompanhamento de ${child.display_name}`}>
+                              <button type="button" className="ru-home-child-action ru-home-child-action--statement" onClick={() => setExtratoTarget(child)}>
+                                <span aria-hidden="true">📋</span>
+                                Extrato
+                              </button>
+                              <button type="button" className="ru-home-child-action ru-home-child-action--reward" onClick={() => setRedeemTarget(child)}>
+                                <span aria-hidden="true">🎁</span>
+                                Resgatar
+                              </button>
+                            </div>
+                            <div className="ru-home-child-actions__correction" role="group" aria-label={`Ações de correção de ${child.display_name}`}>
+                              <button type="button" className="ru-home-child-action ru-home-child-action--demerit" onClick={() => setDemeritTarget(child)}>
+                                <span aria-hidden="true">⚠️</span>
+                                Registrar tropeço
+                              </button>
+                            </div>
                           </div>
 
                           {missions.length > 0 && (

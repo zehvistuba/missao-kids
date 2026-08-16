@@ -605,6 +605,27 @@
   font-weight: 700;
 }
 
+.ru-home-child-edit {
+  min-height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #59647b;
+  font: 900 10px/1.2 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-home-child-edit:hover {
+  border-color: #d7dee8;
+  background: #f7f9fc;
+  color: #17213e;
+}
+
 .ru-home-streak {
   flex: 0 0 auto;
   padding: 2px 7px;
@@ -640,25 +661,72 @@
 }
 
 .ru-home-child-actions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
   margin-top: 14px;
 }
 
-.ru-home-child-actions button {
+.ru-home-child-actions__primary {
   min-width: 0;
-  min-height: 38px;
+  max-width: 560px;
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ru-home-child-actions__correction {
+  flex: 0 0 auto;
+  display: flex;
+  padding-left: 14px;
+  border-left: 1px solid #e1e6ee;
+}
+
+.ru-home-child-action {
+  min-width: 0;
+  min-height: 40px;
   overflow: hidden;
-  padding: 7px 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
   border: 1px solid #d7dee8;
   border-radius: 8px;
-  background: #f7f9fc;
+  background: #ffffff;
   color: #33405b;
-  font: 900 10px/1.2 var(--ru-font);
+  font: 900 11px/1.2 var(--ru-font);
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.ru-home-child-action--statement:hover {
+  border-color: #aeb8c9;
+  background: #f7f9fc;
+}
+
+.ru-home-child-action--reward {
+  border-color: #9bcfbe;
+  background: #e9f7f2;
+  color: #12624f;
+}
+
+.ru-home-child-action--reward:hover {
+  border-color: #56a58d;
+  background: #dff2eb;
+}
+
+.ru-home-child-action--demerit {
+  border-color: #e2c269;
+  background: #fff8e6;
+  color: #6a4a06;
+}
+
+.ru-home-child-action--demerit:hover {
+  border-color: #c49b2f;
+  background: #fff2cc;
 }
 
 .ru-home-mission-list {
@@ -842,6 +910,7 @@
 
 .ru-home-button:focus-visible,
 .ru-home-child-actions button:focus-visible,
+.ru-home-child-edit:focus-visible,
 .ru-home-mission-row button:focus-visible,
 .ru-home-invite__locked:focus-visible,
 .ru-home-text-button:focus-visible {
@@ -918,14 +987,6 @@
     padding: 16px;
   }
 
-  .ru-home-child-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ru-home-child-actions button {
-    font-size: 11px;
-  }
-
   .ru-home-mission-list {
     max-height: none;
     overflow: visible;
@@ -956,6 +1017,27 @@
 
   .ru-home-section__tools .ru-home-button {
     padding-inline: 9px;
+  }
+
+  .ru-home-child-edit {
+    padding-inline: 6px;
+  }
+
+  .ru-home-child-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .ru-home-child-actions__correction {
+    padding-top: 9px;
+    padding-left: 0;
+    border-top: 1px solid #e1e6ee;
+    border-left: 0;
+  }
+
+  .ru-home-child-actions__correction .ru-home-child-action {
+    width: 100%;
   }
 
   .ru-home-queue-card__body {

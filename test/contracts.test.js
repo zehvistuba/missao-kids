@@ -335,6 +335,11 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
   assert.match(home, /setExtratoTarget\(child\)/);
   assert.match(home, /setDemeritTarget\(child\)/);
   assert.match(home, /setRedeemTarget\(child\)/);
+  assert.match(home, /className="ru-home-child-edit"[\s\S]*aria-label=\{`Editar perfil de \$\{child\.display_name\}`\}/);
+  assert.match(home, /className="ru-home-child-actions__primary"[\s\S]*className="ru-home-child-actions__correction"/);
+  assert.match(home, /className="ru-home-child-action ru-home-child-action--statement"/);
+  assert.match(home, /className="ru-home-child-action ru-home-child-action--reward"/);
+  assert.match(home, /className="ru-home-child-action ru-home-child-action--demerit"/);
   assert.match(home, /PLAN_LIMITS\.premium\.coParents/);
   assert.match(home, /onClick=\{copyCode\}/);
   assert.match(home, /onClick=\{generateCode\}/);
@@ -349,6 +354,8 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
   assert.match(css, /@media \(max-width: 767px\)/);
   assert.match(css, /\.ru-home-mission-list[\s\S]*max-height: 360px/);
   assert.match(css, /\.ru-home-mission-list[\s\S]*max-height: none/);
+  assert.match(css, /\.ru-home-child-actions__correction[\s\S]*border-left: 1px solid/);
+  assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.ru-home-child-actions__correction[\s\S]*border-top: 1px solid/);
   assert.match(css, /:focus-visible/);
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });

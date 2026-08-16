@@ -531,6 +531,7 @@ Implementado e validado localmente em 2026-08-16:
 - Solicitacoes de resgate, entregas e revisoes de missao foram reunidas em uma central de acoes com estados vazios e estados ocupados acessiveis.
 - A revisao de missao recebeu trava de concorrencia para impedir envio duplo durante a chamada existente.
 - Cartoes dos filhos preservam progresso, extrato, tropeço, edicao, resgate e marcacao rapida de todas as missoes.
+- Acoes do filho deixaram a grade uniforme: edicao fica junto ao perfil, extrato e resgate formam o grupo principal e tropeço recebe separacao visual de correcao.
 - Convite de co-responsavel continua respeitando plano, limites, copia e regeneracao de codigo sem alterar o backend.
 - Contrato automatizado cobre handlers criticos, timers, busy states, progresso, convite, breakpoints, foco e ausencia de gradiente.
 - QA autenticado somente leitura em 1440x900, 768x1024 e 390x844: sem overflow horizontal, texto cortado ou conteudo oculto pela navegacao mobile.
