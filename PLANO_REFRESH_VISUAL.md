@@ -105,13 +105,13 @@ Status: concluida localmente, sem deploy.
 
 ### Etapa 4 - Fluxos centrais do responsavel
 
-Status: em andamento; lotes 4A, 4B e 4C concluidos localmente, sem deploy.
+Status: concluida localmente; lotes 4A, 4B, 4C e 4D validados, sem deploy.
 
 - Home, resumo familiar, aprovacoes e cronometros: lote 4A concluido.
 - Gestao completa de missoes e recorrencia: lote 4B concluido.
 - Recompensas, resgates e cancelamento sem duplo estorno: lote 4C concluido.
-- Estatisticas, conta, Premium e exclusao LGPD: proximo lote.
-- Validar estados vazio, carregando, erro, sucesso e concorrencia.
+- Estatisticas, conta, Premium e exclusao LGPD: lote 4D concluido.
+- Estados vazio, carregando, erro, sucesso e concorrencia: validados nos lotes aplicaveis.
 
 ### Etapa 5 - Modo crianca parent-managed
 
@@ -243,6 +243,25 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 29/29 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 - Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado.
 
-## 12. Proxima Decisao
+## 12. Evidencia da Etapa 4D
 
-Iniciar a Etapa 4D em nova branch/commit para migrar estatisticas, conta, Premium e exclusao LGPD. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.
+- Branch: `codex/refresh-visual-etapa-4d`, derivada da Etapa 4C aprovada.
+- Folha isolada: `src/styles/parent-account-refresh.css`, responsiva, sem gradientes decorativos e integrada aos temas claro/escuro.
+- Estatisticas: resumo familiar, progresso do dia, maior sequencia e progresso individual usam somente dados ja carregados, sem nova consulta.
+- IA: sugestoes e relatorio foram reorganizados com estados ocupados, erro persistente e trava contra cadastro duplicado de missao sugerida.
+- Contrato comercial: copias corrigidas para os limites vivos de 40 solicitacoes/dia no Free e 200/dia no Premium; relatorio semanal descrito como sob demanda, nao automatico.
+- Conta: perfil, plano, notificacoes, suporte, sessao, co-responsaveis, consentimento e privacidade foram separados por responsabilidade operacional.
+- Notificacoes: APIs indisponiveis agora produzem estado visivel; falhas de permissao, inscricao, atualizacao e remocao sao reportadas e nao deixam loading preso.
+- Premium: mensal/anual, precos, URLs Hotmart, prefill de email e `claim_premium_by_email` permanecem preservados; modal possui foco preso, `Esc`, tema correto e estados ocupados.
+- LGPD: exclusao exige abrir a area de risco e digitar `EXCLUIR`; o texto diferencia familia com unico responsavel de sucessao para co-responsavel.
+- Browser autenticado: claro e escuro aprovados em 1440x900, 768x1024 e 390x844, sem overflow, bloco cortado ou botao sem nome; tablet usa uma coluna para preservar legibilidade.
+- Contraste: o roxo solido do tema escuro foi ajustado somente para botoes com texto branco, elevando a razao de 4,13:1 para 6,91:1; amostras de texto ficaram entre 6,91:1 e 16,87:1.
+- Dialogos: Premium e reporte de problema validados com tema herdado, foco interno, campos rotulados, checkout oficial e fechamento por `Esc`.
+- Limites do QA: compra Hotmart, ativacao Premium bem-sucedida e remocao real de co-responsavel nao foram executadas; contratos e estados dessas operacoes foram cobertos por automacao.
+- Limpeza: conta, familia e crianca sinteticas da 4D foram removidas pelo fluxo Edge `delete-account`; novo login retornou `Email ou senha incorretos`.
+- Automacao: 30/30 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado; nao restou dado QA da 4D.
+
+## 13. Proxima Decisao
+
+Iniciar a Etapa 5 em nova branch/commit para migrar a experiencia infantil parent-managed, sem criar login infantil ou ampliar permissoes. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.

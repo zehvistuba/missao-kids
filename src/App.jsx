@@ -21,6 +21,7 @@ import "./styles/parent-home-refresh.css";
 import "./styles/parent-missions-refresh.css";
 import "./styles/parent-rewards-refresh.css";
 import "./styles/parent-theme-refresh.css";
+import "./styles/parent-account-refresh.css";
 
 const PARENT_THEME_STORAGE_KEY = "rotinup-parent-theme-v1";
 const REWARD_EMOJIS = ["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"];
@@ -317,23 +318,28 @@ async function subscribePush(userId) {
       });
     }
     if (sub) {
-      await supabase.from("push_subscriptions")
+      const { error } = await supabase.from("push_subscriptions")
         .upsert({ user_id: userId, subscription: sub.toJSON() }, { onConflict: "user_id" });
+      if (error) throw error;
     }
     return sub || null;
   } catch (err) {
     console.warn("[push] subscribePush falhou:", err?.message || err);
+    captureActionError(err, "push", "subscribe", "account_notifications");
     return null;
   }
 }
 
 function NotifyToggle({ userId }) {
-  const [status, setStatus] = useState(Notification.permission);
+  const [status, setStatus] = useState(() => (
+    typeof window !== "undefined" && "Notification" in window ? window.Notification.permission : "unsupported"
+  ));
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
     navigator.serviceWorker.ready.then(reg =>
       reg.pushManager.getSubscription()
     ).then(async sub => {
@@ -348,23 +354,39 @@ function NotifyToggle({ userId }) {
     }).catch(() => {});
   }, [userId]);
 
-  if (!("Notification" in window) || !VAPID_PUBLIC_KEY) return null;
+  if (!("Notification" in window) || !VAPID_PUBLIC_KEY) {
+    return (
+      <div className="ru-notify-unavailable" role="status">
+        <strong>Notificações indisponíveis</strong>
+        <p>Este dispositivo ou ambiente ainda não pode receber lembretes.</p>
+      </div>
+    );
+  }
 
   const handleEnable = async () => {
     setLoading(true);
-    const perm = await Notification.requestPermission();
-    setStatus(perm);
-    if (perm === "granted") {
-      const sub = await subscribePush(userId);
-      setSubscribed(!!sub);
+    setError("");
+    try {
+      const perm = await Notification.requestPermission();
+      setStatus(perm);
+      if (perm === "granted") {
+        const sub = await subscribePush(userId);
+        setSubscribed(!!sub);
+        if (!sub) setError("Não foi possível ativar os lembretes agora.");
+      }
+    } catch (err) {
+      captureActionError(err, "push", "permission", "account_notifications");
+      setError("Não foi possível solicitar a permissão de notificações.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Reativar/atualizar: troca a inscrição velha por uma nova com a chave VAPID atual
   // (resolve o caso "ativadas mas não recebe" sem precisar de console).
   const handleRefresh = async () => {
     setLoading(true);
+    setError("");
     try {
       const reg = await navigator.serviceWorker.ready;
       const old = await reg.pushManager.getSubscription();
@@ -373,11 +395,15 @@ function NotifyToggle({ userId }) {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
-      await supabase.from("push_subscriptions")
+      const { error: upsertError } = await supabase.from("push_subscriptions")
         .upsert({ user_id: userId, subscription: sub.toJSON() }, { onConflict: "user_id" });
+      if (upsertError) throw upsertError;
       setSubscribed(true);
     } catch (err) {
       console.warn("[push] reativar falhou:", err?.message || err);
+      captureActionError(err, "push", "refresh", "account_notifications");
+      setSubscribed(false);
+      setError("Não foi possível atualizar os lembretes.");
     }
     setLoading(false);
   };
@@ -385,53 +411,56 @@ function NotifyToggle({ userId }) {
   // Desativar: remove a inscrição do navegador e do banco.
   const handleDisable = async () => {
     setLoading(true);
+    setError("");
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();
-      await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+      const { error: deleteError } = await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+      if (deleteError) throw deleteError;
       setSubscribed(false);
     } catch (err) {
       console.warn("[push] desativar falhou:", err?.message || err);
+      captureActionError(err, "push", "disable", "account_notifications");
+      setSubscribed(false);
+      setError("Não foi possível desativar os lembretes.");
     }
     setLoading(false);
   };
 
   if (status === "granted") {
     return (
-      <div style={{ padding: "12px 16px", background: `${T.accent}11`, borderRadius: 14, border: `1px solid ${T.accent}33`, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🔔</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: subscribed ? T.accent : T.textMuted, fontWeight: 800, fontSize: 13 }}>
+      <section className="ru-notify-card" data-active={subscribed} aria-label="Notificações de missões">
+        <div className="ru-notify-card__status">
+          <span className="ru-notify-card__icon" aria-hidden="true">🔔</span>
+          <div>
+            <strong>
               {subscribed ? "Notificações ativadas" : "Notificações pausadas"}
-            </div>
-            <div style={{ color: T.textMuted, fontSize: 11 }}>
+            </strong>
+            <p>
               {subscribed ? "Você receberá lembretes de missões" : "Toque em reativar para voltar a receber"}
-            </div>
+            </p>
           </div>
-          <span style={{ fontSize: 18 }}>{subscribed ? "✅" : "⏸️"}</span>
+          <span className="ru-notify-card__indicator" aria-label={subscribed ? "Ativas" : "Pausadas"}>{subscribed ? "Ativas" : "Pausadas"}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button onClick={handleRefresh} disabled={loading}
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-            {loading ? "..." : "🔄 Reativar / atualizar"}
+        {error && <p className="ru-notify-card__error" role="alert">{error}</p>}
+        <div className="ru-notify-card__actions">
+          <button type="button" className="ru-account-button ru-account-button--secondary" onClick={handleRefresh} disabled={loading} aria-busy={loading}>
+            {loading ? "Atualizando..." : "Atualizar inscrição"}
           </button>
           {subscribed && (
-            <button onClick={handleDisable} disabled={loading}
-              style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
+            <button type="button" className="ru-account-button ru-account-button--quiet" onClick={handleDisable} disabled={loading}>
               Desativar
             </button>
           )}
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <button onClick={handleEnable} disabled={loading || status === "denied"}
-      style={{ width: "100%", padding: "13px 16px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}11`, color: status === "denied" ? T.textMuted : T.purple, fontWeight: 800, fontSize: 13, cursor: status === "denied" ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: 10, marginBottom: 12, justifyContent: "center" }}>
-      <span style={{ fontSize: 20 }}>🔔</span>
+    <button type="button" className="ru-notify-enable" onClick={handleEnable} disabled={loading || status === "denied"} aria-busy={loading}>
+      <span aria-hidden="true">🔔</span>
       {loading ? "Ativando..." : status === "denied" ? "Notificações bloqueadas — ative no navegador" : "Ativar notificações de missões"}
     </button>
   );
@@ -778,7 +807,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
   const features = [
     { emoji: "🎯", title: "Missões Diárias", desc: "Transforme tarefas em missões claras e adequadas à rotina da família" },
     { emoji: "🪙", title: "KidCoins & Recompensas", desc: "A criança acumula moedas e troca por recompensas definidas pela família" },
-    { emoji: "🤖", title: "IA Personalizada", desc: "Sugestões inteligentes de missões e relatórios semanais automáticos" },
+    { emoji: "🤖", title: "IA Personalizada", desc: "Sugestões inteligentes de missões e relatórios semanais sob demanda" },
     { emoji: "👨‍👩‍👧", title: "Toda a Família", desc: "Responsáveis organizam e acompanham o progresso de cada criança" },
   ];
 
@@ -1002,7 +1031,7 @@ const LoadErrorBlock = ({
 };
 
 // Tela de aceite de termos (responsável legal) — gate antes de onboarding/dashboard.
-const ReportIssueModal = ({ onClose }) => {
+const ReportIssueModal = ({ onClose, theme = "dark" }) => {
   const dialogRef = useModalDialog(onClose);
   const [category, setCategory] = useState("unexpected_behavior");
   const [description, setDescription] = useState("");
@@ -1030,34 +1059,34 @@ const ReportIssueModal = ({ onClose }) => {
   };
 
   return createPortal(
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="report-issue-title" tabIndex={-1} onClick={(event) => event.stopPropagation()} style={{ position: "relative", width: "100%", maxWidth: 430, background: T.card, borderRadius: "20px 20px 0 0", padding: "26px 22px 36px", boxSizing: "border-box" }}>
-        <button type="button" onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 12, right: 12, width: 34, height: 34, border: 0, borderRadius: 8, background: "rgba(255,255,255,0.08)", color: T.textMuted, cursor: "pointer", fontSize: 18 }}>x</button>
-        <h2 id="report-issue-title" style={{ margin: "0 42px 6px 0", color: T.text, fontSize: 18 }}>Reportar um problema</h2>
-        <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: 12, lineHeight: 1.5 }}>Descreva o que tentou fazer e o resultado. Nao inclua senhas, documentos ou dados de pagamento.</p>
+    <div className="ru-parent-modal-scope ru-report-overlay" data-theme={theme} onClick={onClose}>
+      <div ref={dialogRef} className="ru-report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-issue-title" tabIndex={-1} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="ru-dialog-close" onClick={onClose} aria-label="Fechar">×</button>
+        <h2 id="report-issue-title">Reportar um problema</h2>
+        <p className="ru-report-dialog__intro">Descreva o que tentou fazer e o resultado. Não inclua senhas, documentos ou dados de pagamento.</p>
 
         {reference ? (
-          <div aria-live="polite" style={{ textAlign: "center", padding: "18px 4px 4px" }}>
-            <div style={{ color: T.accent, fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Problema registrado</div>
-            <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 18 }}>Referencia: <strong style={{ color: T.text }}>{reference}</strong></div>
-            <button type="button" onClick={onClose} style={{ width: "100%", padding: 12, border: 0, borderRadius: 8, background: T.primary, color: "#fff", fontWeight: 800, cursor: "pointer" }}>Concluir</button>
+          <div className="ru-report-dialog__success" aria-live="polite">
+            <strong>Problema registrado</strong>
+            <p>Referência: <code>{reference}</code></p>
+            <button type="button" className="ru-account-button ru-account-button--primary" onClick={onClose}>Concluir</button>
           </div>
         ) : (
-          <form onSubmit={submit}>
-            <label htmlFor="issue-category" style={{ display: "block", color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>TIPO DE PROBLEMA</label>
-            <select id="issue-category" value={category} onChange={(event) => setCategory(event.target.value)} style={{ width: "100%", padding: "12px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: T.darker, color: T.text, marginBottom: 14, fontFamily: "inherit" }}>
+          <form className="ru-report-form" onSubmit={submit} aria-busy={submitting}>
+            <label htmlFor="issue-category">Tipo de problema</label>
+            <select id="issue-category" value={category} onChange={(event) => setCategory(event.target.value)}>
               <option value="unexpected_behavior">Algo funcionou errado</option>
-              <option value="missing_data">Dados nao apareceram</option>
+              <option value="missing_data">Dados não apareceram</option>
               <option value="payment">Pagamento ou Premium</option>
               <option value="access">Acesso ou conta</option>
-              <option value="suggestion">Sugestao de melhoria</option>
+              <option value="suggestion">Sugestão de melhoria</option>
             </select>
 
-            <label htmlFor="issue-description" style={{ display: "block", color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>O QUE ACONTECEU</label>
-            <textarea id="issue-description" value={description} onChange={(event) => setDescription(event.target.value.slice(0, 500))} maxLength={500} rows={5} placeholder="Ex.: toquei em concluir o cronometro e a tela continuou carregando..." style={{ width: "100%", resize: "vertical", minHeight: 112, padding: 12, boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: T.darker, color: T.text, fontFamily: "inherit", fontSize: 13 }} />
-            <div style={{ color: T.textMuted, fontSize: 10, textAlign: "right", marginTop: 4 }}>{description.length}/500</div>
-            {error && <div role="alert" style={{ marginTop: 10, color: T.pink, fontSize: 12, fontWeight: 700 }}>{error}</div>}
-            <button type="submit" disabled={submitting || description.trim().length < 10} style={{ width: "100%", marginTop: 14, padding: 13, border: 0, borderRadius: 8, background: T.primary, color: "#fff", opacity: submitting || description.trim().length < 10 ? 0.5 : 1, fontWeight: 900, cursor: submitting ? "wait" : "pointer" }}>{submitting ? "Enviando..." : "Enviar reporte"}</button>
+            <label htmlFor="issue-description">O que aconteceu</label>
+            <textarea id="issue-description" value={description} onChange={(event) => setDescription(event.target.value.slice(0, 500))} maxLength={500} rows={5} placeholder="Ex.: toquei em concluir o cronômetro e a tela continuou carregando..." aria-describedby="issue-description-count" />
+            <span id="issue-description-count" className="ru-report-form__count">{description.length}/500</span>
+            {error && <div className="ru-report-form__error" role="alert">{error}</div>}
+            <button type="submit" className="ru-account-button ru-account-button--primary" disabled={submitting || description.trim().length < 10}>{submitting ? "Enviando..." : "Enviar reporte"}</button>
           </form>
         )}
       </div>
@@ -2675,7 +2704,7 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
 };
 
 // ─── Upgrade Modal ────────────────────────────────────────
-const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
+const UpgradeModal = ({ onClose, userEmail, onClaim, theme = "dark" }) => {
   const dialogRef = useModalDialog(onClose);
   const [billing, setBilling] = useState("annual");
   const [claiming, setClaiming] = useState(false);
@@ -2683,96 +2712,86 @@ const UpgradeModal = ({ onClose, userEmail, onClaim }) => {
   const base = HOTMART_CHECKOUT_URLS[billing];
   // pré-preenche o e-mail da conta no checkout → o webhook casa a compra automaticamente
   const checkoutUrl = userEmail ? `${base}&email=${encodeURIComponent(userEmail)}` : base;
+  const handleClaim = async () => {
+    if (claiming || !onClaim) return;
+    setClaiming(true);
+    let activated;
+    try {
+      activated = await onClaim();
+    } finally {
+      setClaiming(false);
+    }
+    if (activated) onClose();
+  };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 9500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Conheça o plano Premium" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "28px 28px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 430, maxHeight: "92vh", overflowY: "auto", animation: "slideDown 0.3s ease" }}>
-        <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 52, marginBottom: 12 }}>👑</div>
-          <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 6 }}>RotinUp Premium</div>
-          <div style={{ color: T.textMuted, fontSize: 14 }}>Desbloqueie todo o potencial da família</div>
+    <div className="ru-parent-modal-scope ru-upgrade-overlay" data-theme={theme} onClick={onClose}>
+      <div ref={dialogRef} className="ru-upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="ru-upgrade-title" tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <button type="button" className="ru-dialog-close" onClick={onClose} aria-label="Fechar">×</button>
+        <div className="ru-upgrade-dialog__header">
+          <span aria-hidden="true">👑</span>
+          <div>
+            <span className="ru-account-kicker">Plano para toda a família</span>
+            <h2 id="ru-upgrade-title">RotinUp Premium</h2>
+            <p>Mais espaço, automações e recursos para acompanhar cada criança.</p>
+          </div>
         </div>
 
-        {/* Toggle Mensal / Anual */}
-        <div style={{ display: "flex", background: T.darker, borderRadius: 16, padding: 4, marginBottom: 20, border: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="ru-upgrade-billing" aria-label="Período de cobrança">
           {Object.entries(PLANS).map(([key, p]) => (
-            <button key={key} onClick={() => setBilling(key)} style={{ flex: 1, padding: "10px 8px", borderRadius: 12, border: "none", background: billing === key ? `linear-gradient(135deg, ${T.purple}, ${T.pink})` : "transparent", color: billing === key ? "#fff" : T.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <button type="button" key={key} onClick={() => setBilling(key)} aria-pressed={billing === key}>
               <span>{p.label}</span>
-              {billing === key && <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.85 }}>{p.badge}</span>}
+              <small>{p.badge}</small>
             </button>
           ))}
         </div>
 
-        {/* Preço */}
-        <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "20px 20px", textAlign: "center", border: `2px solid ${T.purple}44`, marginBottom: 20, position: "relative", overflow: "hidden" }}>
-          {billing === "annual" && (
-            <div style={{ position: "absolute", top: 12, right: 12, background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, borderRadius: 8, padding: "3px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>
-              Economize {plan.savings}
-            </div>
-          )}
-          {billing === "monthly" && (
-            <div style={{ position: "absolute", top: 12, right: 12, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 8, padding: "3px 10px", fontSize: 10, fontWeight: 900, color: "#fff" }}>
-              Lançamento
-            </div>
-          )}
-          <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 4 }}>
-            {billing === "annual" ? "Cobrança única anual" : "Cobrança mensal recorrente"}
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2 }}>
-            <span style={{ color: T.textMuted, fontSize: 16, fontWeight: 700 }}>R$</span>
-            <span style={{ color: T.purple, fontWeight: 900, fontSize: 40, lineHeight: 1 }}>{plan.price}</span>
-            <span style={{ color: T.textMuted, fontSize: 14 }}>{plan.period}</span>
+        <section className="ru-upgrade-price" aria-label={`Plano ${plan.label}`}>
+          <span className="ru-upgrade-price__badge">{billing === "annual" ? `Economize ${plan.savings}` : "Lançamento"}</span>
+          <p>{billing === "annual" ? "Cobrança única anual" : "Cobrança mensal recorrente"}</p>
+          <div className="ru-upgrade-price__value">
+            <span>R$</span><strong>{plan.price}</strong><span>{plan.period}</span>
           </div>
           {billing === "annual" && plan.total && (
-            <div style={{ color: T.accent, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
-              equivale a R$ {plan.total} — acesso por 12 meses
-            </div>
+            <p className="ru-upgrade-price__detail">Equivale a R$ {plan.total}; acesso por 12 meses</p>
           )}
           {billing === "monthly" && (
-            <div style={{ color: T.textMuted, fontSize: 11, marginTop: 6 }}>Cancele quando quiser</div>
+            <p className="ru-upgrade-price__detail">Cancele quando quiser</p>
           )}
-        </div>
+        </section>
 
-        {/* Comparativo */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-          <div style={{ background: T.darker, borderRadius: 20, padding: "16px 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ color: T.textMuted, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>GRÁTIS</div>
+        <div className="ru-upgrade-compare">
+          <section>
+            <h3>Grátis</h3>
+            <ul>
             {FREE_FEATURES.map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
-                <span style={{ color: T.textMuted, fontSize: 12, marginTop: 1, flexShrink: 0 }}>◦</span>
-                <span style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.4 }}>{item}</span>
-              </div>
+              <li key={i}><span aria-hidden="true">•</span>{item}</li>
             ))}
-          </div>
-          <div style={{ background: `linear-gradient(160deg, ${T.purple}22, ${T.pink}18)`, borderRadius: 20, padding: "16px 14px", border: `2px solid ${T.purple}55` }}>
-            <div style={{ color: T.purple, fontWeight: 900, fontSize: 12, letterSpacing: 1, marginBottom: 12 }}>PREMIUM 👑</div>
+            </ul>
+          </section>
+          <section data-plan="premium">
+            <h3>Premium <span aria-hidden="true">👑</span></h3>
+            <ul>
             {PREMIUM_FEATURES.map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
-                <span style={{ color: T.accent, fontSize: 12, marginTop: 1, flexShrink: 0 }}>✓</span>
-                <span style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>{item}</span>
-              </div>
+              <li key={i}><span aria-hidden="true">✓</span>{item}</li>
             ))}
-          </div>
+            </ul>
+          </section>
         </div>
 
         <a href={checkoutUrl} target="_blank" rel="noopener noreferrer"
-          style={{ display: "block", width: "100%", padding: "16px 24px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textDecoration: "none", textAlign: "center", boxShadow: `0 8px 24px ${T.purple}44`, marginBottom: 12 }}>
-          👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
+          className="ru-upgrade-checkout" aria-label={`Assinar o plano ${plan.label} por R$ ${plan.price}${plan.period} na Hotmart`}>
+          Assinar {plan.label} · R$ {plan.price}{plan.period}
         </a>
         {userEmail && (
-          <div style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginBottom: 12, lineHeight: 1.5 }}>
-            💡 Use o e-mail <strong style={{ color: T.text }}>{userEmail}</strong> no pagamento pra liberar o Premium na hora.
-          </div>
+          <p className="ru-upgrade-email">Use <strong>{userEmail}</strong> no pagamento para conciliar a assinatura automaticamente.</p>
         )}
         {onClaim && (
-          <button onClick={async () => { setClaiming(true); await onClaim(); setClaiming(false); }} disabled={claiming}
-            style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${T.accent}55`, background: `${T.accent}14`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: claiming ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 8 }}>
-            {claiming ? "Verificando..." : "✅ Já assinei — ativar Premium"}
+          <button type="button" className="ru-account-button ru-account-button--success" onClick={handleClaim} disabled={claiming} aria-busy={claiming}>
+            {claiming ? "Verificando assinatura..." : "Já assinei · verificar agora"}
           </button>
         )}
-        <button onClick={onClose} style={{ width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+        <button type="button" className="ru-account-button ru-account-button--quiet" onClick={onClose}>
           Continuar no plano gratuito
         </button>
       </div>
@@ -3276,6 +3295,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [aiMissions, setAiMissions] = useState([]);
   const [aiReport, setAiReport] = useState(null);
   const [aiError, setAiError]   = useState(null);
+  const [addingAIMission, setAddingAIMission] = useState(null);
   const aiResultsRef = useRef(null);
   const [inviteCode, setInviteCode]       = useState(null);
   const [inviteExpiresAt, setInviteExpiresAt] = useState(null);
@@ -3306,7 +3326,9 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [redeemingFor, setRedeemingFor]       = useState(null); // reward id em resgate
   const [coParents, setCoParents]             = useState([]);
   const [removingCoParent, setRemovingCoParent] = useState(null);
+  const [confirmRemoveCoParent, setConfirmRemoveCoParent] = useState(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [inactiveMissions, setInactiveMissions] = useState([]);
   const [showArchivedMissions, setShowArchivedMissions] = useState(false);
@@ -3393,7 +3415,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setSavingName(true);
     const { error } = await supabase.rpc("update_display_name", { p_display_name: newName.trim() });
     setSavingName(false);
-    if (error) return notify("Erro ao salvar nome: " + error.message, "error");
+    if (error) {
+      captureActionError(error, "parent_account", "update_name", "parent_settings");
+      return notify("Erro ao salvar nome: " + error.message, "error");
+    }
     setEditingName(false);
     notify("✅ Nome atualizado!");
     if (onRefresh) onRefresh();
@@ -3410,15 +3435,21 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const removeCoParent = async (targetId) => {
+    if (removingCoParent) return;
     setRemovingCoParent(targetId);
     const { error } = await supabase.rpc("remove_co_parent", { p_target_id: targetId });
     setRemovingCoParent(null);
-    if (error) return notify(error.message, "error");
+    if (error) {
+      captureActionError(error, "parent_account", "remove_co_parent", "parent_settings");
+      return notify(error.message, "error");
+    }
+    setConfirmRemoveCoParent(null);
     notify("✅ Co-responsável removido");
     loadCoParents();
   };
 
   const deleteAccount = async () => {
+    if (deletingAccount || deleteConfirmationText !== "EXCLUIR") return;
     setDeletingAccount(true);
     // Edge function: apaga dados do app + remove do Auth (LGPD)
     const { data, error } = await supabase.functions.invoke("delete-account");
@@ -3439,11 +3470,12 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     if (error) {
       captureActionError(error, "premium", "claim_by_email", "upgrade");
       if (!silent) notify("Nao foi possivel verificar sua assinatura agora.", "error");
-      return;
+      return false;
     }
     if (data?.plan) await loadFamilyPlan(familyPlan);
-    if (data?.ok) { if (!silent) notify("👑 Premium ativado! Aproveite."); load(); return; }
+    if (data?.ok) { if (!silent) notify("👑 Premium ativado! Aproveite."); load(); return true; }
     if (!silent) notify("Nenhuma assinatura encontrada nesse e-mail. Confira se pagou com o e-mail da conta.", "error");
+    return false;
   };
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyEmail(data?.user?.email || ""));
@@ -3833,6 +3865,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       const msg = e.message || "";
       const isQuota = msg.includes("quota") || msg.includes("429");
       const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
+      if (!isQuota && !isOverload) captureActionError(e, "ai", "suggest_missions", "parent_stats");
       setAiError(isQuota ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : isOverload ? "IA sobrecarregada no momento. Tente em alguns segundos ⏳" : "Erro ao gerar sugestões. Tente novamente.");
     }
     setAiLoading(null);
@@ -3860,27 +3893,37 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (msg.includes("premium_required")) { setShowUpgrade(true); setAiLoading(null); return; }
       const isQuota = msg.includes("quota") || msg.includes("429");
       const isOverload = msg.includes("503") || msg.includes("overload") || msg.includes("UNAVAILABLE");
+      if (!isQuota && !isOverload) captureActionError(e, "ai", "weekly_report", "parent_stats");
       setAiError(isQuota ? "Limite da IA atingido. Tente novamente mais tarde ⏳" : isOverload ? "IA sobrecarregada no momento. Tente em alguns segundos ⏳" : "Erro ao gerar relatório. Tente novamente.");
     }
     setAiLoading(null);
   };
 
   const addAIMission = async (m) => {
-    const { data, error } = await supabase.rpc("create_mission", {
-      p_title: m.title, p_emoji: m.emoji,
-      p_coins_reward: m.coins_reward, p_xp_reward: m.xp_reward, p_frequency: m.frequency || "daily",
-    });
-    if (error) {
-      if (isLimitError(error.message)) { setShowUpgrade(true); return; }
-      return notify("Erro ao criar missão: " + error.message, "error");
+    if (addingAIMission) return;
+    setAddingAIMission(m.title);
+    try {
+      const { data, error } = await supabase.rpc("create_mission", {
+        p_title: m.title, p_emoji: m.emoji,
+        p_coins_reward: m.coins_reward, p_xp_reward: m.xp_reward, p_frequency: m.frequency || "daily",
+      });
+      if (error) {
+        if (isLimitError(error.message)) { setShowUpgrade(true); return; }
+        captureActionError(error, "ai", "create_suggested_mission", "parent_stats");
+        notify("Erro ao criar missão: " + error.message, "error");
+        return;
+      }
+      if (data?.success === false) {
+        if (isLimitError(data.error || "")) { setShowUpgrade(true); return; }
+        notify(data.error || "Erro ao criar missão", "error");
+        return;
+      }
+      notify(`✅ "${m.title}" adicionada!`);
+      setAiMissions(prev => prev.filter(x => x.title !== m.title));
+      load();
+    } finally {
+      setAddingAIMission(null);
     }
-    if (data?.success === false) {
-      if (isLimitError(data.error || "")) { setShowUpgrade(true); return; }
-      return notify(data.error || "Erro ao criar missão", "error");
-    }
-    notify(`✅ "${m.title}" adicionada!`);
-    setAiMissions(prev => prev.filter(x => x.title !== m.title));
-    load();
   };
 
   const navTabs = [
@@ -3900,8 +3943,19 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     sum + missions.filter(mission => getChildLog(child.id, mission.id, mission.frequency)?.status === "approved").length
   ), 0);
   const familyProgress = familyMissionTotal ? familyMissionsDone / familyMissionTotal : 0;
+  const familyProgressPercent = Math.round(familyProgress * 100);
   const familyCoins = children.reduce((sum, child) => sum + (child.kidcoins || 0), 0);
   const familyLeader = [...children].sort((left, right) => (right.streak || 0) - (left.streak || 0))[0];
+  const childInsights = children.map(child => {
+    const completed = missions.filter(mission => getChildLog(child.id, mission.id, mission.frequency)?.status === "approved").length;
+    const total = missions.length;
+    return {
+      child,
+      completed,
+      total,
+      progress: total ? Math.round((completed / total) * 100) : 0,
+    };
+  });
   const attentionCount = pending.length + requestedRedemptions.length + deliveryRedemptions.length;
   const missionLimitReached = familyPlan !== "premium" && missions.length >= PLAN_LIMITS.free.activeMissions;
   const rewardLimitReached = familyPlan !== "premium" && activeRewards.length >= PLAN_LIMITS.free.activeRewards;
@@ -3926,10 +3980,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       <a className="ru-parent-skip-link" href="#ru-parent-content">Pular para o conteúdo</a>
       <Notif msg={notif} type={notifType} />
 
-      {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
+      {showReportIssue && <ReportIssueModal theme={parentTheme} onClose={() => setShowReportIssue(false)} />}
 
       {/* Modal upgrade */}
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} userEmail={myEmail} onClaim={() => claimPremium(false)} />}
+      {showUpgrade && <UpgradeModal theme={parentTheme} onClose={() => setShowUpgrade(false)} userEmail={myEmail} onClaim={() => claimPremium(false)} />}
 
       {/* Modal adicionar filho */}
       {showAddChild && (
@@ -4181,7 +4235,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
       <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={tab} tabIndex={-1}>
         <div className="ru-parent-workspace__inner">
-        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={parentTheme === "light" && ["home", "missions", "rewards"].includes(tab) ? "light" : "dark"} /> : <>
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={parentTheme} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4681,168 +4735,181 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
           {/* STATS */}
           {tab === "stats" && (
-            <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>📊 Estatísticas</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                {[{ label:"Filhos", value:children.length, icon:"👶", color:T.accent }, { label:"Missões", value:missions.length, icon:"🎯", color:T.primary }, { label:"Pendentes", value:pending.length, icon:"⏳", color:T.warning }, { label:"Recompensas", value:rewards.filter(r => r.is_active !== false).length, icon:"🎁", color:T.pink }].map((s,i) => (
-                  <div key={i} style={{ background: `linear-gradient(135deg, ${s.color}14, ${T.card} 70%)`, borderRadius: 20, padding: 18, border: `1px solid ${s.color}33` }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 12, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, marginBottom: 10 }}>{s.icon}</div>
-                    <div style={{ color: s.color, fontWeight: 900, fontSize: 26, lineHeight: 1 }}>{s.value}</div>
-                    <div style={{ color: T.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
+            <div className="ru-insights-page">
+              <header className="ru-account-heading">
+                <div>
+                  <span className="ru-account-kicker">Visão da família</span>
+                  <h2>Estatísticas</h2>
+                  <p>Acompanhe o ritmo de hoje e use os dados para ajustar a rotina.</p>
+                </div>
+                <span className="ru-account-heading__plan" data-plan={familyPlan}>{familyPlan === "premium" ? "Premium" : "Gratuito"}</span>
+              </header>
 
-              {/* Assistente IA */}
-              <div style={{ background: `linear-gradient(135deg, ${T.card}, ${T.cardLight})`, borderRadius: 24, padding: 20, marginBottom: 20, border: `1px solid ${T.purple}44` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 12, background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🤖</div>
-                  <div>
-                    <div style={{ color: T.text, fontWeight: 900, fontSize: 15 }}>Assistente IA</div>
-                    <div style={{ color: T.textMuted, fontSize: 11 }}>Powered by Gemini</div>
+              <dl className="ru-insights-metrics" aria-label="Resumo da família">
+                <div data-tone="progress"><dt>Progresso de hoje</dt><dd>{familyProgressPercent}%</dd><span aria-hidden="true">✓</span></div>
+                <div data-tone="coins"><dt>KidCoins disponíveis</dt><dd>{familyCoins}</dd><span aria-hidden="true">●</span></div>
+                <div data-tone="attention"><dt>Ações pendentes</dt><dd>{attentionCount}</dd><span aria-hidden="true">!</span></div>
+                <div data-tone="missions"><dt>Missões ativas</dt><dd>{missions.length}</dd><span aria-hidden="true">★</span></div>
+              </dl>
+
+              <section className="ru-insights-family" aria-labelledby="ru-family-progress-title">
+                <div className="ru-insights-family__progress">
+                  <span className="ru-account-kicker">Hoje</span>
+                  <h3 id="ru-family-progress-title">Ritmo da família</h3>
+                  <p>{familyMissionTotal > 0 ? `${familyMissionsDone} de ${familyMissionTotal} missões concluídas.` : "Cadastre missões para começar a medir o progresso."}</p>
+                  <div className="ru-insights-progress" role="progressbar" aria-label="Progresso das missões da família" aria-valuemin={0} aria-valuemax={100} aria-valuenow={familyProgressPercent}>
+                    <span style={{ width: `${familyProgressPercent}%` }} />
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10, marginTop: 16, marginBottom: aiMissions.length > 0 || aiReport ? 16 : 0 }}>
-                  <button onClick={suggestMissions} disabled={!!aiLoading} style={{ flex: 1, padding: "13px 8px", borderRadius: 14, border: `1px solid ${T.purple}55`, background: aiLoading === "missions" ? `${T.purple}33` : `${T.purple}18`, color: T.purple, fontWeight: 800, fontSize: 13, cursor: aiLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
-                    {aiLoading === "missions" ? "Gerando... ✨" : "🤖 Sugerir missões"}
-                  </button>
-                  <button onClick={generateReport} disabled={!!aiLoading} style={{ flex: 1, padding: "13px 8px", borderRadius: 14, border: `1px solid ${T.blue}55`, background: aiLoading === "report" ? `${T.blue}33` : `${T.blue}18`, color: T.blue, fontWeight: 800, fontSize: 13, cursor: aiLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
-                    {aiLoading === "report" ? "Gerando... 📊" : "📊 Relatório semanal"}
-                  </button>
+                <div className="ru-insights-family__leader">
+                  <span>Maior sequência</span>
+                  <strong>{familyLeader && (familyLeader.streak || 0) > 0 ? `${familyLeader.streak} dias` : "Sem sequência"}</strong>
+                  <small>{familyLeader && (familyLeader.streak || 0) > 0 ? familyLeader.display_name : "A primeira começa hoje"}</small>
                 </div>
+              </section>
 
-                {/* Erro da IA — persistente e visível */}
-                {aiError && (
-                  <div style={{ background: `${T.pink}14`, borderRadius: 14, padding: "12px 16px", marginTop: 4, marginBottom: 4, border: `1px solid ${T.pink}33`, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>⚠️</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: T.pink, fontSize: 13, fontWeight: 700 }}>{aiError}</div>
-                      <button onClick={() => setAiError(null)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: 0, marginTop: 4 }}>✕ Fechar</button>
-                    </div>
+              <section className="ru-insights-children" aria-labelledby="ru-child-progress-title">
+                <header><div><span className="ru-account-kicker">Por criança</span><h3 id="ru-child-progress-title">Progresso individual</h3></div><span>{children.length}</span></header>
+                {childInsights.length === 0 ? (
+                  <div className="ru-account-empty"><strong>Nenhuma criança cadastrada</strong><p>Adicione a primeira criança para acompanhar o progresso individual.</p></div>
+                ) : (
+                  <div className="ru-insights-children__list">
+                    {childInsights.map(({ child, completed, total, progress }) => (
+                      <article key={child.id} className="ru-child-insight">
+                        <AvatarImg value={child.avatar_emoji} size={44} radius={12} />
+                        <div className="ru-child-insight__main">
+                          <div><strong>{child.display_name}</strong><span>{completed}/{total || 0} hoje</span></div>
+                          <div className="ru-insights-progress" role="progressbar" aria-label={`Progresso de ${child.display_name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
+                        </div>
+                        <dl><div><dt>KidCoins</dt><dd>{child.kidcoins || 0}</dd></div><div><dt>Sequência</dt><dd>{child.streak || 0}d</dd></div></dl>
+                      </article>
+                    ))}
                   </div>
                 )}
+              </section>
 
-                {/* Missões sugeridas pela IA */}
+              <section className="ru-insights-ai" aria-labelledby="ru-ai-title" aria-busy={Boolean(aiLoading)}>
+                <header>
+                  <div className="ru-insights-ai__icon" aria-hidden="true">✦</div>
+                  <div><span className="ru-account-kicker">Apoio inteligente</span><h3 id="ru-ai-title">Assistente de rotina</h3><p>{familyPlan === "premium" ? "Até 200 solicitações de IA por dia." : "Até 40 solicitações de IA por dia; relatório semanal no Premium."}</p></div>
+                </header>
+                <div className="ru-insights-ai__actions">
+                  <button type="button" className="ru-account-button ru-account-button--secondary" onClick={suggestMissions} disabled={Boolean(aiLoading)} aria-busy={aiLoading === "missions"}>{aiLoading === "missions" ? "Gerando sugestões..." : "Sugerir missões"}</button>
+                  <button type="button" className="ru-account-button ru-account-button--info" onClick={generateReport} disabled={Boolean(aiLoading)} aria-busy={aiLoading === "report"}>{aiLoading === "report" ? "Gerando relatório..." : familyPlan === "premium" ? "Gerar relatório semanal" : "Relatório semanal · Premium"}</button>
+                </div>
+
+                {aiError && <div className="ru-insights-ai__error" role="alert"><span>{aiError}</span><button type="button" onClick={() => setAiError(null)} aria-label="Fechar erro">×</button></div>}
+
                 {aiMissions.length > 0 && (
-                  <div ref={aiResultsRef}>
-                    <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 10 }}>SUGESTÕES — TOQUE PARA ADICIONAR</div>
-                    {aiMissions.map((m, i) => (
-                      <div key={i} style={{ background: T.darker, borderRadius: 14, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
-                        <div style={{ width: 42, height: 42, borderRadius: 12, background: `${T.purple}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{m.emoji}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ color: T.text, fontWeight: 700, fontSize: 13 }}>{m.title}</div>
-                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <span style={{ fontSize: 11, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                            <span style={{ fontSize: 11, color: T.accent }}>+{m.xp_reward} XP</span>
-                          </div>
-                        </div>
-                        <button onClick={() => addAIMission(m)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>+ Add</button>
-                      </div>
+                  <div ref={aiResultsRef} className="ru-ai-results" aria-live="polite">
+                    <header><h4>Sugestões prontas</h4><span>Revise antes de adicionar</span></header>
+                    {aiMissions.map((mission, index) => (
+                      <article key={`${mission.title}-${index}`} className="ru-ai-mission">
+                        <span className="ru-ai-mission__emoji" aria-hidden="true">{mission.emoji}</span>
+                        <div><strong>{mission.title}</strong><p>🪙 {mission.coins_reward} · +{mission.xp_reward} XP</p></div>
+                        <button type="button" className="ru-account-button ru-account-button--success" onClick={() => addAIMission(mission)} disabled={Boolean(addingAIMission)} aria-busy={addingAIMission === mission.title}>{addingAIMission === mission.title ? "Adicionando..." : "Adicionar"}</button>
+                      </article>
                     ))}
                   </div>
                 )}
 
-                {/* Relatório semanal */}
                 {aiReport && (
-                  <div style={{ background: T.darker, borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>RELATÓRIO SEMANAL</div>
-                    <div style={{ color: T.text, fontSize: 14, lineHeight: 1.75, whiteSpace: "pre-wrap", maxHeight: 300, overflowY: "auto" }}>{aiReport}</div>
-                    <button onClick={() => setAiReport(null)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕ Fechar</button>
-                  </div>
+                  <article className="ru-ai-report" aria-live="polite">
+                    <header><h4>Relatório semanal</h4><button type="button" onClick={() => setAiReport(null)} aria-label="Fechar relatório">×</button></header>
+                    <div>{aiReport}</div>
+                  </article>
                 )}
-              </div>
+              </section>
             </div>
           )}
 
           {/* CONTA / CONFIGURAÇÕES */}
           {tab === "settings" && (
-            <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 16 }}>⚙️ Conta</div>
-              {/* Editar nome do responsável */}
-              <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>SEU PERFIL</div>
+            <div className="ru-settings-page">
+              <header className="ru-account-heading">
+                <div><span className="ru-account-kicker">Preferências e privacidade</span><h2>Conta</h2><p>Gerencie seu perfil, plano, acessos e dados da família.</p></div>
+                <span className="ru-account-heading__plan" data-plan={familyPlan}>{familyPlan === "premium" ? "Premium" : "Gratuito"}</span>
+              </header>
+
+              <div className="ru-settings-grid">
+              <section className="ru-account-section" aria-labelledby="ru-profile-title">
+                <header><div><span className="ru-account-kicker">Identidade</span><h3 id="ru-profile-title">Seu perfil</h3></div><span className="ru-account-section__icon" aria-hidden="true">👤</span></header>
                 {editingName ? (
-                  <>
-                    <Inp icon="👤" placeholder="Seu nome" value={newName} onChange={e => setNewName(e.target.value)} />
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <Btn onClick={saveParentName} disabled={savingName || !newName.trim()} gradient={`linear-gradient(135deg, ${T.primary}, ${T.pink})`} small>
-                        {savingName ? "Salvando..." : "✅ Salvar"}
-                      </Btn>
-                      <Btn onClick={() => setEditingName(false)} outline small>Cancelar</Btn>
+                  <form className="ru-account-form" onSubmit={event => { event.preventDefault(); saveParentName(); }} aria-busy={savingName}>
+                    <label htmlFor="parent-display-name">Nome do responsável</label>
+                    <input id="parent-display-name" value={newName} onChange={event => setNewName(event.target.value)} maxLength={80} autoComplete="name" autoFocus />
+                    <div className="ru-account-form__actions">
+                      <button type="submit" className="ru-account-button ru-account-button--primary" disabled={savingName || !newName.trim()}>{savingName ? "Salvando..." : "Salvar nome"}</button>
+                      <button type="button" className="ru-account-button ru-account-button--quiet" onClick={() => setEditingName(false)} disabled={savingName}>Cancelar</button>
                     </div>
-                  </>
+                  </form>
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div>
-                      <div style={{ color: T.text, fontWeight: 700, fontSize: 15 }}>{profile.display_name}</div>
-                      <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>Responsável</div>
-                    </div>
-                    <button onClick={() => { setNewName(profile.display_name); setEditingName(true); }} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
+                  <div className="ru-account-profile">
+                    <div><strong>{profile.display_name}</strong><span>{myEmail || "Responsável da família"}</span></div>
+                    <button type="button" className="ru-account-button ru-account-button--secondary" onClick={() => { setNewName(profile.display_name); setEditingName(true); }}>Editar nome</button>
                   </div>
                 )}
-              </div>
+              </section>
 
-              <NotifyToggle userId={profile.id} />
-              <button type="button" onClick={() => setShowReportIssue(true)}
-                style={{ width: "100%", padding: "13px", borderRadius: 8, border: `1px solid ${T.blue}44`, background: `${T.blue}12`, color: T.blue, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 }}>
-                Reportar um problema
-              </button>
-              {(profile.role === "admin") && (
-                <button onClick={() => { window.history.pushState({}, "", "/admin"); window.location.reload(); }}
-                  style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 }}>
-                  🛡️ Painel Admin
-                </button>
-              )}
-              <button onClick={onSignOut} style={{ width: "100%", padding: "14px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: T.textMuted, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}>Sair da conta</button>
+              <section className="ru-account-section ru-account-plan" aria-labelledby="ru-plan-title" data-plan={familyPlan}>
+                <header><div><span className="ru-account-kicker">Assinatura</span><h3 id="ru-plan-title">Plano {familyPlan === "premium" ? "Premium" : "Gratuito"}</h3></div><span className="ru-account-section__icon" aria-hidden="true">{familyPlan === "premium" ? "👑" : "✓"}</span></header>
+                <p>{familyPlan === "premium" ? `Sua família pode cadastrar até ${PLAN_LIMITS.premium.children} crianças e ${PLAN_LIMITS.premium.coParents} responsáveis.` : `${PLAN_LIMITS.free.children} criança, ${PLAN_LIMITS.free.activeMissions} missões e ${PLAN_LIMITS.free.activeRewards} recompensas ativas.`}</p>
+                {familyPlan === "free" ? <button type="button" className="ru-account-button ru-account-button--premium" onClick={() => setShowUpgrade(true)}>Conhecer o Premium</button> : <span className="ru-account-plan__active">Assinatura ativa</span>}
+              </section>
 
-              {/* Co-responsáveis */}
-              {coParents.length > 0 && (
-                <div style={{ background: T.card, borderRadius: 20, padding: 18, marginTop: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>CO-RESPONSÁVEIS</div>
+              <section className="ru-account-section" aria-labelledby="ru-notifications-title">
+                <header><div><span className="ru-account-kicker">Lembretes</span><h3 id="ru-notifications-title">Notificações</h3></div><span className="ru-account-section__icon" aria-hidden="true">🔔</span></header>
+                <NotifyToggle userId={profile.id} />
+              </section>
+
+              <section className="ru-account-section" aria-labelledby="ru-support-title">
+                <header><div><span className="ru-account-kicker">Ajuda e acesso</span><h3 id="ru-support-title">Suporte</h3></div><span className="ru-account-section__icon" aria-hidden="true">?</span></header>
+                <div className="ru-account-action-list">
+                  <button type="button" onClick={() => setShowReportIssue(true)}><span><strong>Reportar um problema</strong><small>Envie um relato com referência para acompanhamento</small></span><b aria-hidden="true">›</b></button>
+                  {profile.role === "admin" && <button type="button" onClick={() => { window.history.pushState({}, "", "/admin"); window.location.reload(); }}><span><strong>Painel administrativo</strong><small>Famílias, planos e fila operacional</small></span><b aria-hidden="true">›</b></button>}
+                  <button type="button" onClick={onSignOut}><span><strong>Sair da conta</strong><small>Encerra a sessão neste dispositivo</small></span><b aria-hidden="true">›</b></button>
+                </div>
+              </section>
+
+              <section className="ru-account-section ru-account-section--wide" aria-labelledby="ru-coparents-title">
+                <header><div><span className="ru-account-kicker">Família</span><h3 id="ru-coparents-title">Co-responsáveis</h3></div><span className="ru-account-section__count">{coParents.length}</span></header>
+                {coParents.length === 0 ? <div className="ru-account-empty"><strong>Nenhum co-responsável</strong><p>Compartilhe o código de convite pela tela inicial quando precisar dividir a gestão.</p></div> : (
+                  <div className="ru-coparent-list">
                   {coParents.map(cp => (
-                    <div key={cp.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div>
-                        <div style={{ color: T.text, fontWeight: 700, fontSize: 14 }}>{cp.display_name}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11 }}>{cp.role === "admin" ? "Admin" : "Responsável"}</div>
-                      </div>
-                      {cp.role !== "admin" && cp.id !== profile.id && (
-                        <button onClick={() => removeCoParent(cp.id)} disabled={removingCoParent === cp.id}
-                          style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                          {removingCoParent === cp.id ? "..." : "Remover"}
+                    <article key={cp.id} className="ru-coparent-row" data-confirming={confirmRemoveCoParent === cp.id}>
+                      <div className="ru-coparent-row__avatar" aria-hidden="true">{(cp.display_name || "R").slice(0, 1).toUpperCase()}</div>
+                      <div><strong>{cp.display_name}</strong><span>{cp.role === "admin" ? "Administrador da plataforma" : "Responsável"}</span></div>
+                      {cp.role !== "admin" && (
+                        <button type="button" className="ru-account-button ru-account-button--danger" onClick={() => confirmRemoveCoParent === cp.id ? removeCoParent(cp.id) : setConfirmRemoveCoParent(cp.id)} disabled={Boolean(removingCoParent)} aria-busy={removingCoParent === cp.id}>
+                          {removingCoParent === cp.id ? "Removendo..." : confirmRemoveCoParent === cp.id ? "Confirmar remoção" : "Remover"}
                         </button>
                       )}
-                      {cp.id === profile.id && (
-                        <span style={{ color: T.textMuted, fontSize: 10, fontStyle: "italic" }}>você</span>
-                      )}
-                    </div>
+                    </article>
                   ))}
-                </div>
-              )}
+                  </div>
+                )}
+              </section>
 
-              {/* Excluir conta — LGPD */}
-              <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <section className="ru-account-section ru-account-section--wide ru-account-privacy" aria-labelledby="ru-privacy-title">
+                <header><div><span className="ru-account-kicker">LGPD e segurança</span><h3 id="ru-privacy-title">Privacidade e exclusão</h3></div><span className="ru-account-section__icon" aria-hidden="true">🔒</span></header>
+                <div className="ru-account-consent"><div><strong>Consentimento registrado</strong><span>Termos {profile.terms_version || TERMS_VERSION}{profile.terms_accepted_at ? ` · ${new Date(profile.terms_accepted_at).toLocaleDateString("pt-BR")}` : ""}</span></div><span aria-hidden="true">✓</span></div>
                 {!confirmDeleteAccount ? (
-                  <button onClick={() => setConfirmDeleteAccount(true)} style={{ background: "none", border: "none", color: `${T.pink}99`, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, width: "100%", textAlign: "center" }}>
-                    🗑️ Excluir minha conta
+                  <button type="button" className="ru-account-delete-trigger" onClick={() => { setDeleteConfirmationText(""); setConfirmDeleteAccount(true); }}>
+                    Excluir minha conta e meus dados
                   </button>
                 ) : (
-                  <div style={{ background: `${T.pink}12`, borderRadius: 16, padding: 16, border: `1px solid ${T.pink}33` }}>
-                    <div style={{ color: T.pink, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>⚠️ Excluir conta</div>
-                    <div style={{ color: T.textMuted, fontSize: 12, marginBottom: 14, lineHeight: 1.6 }}>
-                      Se você for o criador da família e o único responsável, todos os dados (filhos, missões, recompensas) serão excluídos permanentemente. Esta ação não pode ser desfeita.
-                    </div>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={deleteAccount} disabled={deletingAccount}
-                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "none", background: T.pink, color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                        {deletingAccount ? "Excluindo..." : "Sim, excluir tudo"}
-                      </button>
-                      <button onClick={() => setConfirmDeleteAccount(false)}
-                        style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                        Cancelar
-                      </button>
+                  <div className="ru-account-delete" role="alert">
+                    <strong>Esta ação é permanente</strong>
+                    <p>Seu login e seus dados pessoais serão removidos. Se você for o único responsável, os dados da família também serão excluídos; com outro responsável, a gestão da família será transferida.</p>
+                    <label htmlFor="delete-account-confirmation">Digite <b>EXCLUIR</b> para confirmar</label>
+                    <input id="delete-account-confirmation" value={deleteConfirmationText} onChange={event => setDeleteConfirmationText(event.target.value.toUpperCase().slice(0, 7))} autoComplete="off" spellCheck={false} />
+                    <div className="ru-account-delete__actions">
+                      <button type="button" className="ru-account-button ru-account-button--danger-solid" onClick={deleteAccount} disabled={deletingAccount || deleteConfirmationText !== "EXCLUIR"} aria-busy={deletingAccount}>{deletingAccount ? "Excluindo conta..." : "Excluir permanentemente"}</button>
+                      <button type="button" className="ru-account-button ru-account-button--quiet" onClick={() => { setConfirmDeleteAccount(false); setDeleteConfirmationText(""); }} disabled={deletingAccount}>Cancelar</button>
                     </div>
                   </div>
                 )}
+              </section>
               </div>
             </div>
           )}

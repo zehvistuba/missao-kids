@@ -319,7 +319,7 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
 
   assert.match(source, /import "\.\/styles\/parent-home-refresh\.css"/);
   assert.match(parent, /data-tab=\{tab\}/);
-  assert.match(parent, /tone=\{parentTheme === "light" && \["home", "missions", "rewards"\]\.includes\(tab\) \? "light" : "dark"\}/);
+  assert.match(parent, /<LoadErrorBlock onRetry=\{load\} tone=\{parentTheme\}/);
   assert.match(home, /className="ru-home-overview"/);
   assert.match(home, /role="progressbar"/);
   assert.match(home, /className="ru-home-section ru-home-attention"/);
@@ -488,6 +488,84 @@ test("recompensas e resgates preservam transicoes e evitam acoes duplicadas", as
   assert.match(css, /\.ru-parent-workspace\[data-tab="rewards"\]/);
   assert.match(css, /@media \(max-width: 767px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
+test("estatisticas, conta, Premium e LGPD preservam contratos na etapa 4D", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-account-refresh.css", import.meta.url), "utf8");
+  const product = await readFile(new URL("../src/config/product.js", import.meta.url), "utf8");
+  const aiLimitSql = await readFile(new URL("../supabase_ia_rate_limit.sql", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+  const stats = parent.slice(parent.indexOf('{tab === "stats"'), parent.indexOf("{/* CONTA / CONFIGURAÇÕES */}"));
+  const settings = parent.slice(parent.indexOf('{tab === "settings"'), parent.indexOf("</>}"));
+  const addAIMission = parent.slice(parent.indexOf("const addAIMission = async"), parent.indexOf("const navTabs"));
+  const deleteAccount = parent.slice(parent.indexOf("const deleteAccount = async"), parent.indexOf("// Reconciliação de pagamento"));
+  const claimPremium = parent.slice(parent.indexOf("const claimPremium = async"), parent.indexOf("useEffect(() =>", parent.indexOf("const claimPremium = async")));
+  const push = source.slice(source.indexOf("async function subscribePush"), source.indexOf("// ─── Add Child Modal"));
+  const reportModal = source.slice(source.indexOf("const ReportIssueModal"), source.indexOf("const TermsGate"));
+  const upgradeModal = source.slice(source.indexOf("const UpgradeModal"), source.indexOf("// ─── Mission Modal"));
+
+  assert.match(source, /import "\.\/styles\/parent-account-refresh\.css"/);
+  assert.match(parent, /<LoadErrorBlock onRetry=\{load\} tone=\{parentTheme\}/);
+  assert.match(stats, /className="ru-insights-page"/);
+  assert.match(stats, /className="ru-insights-metrics"/);
+  assert.match(stats, /aria-valuenow=\{familyProgressPercent\}/);
+  assert.match(stats, /childInsights\.map/);
+  assert.match(stats, /className="ru-insights-ai"/);
+  assert.match(stats, /Até 200 solicitações de IA por dia/);
+  assert.match(stats, /Até 40 solicitações de IA por dia/);
+  assert.match(stats, /aria-busy=\{addingAIMission === mission\.title\}/);
+
+  assert.match(addAIMission, /if \(addingAIMission\) return/);
+  assert.ok(addAIMission.indexOf("setAddingAIMission(m.title)") < addAIMission.indexOf('supabase.rpc("create_mission"'));
+  assert.match(addAIMission, /data\?\.success === false/);
+  assert.match(addAIMission, /captureActionError\(error, "ai", "create_suggested_mission", "parent_stats"\)/);
+  assert.match(addAIMission, /finally[\s\S]*setAddingAIMission\(null\)/);
+
+  assert.match(settings, /className="ru-settings-page"/);
+  assert.match(settings, /id="parent-display-name"/);
+  assert.match(settings, /<NotifyToggle userId=\{profile\.id\}/);
+  assert.match(settings, /confirmRemoveCoParent === cp\.id \? removeCoParent\(cp\.id\)/);
+  assert.match(settings, /Digite <b>EXCLUIR<\/b> para confirmar/);
+  assert.match(settings, /deleteConfirmationText !== "EXCLUIR"/);
+  assert.match(settings, /profile\.terms_version \|\| TERMS_VERSION/);
+  assert.match(deleteAccount, /if \(deletingAccount \|\| deleteConfirmationText !== "EXCLUIR"\) return/);
+  assert.match(deleteAccount, /supabase\.functions\.invoke\("delete-account"\)/);
+
+  assert.match(push, /"Notification" in window/);
+  assert.match(push, /className="ru-notify-unavailable" role="status"/);
+  assert.match(push, /if \(error\) throw error/);
+  assert.match(push, /if \(upsertError\) throw upsertError/);
+  assert.match(push, /if \(deleteError\) throw deleteError/);
+  assert.match(push, /captureActionError\(err, "push", "refresh", "account_notifications"\)/);
+  assert.match(reportModal, /theme = "dark"/);
+  assert.match(reportModal, /data-theme=\{theme\}/);
+  assert.match(reportModal, /aria-labelledby="report-issue-title"/);
+
+  assert.match(upgradeModal, /theme = "dark"/);
+  assert.match(upgradeModal, /data-theme=\{theme\}/);
+  assert.match(upgradeModal, /aria-pressed=\{billing === key\}/);
+  assert.match(upgradeModal, /HOTMART_CHECKOUT_URLS\[billing\]/);
+  assert.match(upgradeModal, /encodeURIComponent\(userEmail\)/);
+  assert.match(upgradeModal, /activated = await onClaim\(\)/);
+  assert.ok(upgradeModal.indexOf("setClaiming(false)") < upgradeModal.indexOf("if (activated) onClose()"));
+  assert.match(claimPremium, /return true/);
+  assert.equal((claimPremium.match(/return false/g) || []).length, 2);
+
+  assert.match(product, /IA: até 200 solicitações por dia/);
+  assert.match(product, /IA: até 40 solicitações por dia/);
+  assert.match(product, /IA: relatório semanal sob demanda/);
+  assert.match(aiLimitSql, /v_plan = 'premium' THEN 200 ELSE 40/);
+  assert.doesNotMatch(product, /IA: sugestão de missões ilimitada/);
+  assert.doesNotMatch(source, /relatórios semanais automáticos/);
+
+  assert.match(css, /\.ru-parent-workspace\[data-tab="stats"\]/);
+  assert.match(css, /\.ru-parent-workspace\[data-tab="settings"\]/);
+  assert.match(css, /\.ru-parent-modal-scope\[data-theme="dark"\]/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /@media \(max-width: 430px\)/);
   assert.match(css, /:focus-visible/);
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });

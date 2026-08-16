@@ -30,8 +30,8 @@ export const PREMIUM_FEATURES = Object.freeze([
   `Até ${PLAN_LIMITS.premium.children} filhos`,
   `Até ${PLAN_LIMITS.premium.coParents} responsáveis`,
   "Missões e recompensas ilimitadas",
-  "IA: sugestão de missões ilimitada",
-  "IA: relatório semanal automático",
+  "IA: até 200 solicitações por dia",
+  "IA: relatório semanal sob demanda",
   "IA: missão surpresa personalizada",
   "Histórico completo por filho",
   "Suporte prioritário WhatsApp",
@@ -42,7 +42,7 @@ export const FREE_FEATURES = Object.freeze([
   `${PLAN_LIMITS.free.coParents} responsável (só você)`,
   `Até ${PLAN_LIMITS.free.activeMissions} missões ativas`,
   `Até ${PLAN_LIMITS.free.activeRewards} recompensas ativas`,
-  "IA: sugestão de missões (limitado)",
+  "IA: até 40 solicitações por dia",
   "Gamificação completa (XP, níveis, streak, conquistas)",
 ]);
 

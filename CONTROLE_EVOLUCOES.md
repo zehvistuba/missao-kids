@@ -359,6 +359,7 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 4B - gestao de missoes | Validado localmente | Criacao, recorrencia, ordenacao, edicao, arquivo e reativacao reorganizados; falhas concorrentes e respostas funcionais agora sao tratadas. Migration de limites atomicos preparada, nao aplicada. 27 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Refresh visual Etapa 4C - temas, recompensas e resgates | Validado localmente | Tema claro/escuro persistente, com modo escuro baseado na paleta original do RotinUp; recompensas e fila de resgates migradas para o layout novo com travas de concorrencia e confirmacao de cancelamento. 29 testes PASS; QA autenticado nos dois temas e tres viewports. **Sem acao mutavel confirmada, push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Residuo sintetico do QA visual 4C | Aberto (operacional) | O primeiro seed interrompido deixou `Familia QA Visual 4C`, `Lia QA`, 3 recompensas e 2 resgates aprovados. Dados ficticios, isolados por RLS e sem PII real; requer purga administrativa posterior. A conta da rodada final foi removida e o relogin falhou como esperado. |
+| 2026-08-16 | Refresh visual Etapa 4D - estatisticas, conta, Premium e LGPD | Validado localmente | Visao familiar, IA, configuracoes, notificacoes, plano, suporte e privacidade migrados para os dois temas. Copia de IA alinhada aos limites 40/200; acoes concorrentes e exclusao por `EXCLUIR` endurecidas. 30 testes PASS; QA autenticado em tres viewports; conta 4D removida e relogin recusado. **Sem push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -590,6 +591,31 @@ Limpeza de QA:
 - O residuo nao contem PII real, esta isolado por RLS e nao altera a seguranca ou os contratos do produto. A remocao exige acesso administrativo e permanece como pendencia operacional explicita.
 
 Estado vivo do produto: **frontend, backend e release inalterados**. Nenhuma acao mutavel foi confirmada no QA visual e nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4D tratara estatisticas, conta, Premium e exclusao LGPD; o backlog extra do Lovable continua reservado para depois da Etapa 7.
+
+## 7.11 Estado do Refresh Visual - Etapa 4D
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-4d`, baseada na Etapa 4C aprovada.
+- Estatisticas agora separam resumo da familia, ritmo do dia, maior sequencia, progresso por crianca e ferramenta de IA.
+- Todos os indicadores sao derivados de `children`, `missions`, `pending`, `redemptions` e logs ja carregados; nenhuma consulta adicional foi criada.
+- A sugestao da IA impede dois cadastros simultaneos, trata erro de transporte e `success: false`, reporta falhas inesperadas e mantem limite/upgrade autoritativos.
+- As promessas de IA foram alinhadas ao contrato vivo: Free ate 40 solicitacoes/dia, Premium ate 200/dia e relatorio semanal sob demanda.
+- Conta foi organizada em perfil, assinatura, notificacoes, suporte, co-responsaveis e privacidade, preservando RPCs e Edge Functions existentes.
+- Push agora verifica erros de persistencia e remocao, reporta falhas operacionais, libera loading em `finally` e mostra estado explicito quando o recurso nao esta disponivel.
+- Remocao de co-responsavel ganhou confirmacao em duas etapas e bloqueio durante a RPC.
+- O modal Premium preserva precos, ofertas Hotmart, prefill do email e reconciliacao por `claim_premium_by_email`; a funcao devolve sucesso/falha explicitos para controlar o fechamento.
+- Exclusao LGPD exige a palavra `EXCLUIR`, bloqueia duplo envio e explica sucessao de responsavel versus remocao completa da familia.
+- O modal de reporte de erro acompanha o tema ativo mesmo sendo renderizado em portal; rotulos, contador, erro e referencia permanecem acessiveis.
+- QA autenticado aprovou 1440x900, 768x1024 e 390x844 nos temas claro e escuro, sem overflow, controles sem nome ou blocos cortados.
+- O tablet passou a usar uma coluna na tela Conta depois que o QA identificou quebra visual excessiva na grade estreita.
+- O roxo solido escuro foi aprofundado somente em botoes com texto branco: contraste medido passou de 4,13:1 para 6,91:1, mantendo `#9b5de5` como acento da identidade.
+- Premium e reporte prenderam foco e fecharam por `Esc`; checkout apontou para Hotmart e manteve email pre-preenchido. Nenhuma compra ou ativacao Premium foi executada.
+- A area LGPD bloqueou a exclusao sem a frase, liberou somente com `EXCLUIR` e foi usada ao final para remover a conta sintetica.
+- Limpeza confirmada: familia, crianca e login da 4D removidos; tentativa de autenticacao retornou `Email ou senha incorretos`.
+- Console sem erros/avisos da aplicacao. Gates: 30/30 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Estado vivo do produto: **release e codigo publicado inalterados, sem residuo QA da 4D**. O QA criou e removeu somente dados sinteticos da propria familia. Nenhum push, deploy, SQL ou liberacao foi realizado. O residuo sintetico independente da 4C continua registrado como pendencia operacional. A Etapa 5 tratara o modo crianca parent-managed.
 
 ## 8. Modelo Para Novas Entradas
 
