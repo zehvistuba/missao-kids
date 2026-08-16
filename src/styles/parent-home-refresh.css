@@ -1,0 +1,982 @@
+.ru-countdown {
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.ru-countdown--dark[data-status="active"] {
+  color: #06d6a0;
+}
+
+.ru-countdown--dark[data-status="low"] {
+  color: #ffd166;
+}
+
+.ru-countdown--dark[data-status="over"] {
+  color: #f72585;
+}
+
+.ru-countdown--light[data-status="active"] {
+  color: #12624f;
+}
+
+.ru-countdown--light[data-status="low"] {
+  color: #75540c;
+}
+
+.ru-countdown--light[data-status="over"] {
+  color: #a93628;
+}
+
+.ru-timer-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ru-timer-control--confirming {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ru-timer-confirmation {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ru-timer-control--dark .ru-timer-confirmation {
+  color: #a8adc3;
+}
+
+.ru-timer-control--light .ru-timer-confirmation {
+  color: #59647b;
+}
+
+.ru-timer-status {
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.ru-timer-control--dark .ru-timer-status[data-status="idle"] {
+  color: #a8adc3;
+}
+
+.ru-timer-control--dark .ru-timer-status[data-status="paused"] {
+  color: #ffd166;
+}
+
+.ru-timer-control--light .ru-timer-status[data-status="idle"] {
+  color: #59647b;
+}
+
+.ru-timer-control--light .ru-timer-status[data-status="paused"] {
+  color: #75540c;
+}
+
+.ru-timer-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: 900 12px/1.2 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-timer-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ru-timer-button--start,
+.ru-timer-button--confirm {
+  background: #157962;
+  color: #ffffff;
+}
+
+.ru-timer-control--dark .ru-timer-button--start,
+.ru-timer-control--dark .ru-timer-button--confirm {
+  background: #06d6a0;
+  color: #101526;
+}
+
+.ru-timer-button--pause {
+  border-color: #ddae3f;
+  background: #fff5d8;
+  color: #6a4a06;
+}
+
+.ru-timer-control--dark .ru-timer-button--pause {
+  border-color: rgba(255, 209, 102, 0.45);
+  background: rgba(255, 209, 102, 0.12);
+  color: #ffd166;
+}
+
+.ru-timer-button--done {
+  border-color: #9bcfbe;
+  background: #e9f7f2;
+  color: #12624f;
+}
+
+.ru-timer-control--dark .ru-timer-button--done {
+  border-color: rgba(6, 214, 160, 0.35);
+  background: rgba(6, 214, 160, 0.1);
+  color: #06d6a0;
+}
+
+.ru-timer-button--cancel {
+  border-color: #bac5d4;
+  background: transparent;
+  color: #59647b;
+}
+
+.ru-timer-control--dark .ru-timer-button--cancel {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #a8adc3;
+}
+
+.ru-timer-button:focus-visible {
+  outline: 3px solid #3977a8;
+  outline-offset: 2px;
+}
+
+.ru-parent-workspace[data-tab="home"] {
+  background: #f7f9fc;
+  color: #17213e;
+}
+
+.ru-parent-workspace[data-tab="home"] .ru-parent-loading {
+  color: #59647b;
+}
+
+.ru-parent-home {
+  color: #17213e;
+}
+
+.ru-home-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(290px, 0.65fr);
+  overflow: hidden;
+  margin-bottom: 30px;
+  border: 1px solid #25304d;
+  border-radius: 8px;
+  background: #17213e;
+  color: #ffffff;
+}
+
+.ru-home-overview__progress {
+  padding: 26px 28px;
+}
+
+.ru-home-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #a93628;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-home-overview .ru-home-kicker {
+  color: #f4c95d;
+}
+
+.ru-home-overview h2,
+.ru-home-section h2,
+.ru-home-invite h2 {
+  margin: 0;
+  font-weight: 950;
+}
+
+.ru-home-overview h2 {
+  font-size: 25px;
+  line-height: 1.2;
+}
+
+.ru-home-overview__progress > p {
+  max-width: 580px;
+  margin: 6px 0 20px;
+  color: #c9d0dd;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ru-home-overview__score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ru-home-overview__score strong {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+.ru-home-overview__score strong span {
+  color: #aeb8c9;
+  font-size: 18px;
+}
+
+.ru-home-overview__score > span {
+  color: #e1e6ee;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ru-home-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce3ed;
+}
+
+.ru-home-overview .ru-home-progress {
+  margin-top: 12px;
+  background: #3a445f;
+}
+
+.ru-home-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #157962;
+  transition: width 220ms ease;
+}
+
+.ru-home-overview .ru-home-progress > span {
+  background: #f4c95d;
+}
+
+.ru-home-overview .ru-home-button {
+  margin-top: 18px;
+}
+
+.ru-home-overview__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-left: 1px solid #3a445f;
+}
+
+.ru-home-overview__stats > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 20px;
+  border-bottom: 1px solid #3a445f;
+}
+
+.ru-home-overview__stats > div:nth-child(odd) {
+  border-right: 1px solid #3a445f;
+}
+
+.ru-home-overview__stats > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.ru-home-overview__stats dt {
+  color: #aeb8c9;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ru-home-overview__stats dd {
+  margin: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 19px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-section {
+  margin-bottom: 30px;
+  scroll-margin-top: 18px;
+}
+
+.ru-home-section__header {
+  display: flex;
+  min-height: 45px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.ru-home-section h2 {
+  color: #17213e;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.ru-home-count,
+.ru-home-plan-badge {
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff1ed;
+  color: #a93628;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-home-count[data-empty="true"] {
+  background: #e9f7f2;
+  color: #12624f;
+}
+
+.ru-home-plan-badge {
+  min-width: 0;
+  background: #e9f7f2;
+  color: #12624f;
+  font-size: 9px;
+}
+
+.ru-home-section__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ru-home-timer-list,
+.ru-home-queue-grid,
+.ru-home-children-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.ru-home-timer-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+}
+
+.ru-home-timer-card,
+.ru-home-queue-card,
+.ru-home-child-card {
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(23, 33, 62, 0.06);
+}
+
+.ru-home-timer-card {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.ru-home-item-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e4f2fb;
+  font-size: 22px;
+}
+
+.ru-home-item-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.ru-home-item-copy > strong {
+  overflow: hidden;
+  color: #17213e;
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-item-copy > span:not(.ru-home-item-label):not(.ru-home-occurrence):not(.ru-home-child-line) {
+  overflow: hidden;
+  color: #59647b;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-queue-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+}
+
+.ru-home-queue-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  border-left-width: 4px;
+}
+
+.ru-home-queue-card[data-kind="request"] {
+  border-left-color: #74529d;
+}
+
+.ru-home-queue-card[data-kind="delivery"] {
+  border-left-color: #3977a8;
+}
+
+.ru-home-queue-card[data-kind="mission"] {
+  border-left-color: #c18b17;
+}
+
+.ru-home-queue-card__body {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.ru-home-item-label {
+  color: #68738a;
+  font-size: 9px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-home-child-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #59647b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ru-home-occurrence {
+  width: fit-content;
+  margin-top: 3px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #fff5d8;
+  color: #6a4a06;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ru-home-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ru-home-button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: 900 12px/1.2 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-home-card-actions .ru-home-button {
+  flex: 1;
+}
+
+.ru-home-button--primary {
+  background: #c84734;
+  color: #ffffff;
+}
+
+.ru-home-button--secondary {
+  border-color: #bac5d4;
+  background: #ffffff;
+  color: #33405b;
+}
+
+.ru-home-button--approve {
+  border-color: #9bcfbe;
+  background: #e9f7f2;
+  color: #12624f;
+}
+
+.ru-home-button--reject {
+  border-color: #edc3ba;
+  background: #fff1ed;
+  color: #a93628;
+}
+
+.ru-home-button:disabled,
+.ru-home-text-button:disabled,
+.ru-home-invite__locked:disabled,
+.ru-home-mission-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ru-home-empty {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px dashed #bdc7d4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ru-home-empty > span {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9f7f2;
+  color: #12624f;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.ru-home-empty strong {
+  color: #17213e;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.ru-home-empty p {
+  margin: 3px 0 0;
+  color: #59647b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ru-home-children-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  align-items: start;
+}
+
+.ru-home-child-card {
+  min-width: 0;
+  padding: 18px;
+}
+
+.ru-home-child-card__header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.ru-home-child-card__identity {
+  min-width: 0;
+  flex: 1;
+}
+
+.ru-home-child-card__identity > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ru-home-child-card h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #17213e;
+  font-size: 17px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-child-card__identity p {
+  margin: 3px 0 0;
+  color: #59647b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ru-home-streak {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff5d8;
+  color: #6a4a06;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.ru-home-child-progress {
+  margin-top: 15px;
+}
+
+.ru-home-child-progress > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ru-home-child-progress span,
+.ru-home-child-progress strong {
+  color: #59647b;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ru-home-child-progress strong {
+  color: #17213e;
+  font-size: 11px;
+}
+
+.ru-home-child-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.ru-home-child-actions button {
+  min-width: 0;
+  min-height: 38px;
+  overflow: hidden;
+  padding: 7px 5px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #33405b;
+  font: 900 10px/1.2 var(--ru-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ru-home-mission-list {
+  max-height: 360px;
+  margin-top: 16px;
+  padding-top: 14px;
+  overflow-y: auto;
+  border-top: 1px solid #e1e6ee;
+  scrollbar-gutter: stable;
+}
+
+.ru-home-mission-list h4 {
+  margin: 0 0 8px;
+  color: #59647b;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-home-mission-row {
+  min-width: 0;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 2px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.ru-home-mission-row:last-child {
+  border-bottom: 0;
+}
+
+.ru-home-mission-row[data-waiting="true"] {
+  opacity: 0.64;
+}
+
+.ru-home-mission-row__icon {
+  width: 24px;
+  flex: 0 0 24px;
+  font-size: 16px;
+  text-align: center;
+}
+
+.ru-home-mission-row > div {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 1px;
+}
+
+.ru-home-mission-row strong {
+  overflow: hidden;
+  color: #33405b;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-mission-row[data-complete="true"] strong {
+  color: #68738a;
+  text-decoration: line-through;
+}
+
+.ru-home-mission-row > div span {
+  color: #75540c;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ru-home-mission-row button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid #9bcfbe;
+  border-radius: 7px;
+  background: #e9f7f2;
+  color: #12624f;
+  font: 900 9px/1.2 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-home-mission-row[data-complete="true"] button {
+  border-color: #ead18d;
+  background: #fff8e5;
+  color: #6a4a06;
+}
+
+.ru-home-waiting {
+  flex: 0 0 auto;
+  color: #75540c;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.ru-home-invite {
+  margin-bottom: 4px;
+  padding: 18px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ru-home-invite > header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ru-home-invite > header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.ru-home-invite h2 {
+  color: #17213e;
+  font-size: 15px;
+}
+
+.ru-home-invite p {
+  margin: 3px 0 0;
+  color: #59647b;
+  font-size: 11px;
+}
+
+.ru-home-invite__locked {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #d4c8eb;
+  border-radius: 8px;
+  background: #f5f0fb;
+  color: #644489;
+  font: 900 11px/1.3 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-home-invite__controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.ru-home-invite__controls code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px 14px;
+  border: 1px solid #d4c8eb;
+  border-radius: 8px;
+  background: #f5f0fb;
+  color: #644489;
+  font: 950 18px/1.2 var(--ru-font);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-home-invite__controls > span {
+  color: #59647b;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ru-home-invite__controls > span[data-expiring="true"] {
+  color: #a93628;
+}
+
+.ru-home-text-button {
+  min-height: 34px;
+  padding: 5px 2px;
+  border: 0;
+  background: transparent;
+  color: #59647b;
+  font: 900 10px/1.2 var(--ru-font);
+  cursor: pointer;
+}
+
+.ru-home-button:focus-visible,
+.ru-home-child-actions button:focus-visible,
+.ru-home-mission-row button:focus-visible,
+.ru-home-invite__locked:focus-visible,
+.ru-home-text-button:focus-visible {
+  outline: 3px solid #3977a8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 980px) {
+  .ru-home-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .ru-home-overview__stats {
+    border-top: 1px solid #3a445f;
+    border-left: 0;
+  }
+
+  .ru-home-invite__controls {
+    grid-template-columns: minmax(150px, 1fr) auto;
+  }
+
+  .ru-home-invite__controls > span {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .ru-home-overview {
+    margin-bottom: 24px;
+  }
+
+  .ru-home-overview__progress {
+    padding: 21px 18px;
+  }
+
+  .ru-home-overview h2 {
+    font-size: 22px;
+  }
+
+  .ru-home-overview__stats > div {
+    padding: 15px 16px;
+  }
+
+  .ru-home-overview__stats dd {
+    font-size: 16px;
+  }
+
+  .ru-home-section {
+    margin-bottom: 24px;
+  }
+
+  .ru-home-section__header {
+    align-items: center;
+  }
+
+  .ru-home-timer-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ru-home-timer-card .ru-timer-control {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 56px;
+  }
+
+  .ru-home-card-actions .ru-home-button,
+  .ru-home-child-actions button,
+  .ru-home-invite__locked {
+    min-height: 44px;
+  }
+
+  .ru-home-child-card {
+    padding: 16px;
+  }
+
+  .ru-home-child-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ru-home-child-actions button {
+    font-size: 11px;
+  }
+
+  .ru-home-mission-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .ru-home-invite {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 430px) {
+  .ru-home-overview__score {
+    display: grid;
+    gap: 4px;
+  }
+
+  .ru-home-overview__stats dt {
+    font-size: 9px;
+  }
+
+  .ru-home-section__header {
+    gap: 9px;
+  }
+
+  .ru-home-section__tools {
+    gap: 5px;
+  }
+
+  .ru-home-section__tools .ru-home-button {
+    padding-inline: 9px;
+  }
+
+  .ru-home-queue-card__body {
+    align-items: flex-start;
+  }
+
+  .ru-home-invite > header {
+    align-items: flex-start;
+  }
+
+  .ru-home-invite__controls {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ru-home-invite__controls code {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ru-home-progress > span {
+    transition: none;
+  }
+}

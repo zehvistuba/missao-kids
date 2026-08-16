@@ -354,6 +354,7 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 2 - entrada e onboarding | Validado localmente | Auth, recuperacao, termos, consentimento e onboarding migrados para o novo sistema visual. 23 testes PASS; QA publico responsivo e modal legal verdes; `recover_family` agora diferencia erro de rede de conta sem familia. **Smoke autenticado pendente; sem push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Smoke autenticado do refresh Etapa 2 | Fechado e limpo | Conta QA iniciou sem termos, aceitou `2026-08-13`, criou familia Free e crianca ficticia, abriu o painel e foi excluida pela Edge LGPD. Perfil/familia/crianca ausentes, Auth ausente e relogin=`invalid_credentials`. Scroll entre telas corrigido. **Sem residuo QA, push, deploy ou SQL.** |
 | 2026-08-16 | Refresh visual Etapa 3 - shell do responsavel | Validado localmente | Sidebar desktop, topbar contextual, navegacao inferior mobile e largura total implantadas sem alterar fluxos internos. 24 testes PASS; browser autenticado em 1440x900, 768x1024 e 390x844 sem overflow; console limpo em aba nova. Conta QA removida e relogin recusado. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Refresh visual Etapa 4A - home do responsavel | Validado localmente | Resumo familiar, timers, central de acoes, filhos, missoes rapidas e convite reorganizados sem alterar contratos. 25 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844, sem overflow nem erro de console. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -519,6 +520,25 @@ Implementado e validado localmente em 2026-08-16:
 - Gates: 24/24 testes, lint estrito, build PWA e `git diff --check` aprovados.
 
 Estado vivo do produto: **codigo e release inalterados, sem dados QA residuais**. Nenhum push, deploy, SQL ou liberacao foi realizado. O conteudo interno do painel permanece no visual anterior e sera migrado de forma segmentada na Etapa 4.
+
+## 7.8 Estado do Refresh Visual - Etapa 4A
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-4a`, baseada na Etapa 3 aprovada.
+- A home do responsavel agora prioriza progresso da familia, KidCoins, pendencias, timers e maior sequencia em um resumo unico.
+- Cronometros em andamento preservam pausar, retomar e concluir; a confirmacao de conclusao foi aberta e cancelada no QA, sem executar RPC.
+- Solicitacoes de resgate, entregas e revisoes de missao foram reunidas em uma central de acoes com estados vazios e estados ocupados acessiveis.
+- A revisao de missao recebeu trava de concorrencia para impedir envio duplo durante a chamada existente.
+- Cartoes dos filhos preservam progresso, extrato, tropeço, edicao, resgate e marcacao rapida de todas as missoes.
+- Convite de co-responsavel continua respeitando plano, limites, copia e regeneracao de codigo sem alterar o backend.
+- Contrato automatizado cobre handlers criticos, timers, busy states, progresso, convite, breakpoints, foco e ausencia de gradiente.
+- QA autenticado somente leitura em 1440x900, 768x1024 e 390x844: sem overflow horizontal, texto cortado ou conteudo oculto pela navegacao mobile.
+- Semantica aprovada: um `main`, barras de progresso com valores e nomes, nenhum botao sem nome e nenhum `id` duplicado.
+- Uma aba limpa do preview carregou sem erro ou aviso da aplicacao.
+- Gates: 25/25 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Estado vivo do produto: **dados, backend e release inalterados**. O QA nao criou, editou ou excluiu dados e nenhuma acao mutavel foi confirmada. Nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4B tratara a gestao completa de missoes e recorrencia em novo lote.
 
 ## 8. Modelo Para Novas Entradas
 

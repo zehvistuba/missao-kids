@@ -17,6 +17,7 @@ import heroFamilyImage from "./assets/rotinup-hero-family.webp";
 import "./styles/landing-refresh.css";
 import "./styles/flow-refresh.css";
 import "./styles/parent-shell-refresh.css";
+import "./styles/parent-home-refresh.css";
 
 const TEXT_BUTTON_STYLE = {
   padding: 0,
@@ -980,15 +981,19 @@ const LoadErrorBlock = ({
   onSignOut,
   title = "Não foi possível carregar seus dados",
   message = "Verifique sua conexão e tente novamente.",
-}) => (
-  <div style={{ padding: "48px 24px", textAlign: "center" }}>
-    <div style={{ fontSize: 44, marginBottom: 12 }}>📡</div>
-    <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{title}</div>
-    <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>{message}</div>
-    <button onClick={onRetry} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
-    {onSignOut && <button onClick={onSignOut} style={{ display: "block", margin: "14px auto 0", padding: "10px 18px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sair e usar outra conta</button>}
-  </div>
-);
+  tone = "dark",
+}) => {
+  const isLight = tone === "light";
+  return (
+    <section role="alert" style={{ padding: "48px 24px", textAlign: "center" }}>
+      <div aria-hidden="true" style={{ fontSize: 44, marginBottom: 12 }}>📡</div>
+      <div style={{ color: isLight ? "#17213E" : T.text, fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{title}</div>
+      <div style={{ color: isLight ? "#59647B" : T.textMuted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>{message}</div>
+      <button type="button" onClick={onRetry} style={{ padding: "12px 24px", borderRadius: isLight ? 8 : 14, border: "none", background: isLight ? "#C84734" : `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
+      {onSignOut && <button type="button" onClick={onSignOut} style={{ display: "block", margin: "14px auto 0", padding: "10px 18px", borderRadius: isLight ? 8 : 12, border: isLight ? "1px solid #BAC5D4" : "1px solid rgba(255,255,255,0.12)", background: "transparent", color: isLight ? "#59647B" : T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sair e usar outra conta</button>}
+    </section>
+  );
+};
 
 // Tela de aceite de termos (responsável legal) — gate antes de onboarding/dashboard.
 const ReportIssueModal = ({ onClose }) => {
@@ -1552,7 +1557,7 @@ const Onboarding = ({ onDone }) => {
 // CHILD DASHBOARD
 // ═══════════════════════════════════════════════════════════
 // Contagem regressiva ao vivo (recompensa de tempo). Tica a cada segundo.
-function Countdown({ endsAt }) {
+function Countdown({ endsAt, tone = "dark" }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -1567,21 +1572,21 @@ function Countdown({ endsAt }) {
   const p2 = (n) => String(n).padStart(2, "0");
   const low = ms > 0 && ms <= 5 * 60000;
   return (
-    <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", color: over ? T.pink : low ? T.warning : T.accent }}>
+    <span className={`ru-countdown ru-countdown--${tone}`} data-status={over ? "over" : low ? "low" : "active"}>
       {over ? "⏱️ acabou" : (hh > 0 ? `${hh}:${p2(mm)}:${p2(ss)}` : `${p2(mm)}:${p2(ss)}`)}
     </span>
   );
 }
 
 // Anel circular de progresso de XP (em volta do avatar na home da criança).
-function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
+function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", trackColor = "rgba(255,255,255,0.12)", children }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(1, pct || 0));
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.12)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={stroke} fill="none" />
         <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p)} style={{ transition: "stroke-dashoffset 0.6s ease" }} />
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{children}</div>
@@ -1590,7 +1595,7 @@ function XPRing({ size = 76, stroke = 5, pct = 0, color = "#fff", children }) {
 }
 
 // Controle do cronômetro de recompensa: ▶️ Iniciar/Retomar · ⏸️ Pausar · contagem ao vivo
-function TimerControl({ t, onStart, onPause, onFinish, busy }) {
+function TimerControl({ t, onStart, onPause, onFinish, busy, tone = "dark" }) {
   const [confirming, setConfirming] = useState(false);
   const [confirmationNow, setConfirmationNow] = useState(() => Date.now());
   const pad = (n) => String(n).padStart(2, "0");
@@ -1598,24 +1603,24 @@ function TimerControl({ t, onStart, onPause, onFinish, busy }) {
   const remaining = Math.max(0, running ? (new Date(t.timer_ends_at).getTime() - confirmationNow) / 1000 : (t.timer_remaining_seconds ?? (t.duration_minutes || 0) * 60));
   const fmt = (secs) => { secs = Math.max(0, Math.floor(secs)); const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60; return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`; };
   const doneBtn = (
-    <button onClick={() => { setConfirmationNow(Date.now()); setConfirming(true); }} disabled={busy} title="Concluir agora" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.accent}55`, background: `${T.accent}18`, color: T.accent, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
+    <button type="button" className="ru-timer-button ru-timer-button--done" onClick={() => { setConfirmationNow(Date.now()); setConfirming(true); }} disabled={busy} title="Concluir agora" aria-label={`Concluir cronômetro de ${t.reward_title || "recompensa"}`}>✓</button>
   );
 
   if (confirming) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-        <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700 }}>Faltam {fmt(remaining)}. Concluir?</span>
-        <button onClick={() => { setConfirming(false); onFinish(t.id); }} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: T.accent, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Sim</button>
-        <button onClick={() => setConfirming(false)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: T.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Não</button>
+      <div className={`ru-timer-control ru-timer-control--${tone} ru-timer-control--confirming`}>
+        <span className="ru-timer-confirmation">Faltam {fmt(remaining)}. Concluir?</span>
+        <button type="button" className="ru-timer-button ru-timer-button--confirm" onClick={() => { setConfirming(false); onFinish(t.id); }} disabled={busy}>Sim</button>
+        <button type="button" className="ru-timer-button ru-timer-button--cancel" onClick={() => setConfirming(false)}>Não</button>
       </div>
     );
   }
 
   if (running) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        <Countdown endsAt={t.timer_ends_at} />
-        <button onClick={() => onPause(t.id)} disabled={busy} title="Pausar" style={{ padding: "6px 10px", borderRadius: 10, border: `1px solid ${T.warning}55`, background: `${T.warning}18`, color: T.warning, fontWeight: 900, fontSize: 13, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>⏸️</button>
+      <div className={`ru-timer-control ru-timer-control--${tone}`}>
+        <Countdown endsAt={t.timer_ends_at} tone={tone} />
+        <button type="button" className="ru-timer-button ru-timer-button--pause" onClick={() => onPause(t.id)} disabled={busy} title="Pausar" aria-label={`Pausar cronômetro de ${t.reward_title || "recompensa"}`}>⏸️</button>
         {doneBtn}
       </div>
     );
@@ -1626,11 +1631,11 @@ function TimerControl({ t, onStart, onPause, onFinish, busy }) {
   const idleLabel = hh > 0 ? `⏱️ ${hh}h${mm > 0 ? ` ${mm}min` : ""}` : `⏱️ ${mm} min`;
   const pausedLabel = hh > 0 ? `⏸️ ${hh}:${pad(mm)}:${pad(ss)}` : `⏸️ ${pad(mm)}:${pad(ss)}`;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums", fontSize: 14, color: paused ? T.warning : T.textMuted }}>
+    <div className={`ru-timer-control ru-timer-control--${tone}`}>
+      <span className="ru-timer-status" data-status={paused ? "paused" : "idle"}>
         {paused ? pausedLabel : idleLabel}
       </span>
-      <button onClick={() => onStart(t.id)} disabled={busy} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>▶️ {paused ? "Retomar" : "Iniciar"}</button>
+      <button type="button" className="ru-timer-button ru-timer-button--start" onClick={() => onStart(t.id)} disabled={busy}>▶️ {paused ? "Retomar" : "Iniciar"}</button>
       {doneBtn}
     </div>
   );
@@ -3245,6 +3250,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [loadError, setLoadError]           = useState(null);
   const [childLogs, setChildLogs]           = useState([]);
   const [checkingMission, setCheckingMission] = useState(null); // "childId-missionId"
+  const [reviewingLog, setReviewingLog]       = useState(null);
   const [redemptions, setRedemptions]         = useState([]);
   const [activeTimers, setActiveTimers]       = useState([]);
   const [timerBusy, setTimerBusy]             = useState(null);
@@ -3577,8 +3583,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const review = async (logId, approve) => {
+    if (reviewingLog) return;
+    setReviewingLog(logId);
     const log = pending.find(p => p.log_id === logId);
     const { error } = await supabase.rpc("review_mission", { p_log_id: logId, p_approve: approve, p_note: approve ? "Ótimo trabalho! 🎉" : "Tente novamente!" });
+    setReviewingLog(null);
     if (error) {
       // Ex.: "Log já foi revisado" (outra aba/co-responsável já aprovou) — recarrega
       // a fila pra remover o item obsoleto em vez de deixar reclicar.
@@ -3720,10 +3729,24 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     { key: "settings", icon: "⚙️", label: "Conta" },
   ];
   const activeTab = navTabs.find(item => item.key === tab) || navTabs[0];
-  const requestedRedemptions = redemptions.filter(redemption => redemption.status === "requested").length;
+  const requestedRedemptions = redemptions.filter(redemption => redemption.status === "requested");
+  const deliveryRedemptions = redemptions.filter(redemption => redemption.status === "approved");
+  const familyMissionTotal = children.length * missions.length;
+  const familyMissionsDone = children.reduce((sum, child) => (
+    sum + missions.filter(mission => getChildLog(child.id, mission.id, mission.frequency)?.status === "approved").length
+  ), 0);
+  const familyProgress = familyMissionTotal ? familyMissionsDone / familyMissionTotal : 0;
+  const familyCoins = children.reduce((sum, child) => sum + (child.kidcoins || 0), 0);
+  const familyLeader = [...children].sort((left, right) => (right.streak || 0) - (left.streak || 0))[0];
+  const attentionCount = pending.length + requestedRedemptions.length + deliveryRedemptions.length;
+  const redemptionAge = (redemption) => {
+    const days = Math.floor((viewOpenedAt - new Date(redemption.created_at).getTime()) / 86400000);
+    return days <= 0 ? "hoje" : days === 1 ? "ontem" : `há ${days} dias`;
+  };
+  const redemptionChildName = (redemption) => redemption.child_name || children.find(child => child.id === redemption.child_id)?.display_name || "";
   const summaryItems = [
     pending.length > 0 && { icon: "⏳", text: `${pending.length} p/ aprovar`, tone: "attention" },
-    requestedRedemptions > 0 && { icon: "🙋", text: `${requestedRedemptions} resgate${requestedRedemptions > 1 ? "s" : ""}`, tone: "request" },
+    requestedRedemptions.length > 0 && { icon: "🙋", text: `${requestedRedemptions.length} resgate${requestedRedemptions.length > 1 ? "s" : ""}`, tone: "request" },
     activeTimers.length > 0 && { icon: "⏱️", text: `${activeTimers.length} em andamento`, tone: "timer" },
     { icon: "👶", text: `${children.length} filho${children.length !== 1 ? "s" : ""}`, tone: "family" },
   ].filter(Boolean);
@@ -3937,305 +3960,253 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         </div>
       </header>
 
-      <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" tabIndex={-1}>
+      <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={tab} tabIndex={-1}>
         <div className="ru-parent-workspace__inner">
-        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} /> : <>
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={tab === "home" ? "light" : "dark"} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
-            <div>
-              {/* Hoje na família — resumo colorido do dia */}
-              {children.length > 0 && (() => {
-                const total = children.length * missions.length;
-                const done = children.reduce((s, c) => s + missions.filter(m => getChildLog(c.id, m.id, m.frequency)?.status === "approved").length, 0);
-                const pct = total ? done / total : 0;
-                const leader = [...children].sort((a, b) => (b.streak || 0) - (a.streak || 0))[0];
-                const famCoins = children.reduce((s, c) => s + (c.kidcoins || 0), 0);
-                return (
-                  <div style={{ background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, borderRadius: 22, padding: "18px 20px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", right: -10, top: -12, fontSize: 80, opacity: 0.12, pointerEvents: "none" }}>👨‍👩‍👧</div>
-                    <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, fontWeight: 800, letterSpacing: 1 }}>HOJE NA FAMÍLIA</div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
-                      <span style={{ color: "#fff", fontWeight: 900, fontSize: 30 }}>{done}<span style={{ fontSize: 18, opacity: 0.7 }}>/{total}</span></span>
-                      <span style={{ color: "rgba(255,255,255,0.92)", fontWeight: 700, fontSize: 14 }}>missões feitas hoje</span>
-                    </div>
-                    <div style={{ height: 8, borderRadius: 5, background: "rgba(255,255,255,0.25)", overflow: "hidden", marginTop: 10 }}>
-                      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 5, background: "#fff", transition: "width 0.5s ease" }} />
-                    </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                      {leader && (leader.streak || 0) > 0 && <span style={{ background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>🔥 {leader.display_name} · {leader.streak}d</span>}
-                      <span style={{ background: "rgba(255,255,255,0.18)", color: "#fff", borderRadius: 9, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>🪙 {famCoins} na família</span>
-                    </div>
+            <div className="ru-parent-home">
+              <section className="ru-home-overview" aria-labelledby="ru-home-overview-title">
+                <div className="ru-home-overview__progress">
+                  <span className="ru-home-kicker">Hoje na família</span>
+                  <h2 id="ru-home-overview-title">Rotina de hoje</h2>
+                  <p>{children.length > 0 ? "Acompanhe o que já foi concluído e o que ainda precisa de atenção." : "Cadastre a primeira criança para começar a organizar a rotina."}</p>
+                  <div className="ru-home-overview__score">
+                    <strong>{familyMissionsDone}<span>/{familyMissionTotal}</span></strong>
+                    <span>missões concluídas</span>
                   </div>
-                );
-              })()}
+                  <div
+                    className="ru-home-progress"
+                    role="progressbar"
+                    aria-label="Progresso das missões da família hoje"
+                    aria-valuemin={0}
+                    aria-valuemax={familyMissionTotal || 1}
+                    aria-valuenow={familyMissionsDone}
+                  >
+                    <span style={{ width: `${familyProgress * 100}%` }} />
+                  </div>
+                  {children.length === 0 && (
+                    <button type="button" className="ru-home-button ru-home-button--primary" onClick={tryAddChild}>Adicionar primeira criança</button>
+                  )}
+                </div>
+                <dl className="ru-home-overview__stats">
+                  <div><dt>KidCoins</dt><dd>🪙 {familyCoins}</dd></div>
+                  <div><dt>Precisam de atenção</dt><dd>{attentionCount}</dd></div>
+                  <div><dt>Em andamento</dt><dd>{activeTimers.length}</dd></div>
+                  <div><dt>Maior sequência</dt><dd>{familyLeader && (familyLeader.streak || 0) > 0 ? `🔥 ${familyLeader.streak}d` : "—"}</dd></div>
+                </dl>
+              </section>
 
-              {/* Cronômetros em andamento (recompensas de tempo entregues) */}
               {activeTimers.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                    ⏱️ Em andamento
-                    <span style={{ background: `${T.accent}22`, color: T.accent, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{activeTimers.length}</span>
-                  </div>
-                  {activeTimers.map(t => (
-                    <div key={t.id} style={{ background: `linear-gradient(135deg, ${T.accent}12, ${T.blue}0C)`, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.accent}33`, display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 26, flexShrink: 0 }}>{t.reward_emoji || "🎮"}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.reward_title}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{t.child_name || children.find(c => c.id === t.child_id)?.display_name || ""}</div>
-                      </div>
-                      <TimerControl t={t} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === t.id} />
+                <section className="ru-home-section" aria-labelledby="ru-home-timers-title">
+                  <header className="ru-home-section__header">
+                    <div>
+                      <span className="ru-home-kicker">Recompensas de tempo</span>
+                      <h2 id="ru-home-timers-title">Cronômetros em andamento</h2>
                     </div>
-                  ))}
-                </div>
+                    <span className="ru-home-count">{activeTimers.length}</span>
+                  </header>
+                  <div className="ru-home-timer-list">
+                    {activeTimers.map(timer => (
+                      <article key={timer.id} className="ru-home-timer-card">
+                        <span className="ru-home-item-icon" aria-hidden="true">{timer.reward_emoji || "🎮"}</span>
+                        <div className="ru-home-item-copy">
+                          <strong>{timer.reward_title}</strong>
+                          <span>{timer.child_name || children.find(child => child.id === timer.child_id)?.display_name || "Criança"}</span>
+                        </div>
+                        <TimerControl t={timer} onStart={startTimer} onPause={pauseTimer} onFinish={finishTimer} busy={timerBusy === timer.id} tone="light" />
+                      </article>
+                    ))}
+                  </div>
+                </section>
               )}
 
-              {/* Resgates em 2 filas: aprovação (requested) e entrega (approved) */}
-              {(() => {
-                const pedidos  = redemptions.filter(r => r.status === "requested");
-                const entregas = redemptions.filter(r => r.status === "approved");
-                const tempo = (r) => {
-                  const d = Math.floor((viewOpenedAt - new Date(r.created_at).getTime()) / 86400000);
-                  return d <= 0 ? "hoje" : d === 1 ? "ontem" : `há ${d} dias`;
-                };
-                const nome = (r) => r.child_name || children.find(c => c.id === r.child_id)?.display_name || "";
-                const infoRow = (r, accent) => (
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 12, background: `${accent}1A`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{r.reward_emoji || "🎁"}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: T.text, fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.reward_title}</div>
-                      <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{nome(r) ? nome(r) + " · " : ""}resgatado {tempo(r)} · 🪙 {r.coin_cost}</div>
-                    </div>
+              <section ref={pendingRef} className="ru-home-section ru-home-attention" aria-labelledby="ru-home-attention-title">
+                <header className="ru-home-section__header">
+                  <div>
+                    <span className="ru-home-kicker">Central de ações</span>
+                    <h2 id="ru-home-attention-title">Precisam da sua atenção</h2>
                   </div>
-                );
-                return (
-                  <>
-                    {/* Etapa 2 — Aguardando sua aprovação */}
-                    {pedidos.length > 0 && (
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                          🙋 Aguardando sua aprovação
-                          <span style={{ background: `${T.purple}22`, color: T.purple, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{pedidos.length}</span>
-                        </div>
-                        {pedidos.map(r => (
-                          <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.purple}33` }}>
-                            {infoRow(r, T.purple)}
-                            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                              <button onClick={() => approveRedemption(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
-                                style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                                {confirmingRed === r.id ? "..." : "✅ Aprovar"}
-                              </button>
-                              <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
-                                style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                                {cancellingRed === r.id ? "..." : "Recusar"}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  <span className="ru-home-count" data-empty={attentionCount === 0}>{attentionCount}</span>
+                </header>
 
-                    {/* Etapa 3 — Aguardando entrega */}
-                    {entregas.length > 0 && (
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                          🎁 Aguardando entrega
-                          <span style={{ background: `${T.secondary}22`, color: T.secondary, borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 900 }}>{entregas.length}</span>
-                        </div>
-                        {entregas.map(r => (
-                          <div key={r.id} style={{ background: T.card, borderRadius: 16, padding: "12px 14px", marginBottom: 10, border: `1px solid ${T.secondary}33` }}>
-                            {infoRow(r, T.secondary)}
-                            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                              <button onClick={() => confirmDelivery(r.id)} disabled={confirmingRed === r.id || cancellingRed === r.id}
-                                style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: (confirmingRed === r.id || cancellingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                                {confirmingRed === r.id ? "..." : "✅ Entreguei"}
-                              </button>
-                              <button onClick={() => cancelRedemption(r.id)} disabled={cancellingRed === r.id || confirmingRed === r.id}
-                                style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: "transparent", color: T.pink, fontWeight: 800, fontSize: 13, cursor: (cancellingRed === r.id || confirmingRed === r.id) ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                                {cancellingRed === r.id ? "..." : "Cancelar"}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-
-              {/* Pendentes — mostrar no topo quando há missões aguardando aprovação */}
-              {pending.length > 0 && (
-                <div ref={pendingRef} style={{ marginBottom: 20 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
-                  {pending.map(p => (
-                    <div key={p.log_id} style={{ background: T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${T.warning}33` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.warning}22, ${T.primary}22)`, border: `1px solid ${p.occurrence > 1 ? T.warning+"88" : T.warning+"44"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0, boxShadow: `0 4px 12px rgba(0,0,0,0.2)` }}>{p.mission_emoji}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={{ color: T.text, fontWeight: 700 }}>{p.mission_title}</span>
-                            {p.occurrence > 1 && (
-                              <span style={{ fontSize: 10, color: T.warning, background: `${T.warning}25`, borderRadius: 6, padding: "1px 7px", fontWeight: 900, flexShrink: 0 }}>
-                                🔁 {p.occurrence}ª vez {p.mission_frequency === "daily" ? "hoje" : p.mission_frequency === "weekly" ? "na semana" : "no período"}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                            <AvatarImg value={p.child_avatar} size={20} radius={6} />
-                            <span style={{ fontSize: 12, color: T.textMuted }}>{p.child_name} · 🪙 {p.coins_reward} KidCoins</span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <button onClick={() => review(p.log_id, true)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✓</button>
-                          <button onClick={() => review(p.log_id, false)} style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✗</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Filhos */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>👶 Meus Filhos</div>
-                  {familyPlan === "premium" && <span style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "2px 8px", letterSpacing: 0.5 }}>PREMIUM</span>}
-                </div>
-                <button onClick={tryAddChild} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: `${T.accent}22`, color: T.accent, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar</button>
-              </div>
-
-              {children.length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted, marginBottom: 20 }}>
-                    <div style={{ fontSize: 40, marginBottom: 8 }}>👶</div>
-                    Nenhum filho cadastrado ainda!
-                    <div style={{ marginTop: 16 }}>
-                      <button onClick={tryAddChild} style={{ padding: "10px 20px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.accent}, ${T.blue})`, color: "#fff", fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Adicionar filho(a)</button>
-                    </div>
+                {attentionCount === 0 ? (
+                  <div className="ru-home-empty">
+                    <span aria-hidden="true">✓</span>
+                    <div><strong>Tudo em dia</strong><p>Não há missões ou resgates aguardando uma ação sua.</p></div>
                   </div>
-                : children.map(child => {
-                    const l = getLvl(child.xp||0); const n = getNext(child.xp||0);
-                    const age = child.birth_date ? calcAge(child.birth_date) : child.age;
-                    return (
-                      <div key={child.id} style={{ background: `linear-gradient(135deg, ${l.color}14, ${T.card} 60%)`, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${l.color}33` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                          <XPRing size={62} stroke={4} pct={(n.xpNeeded - l.xpNeeded) ? ((child.xp || 0) - l.xpNeeded) / (n.xpNeeded - l.xpNeeded) : 0} color={l.color}>
-                            <div style={{ width: 48, height: 48, borderRadius: "50%", overflow: "hidden", background: `linear-gradient(135deg, ${T.purple}44, ${T.blue}44)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <AvatarImg value={child.avatar_emoji} size={48} radius={24} />
-                            </div>
-                          </XPRing>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <span style={{ color: T.text, fontWeight: 800, fontSize: 17 }}>{child.display_name}</span>
-                              {(child.streak || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 2, background: `${T.warning}1A`, color: T.warning, borderRadius: 8, padding: "1px 8px", fontSize: 12, fontWeight: 900 }}>🔥 {child.streak}</span>}
-                            </div>
-                            <div style={{ color: T.textMuted, fontSize: 12, marginTop: 2 }}>{l.name} · 🪙 {child.kidcoins||0}{age ? ` · ${age} anos` : ""}</div>
-                          </div>
-                        </div>
-                        {/* Progresso de hoje deste filho — espelha a barra HOJE da criança */}
-                        {missions.length > 0 && (() => {
-                          const doneToday = missions.filter(m => getChildLog(child.id, m.id, m.frequency)?.status === "approved").length;
-                          const total = missions.length;
-                          const pct = total ? doneToday / total : 0;
-                          const allDone = doneToday === total;
-                          return (
-                            <div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                <span style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>HOJE</span>
-                                <span style={{ color: allDone ? T.accent : T.text, fontSize: 12, fontWeight: 900 }}>{doneToday}/{total}{allDone ? " ✅" : ""}</span>
-                              </div>
-                              <div style={{ height: 8, borderRadius: 5, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                                <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 5, background: `linear-gradient(90deg, ${T.accent}, ${T.blue})`, transition: "width 0.5s ease" }} />
-                              </div>
-                            </div>
-                          );
-                        })()}
-                        {/* Ações do filho — grade 2x2 (distribuição uniforme) */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-                          <button onClick={() => setEditingChild(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✏️ Editar</button>
-                          <button onClick={() => setExtratoTarget(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.blue}22`, color: T.blue, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>📋 Extrato</button>
-                          <button onClick={() => setDemeritTarget(child)} style={{ padding: "10px", borderRadius: 12, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>⚠️ Tropeço</button>
-                          <button onClick={() => setRedeemTarget(child)} style={{ padding: "10px", borderRadius: 12, border: `1px solid ${T.accent}55`, background: `${T.accent}1A`, color: T.accent, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🎁 Resgatar</button>
-                        </div>
-                        {/* Missões para marcar pelo responsável */}
-                        {missions.length > 0 && (
-                          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ color: T.textMuted, fontSize: 11, fontWeight: 800, marginBottom: 8, letterSpacing: 0.5 }}>MARCAR MISSÕES</div>
-                            {missions.map(m => {
-                              const log = getChildLog(child.id, m.id, m.frequency);
-                              const done = log?.status === "approved";
-                              const pend = log?.status === "pending";
-                              const key = `${child.id}-${m.id}`;
-                              const timesInPeriod = countChildLogsInPeriod(child.id, m.id, m.frequency);
-                              return (
-                                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, opacity: pend ? 0.6 : 1 }}>
-                                  <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✅" : m.emoji}</span>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ color: done ? T.textMuted : T.text, fontSize: 13, fontWeight: 600, textDecoration: done ? "line-through" : "none" }}>{m.title}</div>
-                                    {timesInPeriod > 1 && <div style={{ fontSize: 10, color: T.warning, fontWeight: 800, marginTop: 1 }}>🔁 {timesInPeriod}ª vez {m.frequency === "daily" ? "hoje" : "no período"}</div>}
-                                  </div>
-                                  {pend
-                                    ? <span style={{ fontSize: 10, color: T.secondary, fontWeight: 800, flexShrink: 0 }}>⏳ Aguardando</span>
-                                    : <button onClick={() => parentCheck(child.id, m.id)} disabled={checkingMission === key}
-                                        style={{ padding: "5px 12px", borderRadius: 10, border: done ? `1px solid ${T.warning}55` : "none", background: done ? `${T.warning}15` : `${T.accent}22`, color: done ? T.warning : T.accent, fontWeight: 800, fontSize: 11, cursor: checkingMission === key ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                                        {checkingMission === key ? "..." : done ? "🔁 De novo" : "✓ Marcar"}
-                                      </button>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {/* Resgates (aprovação + entrega) movidos para as filas do topo da Início */}
-                      </div>
-                    );
-                  })
-              }
-
-              {/* Convidar co-responsável */}
-              <div style={{ background: T.card, borderRadius: 20, padding: 18, marginBottom: 20, border: `1px solid ${T.purple}33` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                  <div style={{ fontSize: 22 }}>🔗</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>Convidar Co-responsável</div>
-                    <div style={{ color: T.textMuted, fontSize: 12 }}>Compartilhe o código com outro responsável</div>
-                  </div>
-                  {familyPlan === "premium" && <span style={{ background: `linear-gradient(135deg, ${T.purple}, ${T.pink})`, color: "#fff", fontSize: 9, fontWeight: 900, borderRadius: 999, padding: "2px 8px" }}>PREMIUM</span>}
-                </div>
-                {familyPlan === "free" ? (
-                  <button onClick={() => setShowUpgrade(true)} style={{ width: "100%", padding: "12px 16px", borderRadius: 14, border: `1px solid ${T.purple}33`, background: `${T.purple}10`, color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <span>🔒</span>
-                    <span>Disponível no <span style={{ color: T.purple, fontWeight: 900 }}>Premium</span> — até 10 co-responsáveis</span>
-                  </button>
-                ) : inviteCode ? (
-                  <>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div style={{ flex: 1, background: T.darker, borderRadius: 14, padding: "12px 16px", border: `2px solid ${T.purple}44`, textAlign: "center" }}>
-                        <span style={{ color: T.purple, fontWeight: 900, fontSize: 20, letterSpacing: 4, fontFamily: "'Nunito', sans-serif" }}>{inviteCode}</span>
-                      </div>
-                      <button onClick={copyCode} style={{ padding: "12px 16px", borderRadius: 14, border: "none", background: codeCopied ? `${T.accent}33` : `${T.purple}22`, color: codeCopied ? T.accent : T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                        {codeCopied ? "✅ Copiado" : "📋 Copiar"}
-                      </button>
-                    </div>
-                    <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: inviteExpiresAt && new Date(inviteExpiresAt).getTime() < viewOpenedAt + 3600000 ? T.secondary : T.textMuted, fontSize: 11 }}>
-                        ⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}
-                      </span>
-                      <button onClick={generateCode} disabled={inviteLoading} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Novo código</button>
-                    </div>
-                  </>
                 ) : (
-                  <button onClick={generateCode} disabled={inviteLoading} style={{ width: "100%", padding: "12px", borderRadius: 14, border: `1px solid ${T.purple}44`, background: `${T.purple}14`, color: T.purple, fontWeight: 800, fontSize: 14, cursor: inviteLoading ? "not-allowed" : "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                    {inviteLoading ? "Gerando..." : "✨ Gerar código de convite"}
-                  </button>
-                )}
-              </div>
+                  <div className="ru-home-queue-grid">
+                    {requestedRedemptions.map(redemption => {
+                      const busy = confirmingRed === redemption.id || cancellingRed === redemption.id;
+                      const childName = redemptionChildName(redemption);
+                      return (
+                        <article key={redemption.id} className="ru-home-queue-card" data-kind="request">
+                          <div className="ru-home-queue-card__body">
+                            <span className="ru-home-item-icon" aria-hidden="true">{redemption.reward_emoji || "🎁"}</span>
+                            <div className="ru-home-item-copy">
+                              <span className="ru-home-item-label">Resgate solicitado</span>
+                              <strong>{redemption.reward_title}</strong>
+                              <span>{childName ? `${childName} · ` : ""}{redemptionAge(redemption)} · 🪙 {redemption.coin_cost}</span>
+                            </div>
+                          </div>
+                          <div className="ru-home-card-actions">
+                            <button type="button" className="ru-home-button ru-home-button--approve" onClick={() => approveRedemption(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Aprovando..." : "✓ Aprovar"}</button>
+                            <button type="button" className="ru-home-button ru-home-button--reject" onClick={() => cancelRedemption(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Recusando..." : "Recusar"}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
 
-              {/* Pendentes — estado vazio (lista aparece no topo quando há itens) */}
-              {pending.length === 0 && (
-                <div>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ Aguardando Aprovação</div>
-                  <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>Tudo em dia!</div>
-                </div>
-              )}
+                    {deliveryRedemptions.map(redemption => {
+                      const busy = confirmingRed === redemption.id || cancellingRed === redemption.id;
+                      const childName = redemptionChildName(redemption);
+                      return (
+                        <article key={redemption.id} className="ru-home-queue-card" data-kind="delivery">
+                          <div className="ru-home-queue-card__body">
+                            <span className="ru-home-item-icon" aria-hidden="true">{redemption.reward_emoji || "🎁"}</span>
+                            <div className="ru-home-item-copy">
+                              <span className="ru-home-item-label">Aguardando entrega</span>
+                              <strong>{redemption.reward_title}</strong>
+                              <span>{childName ? `${childName} · ` : ""}{redemptionAge(redemption)} · 🪙 {redemption.coin_cost}</span>
+                            </div>
+                          </div>
+                          <div className="ru-home-card-actions">
+                            <button type="button" className="ru-home-button ru-home-button--approve" onClick={() => confirmDelivery(redemption.id)} disabled={busy} aria-busy={confirmingRed === redemption.id}>{confirmingRed === redemption.id ? "Confirmando..." : "✓ Marcar entregue"}</button>
+                            <button type="button" className="ru-home-button ru-home-button--reject" onClick={() => cancelRedemption(redemption.id)} disabled={busy} aria-busy={cancellingRed === redemption.id}>{cancellingRed === redemption.id ? "Cancelando..." : "Cancelar"}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+
+                    {pending.map(item => {
+                      const reviewing = reviewingLog === item.log_id;
+                      const busy = Boolean(reviewingLog);
+                      return (
+                        <article key={item.log_id} className="ru-home-queue-card" data-kind="mission">
+                          <div className="ru-home-queue-card__body">
+                            <span className="ru-home-item-icon" aria-hidden="true">{item.mission_emoji}</span>
+                            <div className="ru-home-item-copy">
+                              <span className="ru-home-item-label">Missão para revisar</span>
+                              <strong>{item.mission_title}</strong>
+                              <span className="ru-home-child-line"><AvatarImg value={item.child_avatar} size={20} radius={6} />{item.child_name} · 🪙 {item.coins_reward}</span>
+                              {item.occurrence > 1 && <span className="ru-home-occurrence">↻ {item.occurrence}ª vez {item.mission_frequency === "daily" ? "hoje" : item.mission_frequency === "weekly" ? "na semana" : "no período"}</span>}
+                            </div>
+                          </div>
+                          <div className="ru-home-card-actions">
+                            <button type="button" className="ru-home-button ru-home-button--approve" onClick={() => review(item.log_id, true)} disabled={busy} aria-busy={reviewing} aria-label={`Aprovar ${item.mission_title}`}>{reviewing ? "Processando..." : "✓ Aprovar"}</button>
+                            <button type="button" className="ru-home-button ru-home-button--reject" onClick={() => review(item.log_id, false)} disabled={busy} aria-busy={reviewing} aria-label={`Rejeitar ${item.mission_title}`}>{reviewing ? "Processando..." : "Rejeitar"}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="ru-home-section" aria-labelledby="ru-home-children-title">
+                <header className="ru-home-section__header">
+                  <div>
+                    <span className="ru-home-kicker">Acompanhamento</span>
+                    <h2 id="ru-home-children-title">Meus filhos</h2>
+                  </div>
+                  <div className="ru-home-section__tools">
+                    {familyPlan === "premium" && <span className="ru-home-plan-badge">Premium</span>}
+                    <button type="button" className="ru-home-button ru-home-button--secondary" onClick={tryAddChild}>+ Adicionar</button>
+                  </div>
+                </header>
+
+                {children.length === 0 ? (
+                  <div className="ru-home-empty">
+                    <span aria-hidden="true">👶</span>
+                    <div><strong>Nenhuma criança cadastrada</strong><p>Use o botão acima para criar o primeiro perfil gerenciado.</p></div>
+                  </div>
+                ) : (
+                  <div className="ru-home-children-grid">
+                    {children.map(child => {
+                      const level = getLvl(child.xp || 0);
+                      const nextLevel = getNext(child.xp || 0);
+                      const age = child.birth_date ? calcAge(child.birth_date) : child.age;
+                      const doneToday = missions.filter(mission => getChildLog(child.id, mission.id, mission.frequency)?.status === "approved").length;
+                      const totalToday = missions.length;
+                      const progress = totalToday ? doneToday / totalToday : 0;
+                      const allDone = totalToday > 0 && doneToday === totalToday;
+                      return (
+                        <article key={child.id} className="ru-home-child-card">
+                          <header className="ru-home-child-card__header">
+                            <XPRing size={62} stroke={4} pct={(nextLevel.xpNeeded - level.xpNeeded) ? ((child.xp || 0) - level.xpNeeded) / (nextLevel.xpNeeded - level.xpNeeded) : 0} color={level.color} trackColor="#DCE3ED">
+                              <AvatarImg value={child.avatar_emoji} size={48} radius={24} style={{ background: "#F0F3F8" }} />
+                            </XPRing>
+                            <div className="ru-home-child-card__identity">
+                              <div><h3>{child.display_name}</h3>{(child.streak || 0) > 0 && <span className="ru-home-streak">🔥 {child.streak}</span>}</div>
+                              <p>{level.name} · 🪙 {child.kidcoins || 0}{age ? ` · ${age} anos` : ""}</p>
+                            </div>
+                          </header>
+
+                          {missions.length > 0 && (
+                            <div className="ru-home-child-progress">
+                              <div><span>Hoje</span><strong>{doneToday}/{totalToday}{allDone ? " ✓" : ""}</strong></div>
+                              <div className="ru-home-progress" role="progressbar" aria-label={`Progresso de ${child.display_name} hoje`} aria-valuemin={0} aria-valuemax={totalToday} aria-valuenow={doneToday}><span style={{ width: `${progress * 100}%` }} /></div>
+                            </div>
+                          )}
+
+                          <div className="ru-home-child-actions">
+                            <button type="button" onClick={() => setEditingChild(child)}>✏️ Editar</button>
+                            <button type="button" onClick={() => setExtratoTarget(child)}>📋 Extrato</button>
+                            <button type="button" onClick={() => setDemeritTarget(child)}>⚠️ Tropeço</button>
+                            <button type="button" onClick={() => setRedeemTarget(child)}>🎁 Resgatar</button>
+                          </div>
+
+                          {missions.length > 0 && (
+                            <div className="ru-home-mission-list">
+                              <h4>Marcar missões</h4>
+                              {missions.map(mission => {
+                                const log = getChildLog(child.id, mission.id, mission.frequency);
+                                const done = log?.status === "approved";
+                                const waiting = log?.status === "pending";
+                                const key = `${child.id}-${mission.id}`;
+                                const timesInPeriod = countChildLogsInPeriod(child.id, mission.id, mission.frequency);
+                                return (
+                                  <div key={mission.id} className="ru-home-mission-row" data-complete={done} data-waiting={waiting}>
+                                    <span className="ru-home-mission-row__icon" aria-hidden="true">{done ? "✓" : mission.emoji}</span>
+                                    <div><strong>{mission.title}</strong>{timesInPeriod > 1 && <span>↻ {timesInPeriod}ª vez {mission.frequency === "daily" ? "hoje" : "no período"}</span>}</div>
+                                    {waiting ? (
+                                      <span className="ru-home-waiting">Aguardando</span>
+                                    ) : (
+                                      <button type="button" onClick={() => parentCheck(child.id, mission.id)} disabled={checkingMission === key} aria-busy={checkingMission === key}>{checkingMission === key ? "..." : done ? "↻ De novo" : "✓ Marcar"}</button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="ru-home-invite" aria-labelledby="ru-home-invite-title">
+                <header>
+                  <span className="ru-home-item-icon" aria-hidden="true">🔗</span>
+                  <div><h2 id="ru-home-invite-title">Convidar co-responsável</h2><p>Compartilhe um código temporário com outro adulto responsável.</p></div>
+                  {familyPlan === "premium" && <span className="ru-home-plan-badge">Premium</span>}
+                </header>
+                {familyPlan === "free" ? (
+                  <button type="button" className="ru-home-invite__locked" onClick={() => setShowUpgrade(true)}>🔒 Disponível no Premium · até {PLAN_LIMITS.premium.coParents} responsáveis</button>
+                ) : inviteCode ? (
+                  <div className="ru-home-invite__controls">
+                    <code>{inviteCode}</code>
+                    <button type="button" className="ru-home-button ru-home-button--secondary" onClick={copyCode}>{codeCopied ? "✓ Copiado" : "📋 Copiar"}</button>
+                    <span data-expiring={Boolean(inviteExpiresAt && new Date(inviteExpiresAt).getTime() < viewOpenedAt + 3600000)}>⏱ {fmtExpiry(inviteExpiresAt) || "validade desconhecida"}</span>
+                    <button type="button" className="ru-home-text-button" onClick={generateCode} disabled={inviteLoading}>{inviteLoading ? "Gerando..." : "↻ Novo código"}</button>
+                  </div>
+                ) : (
+                  <button type="button" className="ru-home-button ru-home-button--secondary" onClick={generateCode} disabled={inviteLoading}>{inviteLoading ? "Gerando..." : "Gerar código de convite"}</button>
+                )}
+              </section>
             </div>
           )}
 

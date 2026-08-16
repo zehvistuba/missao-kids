@@ -90,9 +90,10 @@ Status: concluida localmente, sem deploy.
 
 ### Etapa 4 - Fluxos centrais do responsavel
 
-Status: pendente.
+Status: em andamento; lote 4A da home concluido localmente, sem deploy.
 
-- Missoes, aprovacoes, cronometro e recorrencia.
+- Home, resumo familiar, aprovacoes e cronometros: lote 4A concluido.
+- Gestao completa de missoes e recorrencia: proximo lote.
 - Recompensas, resgates e cancelamento sem duplo estorno.
 - Estatisticas, conta, Premium e exclusao LGPD.
 - Validar estados vazio, carregando, erro, sucesso e concorrencia.
@@ -179,6 +180,21 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 24/24 testes, lint estrito e build PWA aprovados.
 - Estado vivo: nenhum push, deploy, SQL ou liberacao; nenhum dado QA residual.
 
-## 9. Proxima Decisao
+## 9. Evidencia da Etapa 4A
 
-Iniciar a Etapa 4 em nova branch/commit para migrar os fluxos centrais do responsavel, com lotes menores para home/aprovacoes, missoes, recompensas e conta, mantendo backend e release fora da atualizacao visual.
+- Branch: `codex/refresh-visual-etapa-4a`, derivada da Etapa 3 aprovada.
+- Folha isolada: `src/styles/parent-home-refresh.css`, sem gradientes decorativos.
+- Home: resumo familiar, progresso diario, KidCoins, pendencias, timers e sequencia reorganizados para leitura rapida.
+- Acoes: aprovacoes, entregas, revisao de missoes, controles de timer e gestao dos filhos preservam os handlers e RPCs existentes.
+- Concorrencia: revisao de missao agora bloqueia reenvio enquanto a chamada esta em andamento; filas e timers mantem estados `disabled` e `aria-busy`.
+- Filhos: progresso acessivel, extrato, tropeço, edicao, resgate e marcacao rapida permanecem disponiveis sem consulta adicional.
+- Convite: limites Free/Premium, copia e regeneracao continuam usando os contratos comerciais existentes.
+- Acessibilidade: um `main`, barras de progresso nomeadas, nenhum botao sem nome, nenhum `id` duplicado e foco visivel.
+- Browser autenticado em modo somente leitura: 1440x900, 768x1024 e 390x844 sem overflow horizontal ou sobreposicao da navegacao; transicao entre Inicio e Missoes restaura o topo.
+- Console: nova aba do preview sem erros ou avisos da aplicacao.
+- Automacao: 25/25 testes, lint estrito e build PWA aprovados; dependencias de producao sem vulnerabilidade alta.
+- Estado vivo: nenhum dado foi criado, editado ou excluido; nenhum push, deploy, SQL ou liberacao.
+
+## 10. Proxima Decisao
+
+Iniciar a Etapa 4B em nova branch/commit para migrar a gestao de missoes e recorrencia do responsavel. Recompensas, estatisticas e conta permanecem em lotes posteriores, mantendo backend e release fora da atualizacao visual.

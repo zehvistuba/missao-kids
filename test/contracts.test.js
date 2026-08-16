@@ -310,6 +310,49 @@ test("shell do responsavel preserva navegacao e adapta desktop e mobile", async 
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });
 
+test("home do responsavel preserva aprovacoes, timers e gestao familiar", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-home-refresh.css", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+  const home = parent.slice(parent.indexOf('{tab === "home"'), parent.indexOf("{/* MISSIONS */}"));
+  const review = parent.slice(parent.indexOf("const review = async"), parent.indexOf("const isLimitError"));
+
+  assert.match(source, /import "\.\/styles\/parent-home-refresh\.css"/);
+  assert.match(parent, /data-tab=\{tab\}/);
+  assert.match(parent, /tone=\{tab === "home" \? "light" : "dark"\}/);
+  assert.match(home, /className="ru-home-overview"/);
+  assert.match(home, /role="progressbar"/);
+  assert.match(home, /className="ru-home-section ru-home-attention"/);
+  assert.match(home, /attentionCount === 0/);
+  assert.match(home, /<TimerControl[\s\S]*onStart=\{startTimer\}[\s\S]*onPause=\{pauseTimer\}[\s\S]*onFinish=\{finishTimer\}[\s\S]*tone="light"/);
+  assert.match(home, /approveRedemption\(redemption\.id\)/);
+  assert.match(home, /confirmDelivery\(redemption\.id\)/);
+  assert.equal((home.match(/cancelRedemption\(redemption\.id\)/g) || []).length, 2);
+  assert.match(home, /review\(item\.log_id, true\)/);
+  assert.match(home, /review\(item\.log_id, false\)/);
+  assert.match(home, /parentCheck\(child\.id, mission\.id\)/);
+  assert.match(home, /setEditingChild\(child\)/);
+  assert.match(home, /setExtratoTarget\(child\)/);
+  assert.match(home, /setDemeritTarget\(child\)/);
+  assert.match(home, /setRedeemTarget\(child\)/);
+  assert.match(home, /PLAN_LIMITS\.premium\.coParents/);
+  assert.match(home, /onClick=\{copyCode\}/);
+  assert.match(home, /onClick=\{generateCode\}/);
+
+  assert.match(review, /if \(reviewingLog\) return/);
+  assert.ok(review.indexOf("setReviewingLog(logId)") < review.indexOf('supabase.rpc("review_mission"'));
+  assert.ok(review.indexOf('supabase.rpc("review_mission"') < review.indexOf("setReviewingLog(null)"));
+  assert.match(home, /const busy = Boolean\(reviewingLog\)/);
+  assert.match(home, /disabled=\{busy\} aria-busy=\{reviewing\}/);
+
+  assert.match(css, /\.ru-parent-workspace\[data-tab="home"\]/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /\.ru-home-mission-list[\s\S]*max-height: 360px/);
+  assert.match(css, /\.ru-home-mission-list[\s\S]*max-height: none/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
 test("IA e push limitam entrada e falham sem vazar detalhes internos", async () => {
   const ai = await readFile(new URL("../supabase/functions/ai-assistant/index.ts", import.meta.url), "utf8");
   const push = await readFile(new URL("../supabase/functions/push-notify/index.ts", import.meta.url), "utf8");
