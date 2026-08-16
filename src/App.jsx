@@ -18,6 +18,7 @@ import "./styles/landing-refresh.css";
 import "./styles/flow-refresh.css";
 import "./styles/parent-shell-refresh.css";
 import "./styles/parent-home-refresh.css";
+import "./styles/parent-missions-refresh.css";
 
 const TEXT_BUTTON_STYLE = {
   padding: 0,
@@ -2782,62 +2783,80 @@ const MissionModal = ({ mission, emojiCategories, onSave, onDeactivate, onClose 
   const [coins, setCoins]     = useState(mission.coins_reward ?? 20);
   const [xp, setXp]           = useState(mission.xp_reward ?? 15);
   const [frequency, setFreq]  = useState(mission.frequency || "daily");
+  const [duration, setDuration] = useState(mission.duration_minutes ?? 0);
   const [saving, setSaving]   = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [emojiCat, setEmojiCat] = useState(Object.keys(emojiCategories)[0]);
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || saving || deactivating) return;
     setSaving(true);
-    await onSave({ title: title.trim(), emoji, coins_reward: coins, xp_reward: xp, frequency });
-    setSaving(false);
+    const saved = await onSave({ title: title.trim(), emoji, coins_reward: coins, xp_reward: xp, frequency, duration_minutes: duration });
+    if (saved === false) setSaving(false);
+  };
+
+  const handleDeactivate = async () => {
+    if (!confirm) {
+      setConfirm(true);
+      return;
+    }
+    if (saving || deactivating) return;
+    setDeactivating(true);
+    const deactivated = await onDeactivate();
+    if (deactivated === false) setDeactivating(false);
   };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Editar missão" tabIndex={-1} onClick={e => e.stopPropagation()} style={{ position: "relative", background: T.card, borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 430, animation: "slideDown 0.3s ease", maxHeight: "90vh", overflowY: "auto" }}>
-        <button onClick={onClose} aria-label="Fechar" style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: 12, border: "none", background: "rgba(255,255,255,0.08)", color: T.textMuted, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>✕</button>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 20, textAlign: "center" }}>✏️ Editar Missão</div>
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
+    <div className="ru-mission-dialog-backdrop" onClick={saving || deactivating ? undefined : onClose}>
+      <div ref={dialogRef} className="ru-mission-dialog" role="dialog" aria-modal="true" aria-labelledby="ru-mission-dialog-title" tabIndex={-1} onClick={event => event.stopPropagation()}>
+        <header className="ru-mission-dialog__header">
+          <div>
+            <span className="ru-missions-kicker">Configuração</span>
+            <h2 id="ru-mission-dialog-title">Editar missão</h2>
+          </div>
+          <button type="button" className="ru-mission-icon-button" onClick={onClose} disabled={saving || deactivating} aria-label="Fechar edição">✕</button>
+        </header>
+
+        <div className="ru-mission-dialog__categories" aria-label="Categorias de ícones">
           {Object.keys(emojiCategories).map(cat => (
-            <button key={cat} onClick={() => setEmojiCat(cat)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 20, fontSize: 12, border: "none", background: emojiCat === cat ? T.primary : "rgba(255,255,255,0.08)", color: T.text, cursor: "pointer", fontWeight: emojiCat === cat ? 800 : 400, fontFamily: "'Nunito', sans-serif" }}>{cat}</button>
+            <button type="button" key={cat} onClick={() => setEmojiCat(cat)} aria-pressed={emojiCat === cat}>{cat}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-start", marginBottom: 16, maxHeight: 160, overflowY: "auto", padding: "4px 0" }}>
+        <div className="ru-mission-dialog__emojis" role="group" aria-label="Escolha um ícone">
           {(emojiCategories[emojiCat] || []).map(e => (
-            <button key={e} onClick={() => setEmoji(e)} style={{ width: 42, height: 42, borderRadius: 10, fontSize: 22, border: `2px solid ${emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+            <button type="button" key={e} onClick={() => setEmoji(e)} aria-label={`Usar ${e}`} aria-pressed={emoji === e}>{e}</button>
           ))}
         </div>
-        <Inp icon={emoji} placeholder="Nome da missão" value={title} onChange={e => setTitle(e.target.value)} maxLength={60} />
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
-          <div style={{ display: "flex", gap: 6 }}>
+
+        <div className="ru-mission-field">
+          <label htmlFor="edit-mission-title">Nome da missão</label>
+          <div className="ru-mission-title-input"><span aria-hidden="true">{emoji}</span><input id="edit-mission-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={60} autoFocus /></div>
+        </div>
+
+        <fieldset className="ru-mission-frequency">
+          <legend>Frequência</legend>
+          <div>
             {FREQ_OPTS.map(o => (
-              <button key={o.key} onClick={() => setFreq(o.key)}
-                style={{ flex: 1, padding: "8px 4px", borderRadius: 10, border: `2px solid ${frequency === o.key ? T.purple : "rgba(255,255,255,0.1)"}`, background: frequency === o.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: frequency === o.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                {o.emoji}<br/>{o.label}
+              <button type="button" key={o.key} onClick={() => setFreq(o.key)} aria-pressed={frequency === o.key}>
+                <span aria-hidden="true">{o.emoji}</span>{o.label}
               </button>
             ))}
           </div>
+        </fieldset>
+
+        <div className="ru-mission-value-grid">
+          <div className="ru-mission-field"><label htmlFor="edit-mission-coins">KidCoins</label><input id="edit-mission-coins" type="number" value={coins === 0 ? "" : coins} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setCoins(event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0))} /></div>
+          <div className="ru-mission-field"><label htmlFor="edit-mission-xp">XP</label><input id="edit-mission-xp" type="number" value={xp === 0 ? "" : xp} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setXp(event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0))} /></div>
+          <div className="ru-mission-field"><label htmlFor="edit-mission-duration">Duração (min)</label><input id="edit-mission-duration" type="number" value={duration === 0 ? "" : duration} placeholder="Sem timer" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setDuration(event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0))} /></div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
-            <input type="number" value={coins === 0 ? "" : coins} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setCoins(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-          </div>
-          <div>
-            <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
-            <input type="number" value={xp === 0 ? "" : xp} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setXp(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-          </div>
+
+        <div className="ru-mission-dialog__actions">
+          <button type="button" className="ru-missions-button ru-missions-button--primary" onClick={handleSave} disabled={saving || deactivating || title.trim().length < 2} aria-busy={saving}>{saving ? "Salvando..." : "Salvar alterações"}</button>
+          <button type="button" className="ru-missions-button ru-missions-button--secondary" onClick={onClose} disabled={saving || deactivating}>Cancelar</button>
         </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          <Btn onClick={handleSave} disabled={saving || !title.trim()} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`}>
-            {saving ? "Salvando..." : "✅ Salvar"}
-          </Btn>
-          <Btn onClick={onClose} outline small>Cancelar</Btn>
-        </div>
-        <button onClick={() => { if (!confirm) { setConfirm(true); return; } onDeactivate(); }} style={{ width: "100%", padding: "13px", borderRadius: 14, border: `1px solid ${confirm ? T.pink : "rgba(255,255,255,0.1)"}`, background: confirm ? `${T.pink}22` : "transparent", color: confirm ? T.pink : T.textMuted, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s" }}>
-          {confirm ? "⚠️ Confirmar desativação" : "🗑️ Desativar missão"}
+        <button type="button" className="ru-mission-dialog__deactivate" data-confirming={confirm} onClick={handleDeactivate} disabled={saving || deactivating} aria-busy={deactivating}>
+          {deactivating ? "Desativando..." : confirm ? "Confirmar desativação" : "Desativar missão"}
         </button>
       </div>
     </div>
@@ -3223,8 +3242,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [notif, setNotif]         = useState(null);
   const [notifType, setNotifType] = useState("success");
   const [showMission, setShowMission]   = useState(false);
+  const [creatingMission, setCreatingMission] = useState(false);
   const [dragMissionId, setDragMissionId] = useState(null);
   const [localMissions, setLocalMissions] = useState([]);
+  const [orderingMissions, setOrderingMissions] = useState(false);
+  const [reorderStatus, setReorderStatus] = useState("");
   const [showReward, setShowReward]     = useState(false);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newM, setNewM] = useState({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 });
@@ -3280,27 +3302,6 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= PLAN_LIMITS.free.children) { setShowUpgrade(true); } else { setShowAddChild(true); } };
-
-  const handleDragOver = (e, overId) => {
-    e.preventDefault();
-    if (!dragMissionId || overId === dragMissionId) return;
-    setLocalMissions(prev => {
-      const arr = [...prev];
-      const from = arr.findIndex(m => m.id === dragMissionId);
-      const to   = arr.findIndex(m => m.id === overId);
-      if (from < 0 || to < 0) return prev;
-      arr.splice(to, 0, arr.splice(from, 1)[0]);
-      return arr;
-    });
-  };
-
-  const saveMissionOrder = async () => {
-    setDragMissionId(null);
-    // Atualiza sort_order nos objetos para que o useEffect re-ordene corretamente
-    const withOrder = localMissions.map((m, i) => ({ ...m, sort_order: i }));
-    await supabase.rpc("reorder_missions", { p_orders: withOrder.map(m => ({ id: m.id, sort_order: m.sort_order })) });
-    setMissions(withOrder);
-  };
 
   const loadInviteCode = async () => {
     const { data } = await supabase.rpc("get_invite_code");
@@ -3420,6 +3421,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reactivateMission = async (missionId) => {
+    if (reactivating) return;
+    if (familyPlan !== "premium" && missions.length >= PLAN_LIMITS.free.activeMissions) {
+      setShowUpgrade(true);
+      return;
+    }
     setReactivating(missionId);
     const { error } = await supabase.rpc("reactivate_mission", { p_mission_id: missionId });
     setReactivating(null);
@@ -3492,6 +3498,52 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       if (myId === loadIdRef.current) setLoading(false);
     }
   }
+
+  const handleDragOver = (event, overId) => {
+    event.preventDefault();
+    if (!dragMissionId || overId === dragMissionId) return;
+    setLocalMissions(previous => {
+      const reordered = [...previous];
+      const from = reordered.findIndex(mission => mission.id === dragMissionId);
+      const to = reordered.findIndex(mission => mission.id === overId);
+      if (from < 0 || to < 0) return previous;
+      reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+      return reordered;
+    });
+  };
+
+  const saveMissionOrder = async (orderedMissions = localMissions) => {
+    if (orderingMissions) return;
+    setDragMissionId(null);
+    setOrderingMissions(true);
+    setReorderStatus("");
+    const withOrder = orderedMissions.map((mission, index) => ({ ...mission, sort_order: index }));
+    const { error } = await supabase.rpc("reorder_missions", {
+      p_orders: withOrder.map(mission => ({ id: mission.id, sort_order: mission.sort_order })),
+    });
+    setOrderingMissions(false);
+    if (error) {
+      captureActionError(error, "mission_order", "reorder", "parent_missions");
+      notify("Não foi possível salvar a nova ordem. A lista será restaurada.", "error");
+      setReorderStatus("A nova ordem não foi salva.");
+      load();
+      return;
+    }
+    setLocalMissions(withOrder);
+    setMissions(withOrder);
+    setReorderStatus("Ordem das missões atualizada.");
+  };
+
+  const moveMission = (missionId, direction) => {
+    if (orderingMissions) return;
+    const from = localMissions.findIndex(mission => mission.id === missionId);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= localMissions.length) return;
+    const reordered = [...localMissions];
+    reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+    setLocalMissions(reordered);
+    void saveMissionOrder(reordered);
+  };
 
   const getChildLog = (childId, missionId, frequency = "daily") => {
     const cutoffDays = { daily: 0, weekly: 6, biweekly: 13, monthly: 29 }[frequency] ?? 0;
@@ -3605,30 +3657,58 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     }
   };
 
-  const isLimitError = (msg = "") => msg.includes("Limite") || msg.includes("upgrade") || msg.includes("ilimitad");
+  const isLimitError = (msg = "") => {
+    const normalized = msg.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return normalized.includes("limite") || normalized.includes("upgrade") || normalized.includes("ilimitad");
+  };
 
   const createMission = async () => {
-    if (!newM.title) return notify("Digite o nome da missão", "error");
-    const { data, error } = await supabase.rpc("create_mission", {
-      p_title: newM.title, p_emoji: newM.emoji,
-      p_coins_reward: newM.coins_reward, p_xp_reward: newM.xp_reward, p_frequency: newM.frequency,
-    });
-    if (error) {
-      if (isLimitError(error.message)) { setShowMission(false); setShowUpgrade(true); return; }
-      return notify("Erro ao criar missão: " + error.message, "error");
+    if (creatingMission) return;
+    const title = newM.title.trim();
+    if (title.length < 2) return notify("Digite um nome com pelo menos 2 caracteres.", "error");
+    setCreatingMission(true);
+    try {
+      const { data, error } = await supabase.rpc("create_mission", {
+        p_title: title, p_emoji: newM.emoji,
+        p_coins_reward: newM.coins_reward, p_xp_reward: newM.xp_reward, p_frequency: newM.frequency,
+      });
+      if (error) {
+        if (isLimitError(error.message)) { setShowMission(false); setShowUpgrade(true); return; }
+        captureActionError(error, "mission", "create", "parent_missions");
+        notify("Erro ao criar missão: " + error.message, "error");
+        return;
+      }
+      if (data?.success === false) {
+        if (isLimitError(data.error || "")) { setShowMission(false); setShowUpgrade(true); return; }
+        notify(data.error || "Erro ao criar missão", "error");
+        return;
+      }
+
+      const newMissionId = typeof data === "string" ? data : data?.id;
+      let durationWarning = "";
+      if (newM.duration_minutes > 0) {
+        if (!newMissionId) {
+          durationWarning = "Missão criada, mas a duração não pôde ser associada.";
+          captureActionError(new Error(durationWarning), "mission", "set_duration", "parent_missions");
+        } else {
+          const { error: durationError } = await supabase.rpc("set_mission_duration", {
+            p_mission_id: newMissionId,
+            p_minutes: newM.duration_minutes,
+          });
+          if (durationError) {
+            durationWarning = "Missão criada, mas a duração não foi salva. Edite e tente novamente.";
+            captureActionError(durationError, "mission", "set_duration", "parent_missions");
+          }
+        }
+      }
+
+      setShowMission(false);
+      setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 });
+      load();
+      notify(durationWarning || "🎯 Missão criada!", durationWarning ? "error" : "success");
+    } finally {
+      setCreatingMission(false);
     }
-    if (data?.success === false) {
-      if (isLimitError(data.error || "")) { setShowMission(false); setShowUpgrade(true); return; }
-      return notify(data.error || "Erro ao criar missão", "error");
-    }
-    // Missão de duração: grava os minutos (não toca no create_mission vivo).
-    // create_mission RETURNS UUID → data é a própria string do id.
-    const newMissionId = typeof data === "string" ? data : data?.id;
-    if (newMissionId && newM.duration_minutes > 0) {
-      const { error: durErr } = await supabase.rpc("set_mission_duration", { p_mission_id: newMissionId, p_minutes: newM.duration_minutes });
-      if (durErr) notify("Missão criada, mas a duração não foi salva. Edite e tente de novo.", "error");
-    }
-    notify("🎯 Missão criada!"); setShowMission(false); setNewM({ title:"", emoji:"⭐", coins_reward:20, xp_reward:15, frequency:"daily", duration_minutes:0 }); load();
   };
 
   const createReward = async () => {
@@ -3739,6 +3819,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const familyCoins = children.reduce((sum, child) => sum + (child.kidcoins || 0), 0);
   const familyLeader = [...children].sort((left, right) => (right.streak || 0) - (left.streak || 0))[0];
   const attentionCount = pending.length + requestedRedemptions.length + deliveryRedemptions.length;
+  const missionLimitReached = familyPlan !== "premium" && missions.length >= PLAN_LIMITS.free.activeMissions;
   const redemptionAge = (redemption) => {
     const days = Math.floor((viewOpenedAt - new Date(redemption.created_at).getTime()) / 86400000);
     return days <= 0 ? "hoje" : days === 1 ? "ontem" : `há ${days} dias`;
@@ -3828,17 +3909,36 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
             mission={m}
             emojiCategories={MISSION_EMOJI_CATS}
             onSave={async (data) => {
-              const { error } = await supabase.rpc("update_mission", {
+              const { data: updatedMission, error } = await supabase.rpc("update_mission", {
                 p_mission_id: m.id, p_title: data.title, p_emoji: data.emoji,
                 p_coins_reward: data.coins_reward, p_xp_reward: data.xp_reward, p_frequency: data.frequency,
               });
-              if (error) return notify("Erro: " + error.message, "error");
+              if (error) {
+                captureActionError(error, "mission", "update", "parent_missions");
+                notify("Erro ao atualizar: " + error.message, "error");
+                return false;
+              }
+              if (updatedMission?.success === false) {
+                notify(updatedMission.error || "Não foi possível atualizar a missão.", "error");
+                return false;
+              }
+              const { error: durationError } = await supabase.rpc("set_mission_duration", {
+                p_mission_id: m.id,
+                p_minutes: data.duration_minutes,
+              });
+              if (durationError) {
+                captureActionError(durationError, "mission", "set_duration", "parent_missions");
+                notify("Dados atualizados, mas a duração não foi salva. Tente novamente.", "error");
+                return false;
+              }
               setEditingMission(null); load(); notify("✅ Missão atualizada!");
+              return true;
             }}
             onDeactivate={async () => {
               const { error } = await supabase.rpc("deactivate_mission", { p_mission_id: m.id });
-              if (error) { notify("Erro ao remover: " + error.message, "error"); return; }
+              if (error) { notify("Erro ao remover: " + error.message, "error"); return false; }
               setEditingMission(null); load(); notify("🗑️ Missão removida.");
+              return true;
             }}
             onClose={() => setEditingMission(null)}
           />
@@ -3962,7 +4062,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
       <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={tab} tabIndex={-1}>
         <div className="ru-parent-workspace__inner">
-        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={tab === "home" ? "light" : "dark"} /> : <>
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={tab === "home" || tab === "missions" ? "light" : "dark"} /> : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4228,108 +4328,124 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
           {/* MISSIONS */}
           {tab === "missions" && (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 16 }}>🎯 Missões</div>
+            <div className="ru-missions-page">
+              <section className="ru-missions-heading" aria-labelledby="ru-missions-title">
+                <div>
+                  <span className="ru-missions-kicker">Organização da rotina</span>
+                  <h2 id="ru-missions-title">Missões da família</h2>
+                  <p>{missions.length} ativa{missions.length !== 1 ? "s" : ""} · {inactiveMissions.length} arquivada{inactiveMissions.length !== 1 ? "s" : ""}</p>
+                </div>
+                <div className="ru-missions-heading__actions">
                   {familyPlan === "free" && (
-                    <button type="button" onClick={() => setShowUpgrade(true)} style={{ ...TEXT_BUTTON_STYLE, background: missions.length >= PLAN_LIMITS.free.activeMissions ? `${T.pink}22` : `${T.accent}18`, color: missions.length >= PLAN_LIMITS.free.activeMissions ? T.pink : T.accent, fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 8px", cursor: "pointer" }}>
-                      {missions.length}/{PLAN_LIMITS.free.activeMissions} {missions.length >= PLAN_LIMITS.free.activeMissions ? "• upgrade 👑" : ""}
+                    <button type="button" className="ru-missions-limit" data-limit-reached={missionLimitReached} onClick={() => setShowUpgrade(true)} aria-label={`${missions.length} de ${PLAN_LIMITS.free.activeMissions} missões ativas no plano gratuito`}>
+                      {missions.length}/{PLAN_LIMITS.free.activeMissions} no Free{missionLimitReached ? " · limite" : ""}
                     </button>
                   )}
+                  <button type="button" className="ru-missions-button ru-missions-button--primary" onClick={() => { if (missionLimitReached) { setShowUpgrade(true); return; } setShowMission(value => !value); }} aria-expanded={showMission} aria-controls="ru-new-mission-form">
+                    {showMission ? "Fechar" : "+ Nova missão"}
+                  </button>
                 </div>
-                <button onClick={() => { if (familyPlan === "free" && missions.length >= PLAN_LIMITS.free.activeMissions) { setShowUpgrade(true); return; } setShowMission(!showMission); }} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>+ Nova</button>
-              </div>
+              </section>
+
               {showMission && (
-                <div style={{ background: T.card, borderRadius: 24, padding: 20, marginBottom: 16, border: `1px solid ${T.primary}44` }}>
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>EMOJI</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <form id="ru-new-mission-form" className="ru-mission-composer" onSubmit={event => { event.preventDefault(); void createMission(); }} aria-busy={creatingMission}>
+                  <header><span className="ru-missions-kicker">Nova missão</span><h3>Defina a atividade</h3></header>
+
+                  <fieldset className="ru-mission-emoji-picker">
+                    <legend>Ícone</legend>
+                    <div>
                       {["⭐","🎯","📚","🏃","🧹","🛁","🍽️","🐕","🌱","🎨","📖","💪","🎵","✏️","🦷","🛏️","🧺","🌍","🏊","🎤"].map(e => (
-                        <button key={e} onClick={() => setNewM(p=>({...p,emoji:e}))} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, border: `2px solid ${newM.emoji === e ? T.primary : "rgba(255,255,255,0.1)"}`, background: newM.emoji === e ? `${T.primary}22` : "rgba(255,255,255,0.04)", cursor: "pointer" }}>{e}</button>
+                        <button type="button" key={e} onClick={() => setNewM(previous => ({...previous, emoji:e}))} aria-label={`Usar ${e}`} aria-pressed={newM.emoji === e}>{e}</button>
                       ))}
                     </div>
+                  </fieldset>
+
+                  <div className="ru-mission-field">
+                    <label htmlFor="new-mission-title">Nome da missão</label>
+                    <div className="ru-mission-title-input"><span aria-hidden="true">{newM.emoji}</span><input id="new-mission-title" value={newM.title} onChange={event => setNewM(previous => ({...previous, title:event.target.value}))} maxLength={60} required autoFocus /></div>
                   </div>
-                  <Inp placeholder="Nome da missão" value={newM.title} onChange={e => setNewM(p=>({...p,title:e.target.value}))} icon={newM.emoji} maxLength={60} />
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>FREQUÊNCIA</div>
-                    <div style={{ display: "flex", gap: 6 }}>
+
+                  <fieldset className="ru-mission-frequency">
+                    <legend>Frequência</legend>
+                    <div>
                       {FREQ_OPTS.map(o => (
-                        <button key={o.key} onClick={() => setNewM(p=>({...p,frequency:o.key}))}
-                          style={{ flex: 1, padding: "7px 2px", borderRadius: 10, border: `2px solid ${newM.frequency === o.key ? T.purple : "rgba(255,255,255,0.1)"}`, background: newM.frequency === o.key ? `${T.purple}22` : "rgba(255,255,255,0.04)", color: newM.frequency === o.key ? T.purple : T.textMuted, fontWeight: 800, fontSize: 10, cursor: "pointer", fontFamily: "'Nunito', sans-serif", lineHeight: 1.3 }}>
-                          {o.emoji}<br/>{o.label}
+                        <button type="button" key={o.key} onClick={() => setNewM(previous => ({...previous, frequency:o.key}))} aria-pressed={newM.frequency === o.key}>
+                          <span aria-hidden="true">{o.emoji}</span>{o.label}
                         </button>
                       ))}
                     </div>
+                  </fieldset>
+
+                  <div className="ru-mission-value-grid">
+                    <div className="ru-mission-field"><label htmlFor="new-mission-coins">KidCoins</label><input id="new-mission-coins" type="number" value={newM.coins_reward === 0 ? "" : newM.coins_reward} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setNewM(previous => ({...previous, coins_reward: event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0)}))} /></div>
+                    <div className="ru-mission-field"><label htmlFor="new-mission-xp">XP</label><input id="new-mission-xp" type="number" value={newM.xp_reward === 0 ? "" : newM.xp_reward} placeholder="0" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setNewM(previous => ({...previous, xp_reward: event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0)}))} /></div>
+                    <div className="ru-mission-field"><label htmlFor="new-mission-duration">Duração (min)</label><input id="new-mission-duration" type="number" value={newM.duration_minutes === 0 ? "" : newM.duration_minutes} placeholder="Sem timer" min="0" inputMode="numeric" onFocus={event => event.target.select()} onChange={event => setNewM(previous => ({...previous, duration_minutes: event.target.value === "" ? 0 : Math.max(0, parseInt(event.target.value, 10) || 0)}))} /></div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                    <div>
-                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>KidCoins</div>
-                      <input type="number" value={newM.coins_reward === 0 ? "" : newM.coins_reward} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,coins_reward: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>XP</div>
-                      <input type="number" value={newM.xp_reward === 0 ? "" : newM.xp_reward} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,xp_reward: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                    </div>
+
+                  <div className="ru-mission-composer__actions">
+                    <button type="submit" className="ru-missions-button ru-missions-button--primary" disabled={creatingMission || newM.title.trim().length < 2} aria-busy={creatingMission}>{creatingMission ? "Criando..." : "Criar missão"}</button>
+                    <button type="button" className="ru-missions-button ru-missions-button--secondary" onClick={() => setShowMission(false)} disabled={creatingMission}>Cancelar</button>
                   </div>
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6 }}>⏱️ Duração em minutos (opcional — vira ▶️ Iniciar com cronômetro)</div>
-                    <input type="number" value={newM.duration_minutes === 0 ? "" : newM.duration_minutes} placeholder="0" min="0" inputMode="numeric" onFocus={e => e.target.select()} onChange={e => setNewM(p=>({...p,duration_minutes: e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0)}))} style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", width: "100%", boxSizing: "border-box" }} />
-                  </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <Btn onClick={createMission} gradient={`linear-gradient(135deg, ${T.accent}, ${T.blue})`} small>Criar</Btn>
-                    <Btn onClick={() => setShowMission(false)} outline small>Cancelar</Btn>
-                  </div>
-                </div>
+                </form>
               )}
-              {localMissions.length === 0
-                ? <div style={{ background: T.card, borderRadius: 20, padding: 24, textAlign: "center", color: T.textMuted }}><div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>Nenhuma missão ainda!</div>
-                : localMissions.map((m, mi) => (
-                    <div key={m.id}
-                      data-mission-id={m.id}
-                      draggable
-                      onDragStart={() => setDragMissionId(m.id)}
-                      onDragOver={e => handleDragOver(e, m.id)}
-                      onDragEnd={saveMissionOrder}
-                      style={{ background: dragMissionId === m.id ? `${T.purple}22` : T.card, borderRadius: 18, padding: 16, marginBottom: 10, border: `1px solid ${dragMissionId === m.id ? T.purple+"66" : "rgba(255,255,255,0.06)"}`, transition: "all 0.15s", cursor: "grab" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ color: T.textMuted, fontSize: 18, cursor: "grab", flexShrink: 0, userSelect: "none", padding: "0 2px" }}>⠿</div>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, background: iconGrad(mi), border: `1px solid ${iconBorder(mi)}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>{m.emoji}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: T.text, fontWeight: 700 }}>{m.title}</div>
-                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                            <span style={{ fontSize: 12, color: T.secondary }}>🪙 {m.coins_reward}</span>
-                            <span style={{ fontSize: 12, color: T.accent }}>⚡ {m.xp_reward} XP</span>
-                            {m.frequency && m.frequency !== "daily" && <span style={{ fontSize: 10, color: T.purple, background: `${T.purple}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>{freqLabel(m.frequency)}</span>}
-                            {m.duration_minutes > 0 && <span style={{ fontSize: 10, color: T.blue, background: `${T.blue}22`, borderRadius: 6, padding: "1px 6px", fontWeight: 800 }}>⏱️ {m.duration_minutes}min</span>}
+
+              <section className="ru-missions-active" aria-labelledby="ru-active-missions-title">
+                <header><h3 id="ru-active-missions-title">Ativas</h3><span>{localMissions.length}</span></header>
+                <span className="sr-only" aria-live="polite">{reorderStatus}</span>
+                {localMissions.length === 0 ? (
+                  <div className="ru-missions-empty"><span aria-hidden="true">🎯</span><strong>Nenhuma missão ativa</strong></div>
+                ) : (
+                  <ol className="ru-missions-list" aria-busy={orderingMissions}>
+                    {localMissions.map((mission, index) => (
+                      <li key={mission.id} className="ru-mission-card" data-mission-id={mission.id} data-dragging={dragMissionId === mission.id}
+                        draggable={isDesktop && !orderingMissions}
+                        onDragStart={event => { setDragMissionId(mission.id); event.dataTransfer.effectAllowed = "move"; }}
+                        onDragOver={event => handleDragOver(event, mission.id)}
+                        onDragEnd={() => { void saveMissionOrder(localMissions); }}>
+                        <span className="ru-mission-card__drag" aria-hidden="true">⠿</span>
+                        <span className="ru-mission-card__emoji" aria-hidden="true">{mission.emoji}</span>
+                        <div className="ru-mission-card__content">
+                          <h4>{mission.title}</h4>
+                          <div className="ru-mission-card__meta">
+                            <span data-kind="frequency">{freqLabel(mission.frequency)}</span>
+                            <span data-kind="coins">🪙 {mission.coins_reward}</span>
+                            <span data-kind="xp">⚡ {mission.xp_reward} XP</span>
+                            {mission.duration_minutes > 0 && <span data-kind="duration">⏱ {mission.duration_minutes} min</span>}
                           </div>
                         </div>
-                        <button onClick={() => setEditingMission(m)} style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>✏️</button>
-                      </div>
-                    </div>
-                  ))
-              }
+                        <div className="ru-mission-card__actions">
+                          <div role="group" aria-label={`Alterar posição de ${mission.title}`}>
+                            <button type="button" className="ru-mission-icon-button" onClick={() => moveMission(mission.id, -1)} disabled={orderingMissions || index === 0} aria-label={`Mover ${mission.title} para cima`}>↑</button>
+                            <button type="button" className="ru-mission-icon-button" onClick={() => moveMission(mission.id, 1)} disabled={orderingMissions || index === localMissions.length - 1} aria-label={`Mover ${mission.title} para baixo`}>↓</button>
+                          </div>
+                          <button type="button" className="ru-missions-button ru-missions-button--edit" onClick={() => setEditingMission(mission)} disabled={orderingMissions} aria-label={`Editar ${mission.title}`}>✏️ <span>Editar</span></button>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
 
-              {/* Missões arquivadas */}
               {inactiveMissions.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => setShowArchivedMissions(v => !v)} style={{ background: "none", border: "none", color: T.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", padding: "8px 0", width: "100%", textAlign: "left" }}>
-                    {showArchivedMissions ? "▲" : "▼"} {inactiveMissions.length} missão(ões) arquivada(s)
+                <section className="ru-missions-archive" aria-labelledby="ru-archived-missions-title">
+                  <button type="button" className="ru-missions-archive__toggle" onClick={() => setShowArchivedMissions(value => !value)} aria-expanded={showArchivedMissions} aria-controls="ru-archived-missions-list">
+                    <span><strong id="ru-archived-missions-title">Arquivadas</strong><small>{inactiveMissions.length === 1 ? "1 missão" : `${inactiveMissions.length} missões`}</small></span>
+                    <span aria-hidden="true">{showArchivedMissions ? "−" : "+"}</span>
                   </button>
-                  {showArchivedMissions && inactiveMissions.map(m => (
-                    <div key={m.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 12, opacity: 0.7 }}>
-                      <div style={{ fontSize: 22, flexShrink: 0 }}>{m.emoji}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: T.textMuted, fontWeight: 700, fontSize: 13, textDecoration: "line-through" }}>{m.title}</div>
-                        <div style={{ color: T.textMuted, fontSize: 11 }}>🪙 {m.coins_reward} · ⚡ {m.xp_reward} XP</div>
-                      </div>
-                      <button onClick={() => reactivateMission(m.id)} disabled={reactivating === m.id}
-                        style={{ padding: "6px 12px", borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}18`, color: T.accent, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", flexShrink: 0 }}>
-                        {reactivating === m.id ? "..." : "↩ Reativar"}
-                      </button>
+                  {showArchivedMissions && (
+                    <div id="ru-archived-missions-list" className="ru-missions-archive__list">
+                      {inactiveMissions.map(mission => (
+                        <article key={mission.id} className="ru-mission-archived-card">
+                          <span aria-hidden="true">{mission.emoji}</span>
+                          <div><h4>{mission.title}</h4><p>{freqLabel(mission.frequency)} · 🪙 {mission.coins_reward} · ⚡ {mission.xp_reward} XP</p></div>
+                          <button type="button" className="ru-missions-button ru-missions-button--secondary" onClick={() => reactivateMission(mission.id)} disabled={Boolean(reactivating)} aria-busy={reactivating === mission.id}>
+                            {reactivating === mission.id ? "Reativando..." : missionLimitReached ? "Ver Premium" : "Reativar"}
+                          </button>
+                        </article>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </section>
               )}
             </div>
           )}

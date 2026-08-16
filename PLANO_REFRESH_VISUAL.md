@@ -4,7 +4,7 @@ Data de abertura: 2026-08-16
 
 Referencia visual: projeto Lovable `9a0585d6-c6dd-4fbe-8ed1-5d43f40c84eb`
 
-Branch de trabalho: `codex/refresh-visual-etapa-1`
+Branches de trabalho: uma branch `codex/refresh-visual-etapa-*` por lote aprovado.
 
 Estado vivo: inalterado; nenhum deploy, push ou SQL aplicado.
 
@@ -37,6 +37,21 @@ Inconsistencias da demonstracao que nao devem entrar no produto:
 - Indicador `2 de 1` no plano Free.
 - Textos que sugerem login ou PIN individual da crianca; o MVP e parent-managed.
 - Dados, precos, limites e estados simulados que nao correspondem aos contratos vivos.
+
+### Backlog pos-refresh do Lovable
+
+As funcionalidades extras observadas na referencia ficam deliberadamente adiadas ate a conclusao da Etapa 7. Elas nao fazem parte dos lotes de migracao visual em andamento.
+
+Ao final do refresh, executar uma comparacao funcional completa entre Lovable e RotinUp e classificar cada ideia por:
+
+- Valor para responsavel, crianca gerenciada, administracao e suporte.
+- Problema real resolvido e metrica de produto esperada.
+- Compatibilidade com o MVP parent-managed e com os planos Free/Premium.
+- Impacto em RLS, RPCs, LGPD, pagamento, notificacoes e observabilidade.
+- Complexidade, custo recorrente, dependencia externa e risco de suporte.
+- Decisao `adicionar`, `prototipar`, `adiar` ou `rejeitar`, sempre com aceite explicito do dono.
+
+Ideias aprovadas deverao entrar em roadmap proprio, com prototipo isolado e os mesmos gates de seguranca, QA e release. Este registro e um lembrete de avaliacao, nao uma autorizacao de implementacao.
 
 ## 3. Contratos Imutaveis
 
@@ -90,11 +105,11 @@ Status: concluida localmente, sem deploy.
 
 ### Etapa 4 - Fluxos centrais do responsavel
 
-Status: em andamento; lote 4A da home concluido localmente, sem deploy.
+Status: em andamento; lotes 4A e 4B concluidos localmente, sem deploy.
 
 - Home, resumo familiar, aprovacoes e cronometros: lote 4A concluido.
-- Gestao completa de missoes e recorrencia: proximo lote.
-- Recompensas, resgates e cancelamento sem duplo estorno.
+- Gestao completa de missoes e recorrencia: lote 4B concluido.
+- Recompensas, resgates e cancelamento sem duplo estorno: proximo lote.
 - Estatisticas, conta, Premium e exclusao LGPD.
 - Validar estados vazio, carregando, erro, sucesso e concorrencia.
 
@@ -196,6 +211,22 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 25/25 testes, lint estrito e build PWA aprovados; dependencias de producao sem vulnerabilidade alta.
 - Estado vivo: nenhum dado foi criado, editado ou excluido; nenhum push, deploy, SQL ou liberacao.
 
-## 10. Proxima Decisao
+## 10. Evidencia da Etapa 4B
 
-Iniciar a Etapa 4B em nova branch/commit para migrar a gestao de missoes e recorrencia do responsavel. Recompensas, estatisticas e conta permanecem em lotes posteriores, mantendo backend e release fora da atualizacao visual.
+- Branch: `codex/refresh-visual-etapa-4b`, derivada da Etapa 4A aprovada.
+- Folha isolada: `src/styles/parent-missions-refresh.css`, sem gradientes decorativos e com breakpoints dedicados.
+- Hierarquia: cabecalho resume missoes ativas, arquivadas e limite Free; criacao, catalogo ativo e arquivo possuem areas distintas.
+- Criacao: formulario semantico com titulo, icone, recorrencia, KidCoins, XP, duracao, validacao local e estado ocupado.
+- Catalogo: frequencia, valores e duracao sao escaneaveis; reordenacao por arrastar no desktop e por botoes acessiveis em qualquer dispositivo.
+- Edicao: dialogo acessivel preserva recorrencia, valores, duracao e arquivamento, permanecendo aberto quando o backend rejeita a operacao.
+- Corretude: criacao e edicao tratam respostas `success: false`; falha de duracao nao e sobrescrita por sucesso; reordenacao trata erro e restaura o estado autoritativo.
+- Plano: reativacao no Free falha fechada no frontend; `supabase_harden_reactivation_limits.sql` prepara limite atomico compartilhado por trigger e RPC com lock e ACL restrita.
+- Banco: a migration foi apenas preparada e referenciada no source of truth; nao foi aplicada.
+- Browser autenticado em modo somente leitura: 1440x900, 768x1024 e 390x844 sem overflow horizontal, texto cortado ou sobreposicao com a navegacao mobile.
+- Acessibilidade: dialogo nomeado, `Esc`, foco visivel, controles rotulados, `aria-pressed`, `aria-expanded`, `aria-busy` e retorno de status da ordenacao.
+- Automacao: 27/27 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+- Estado vivo: nenhum dado foi criado, editado, reordenado, reativado ou arquivado; nenhum push, deploy, SQL ou liberacao.
+
+## 11. Proxima Decisao
+
+Iniciar a Etapa 4C em nova branch/commit para migrar recompensas, resgates e cancelamento sem duplo estorno. Estatisticas, conta e Premium permanecem em lotes posteriores; funcionalidades extras do Lovable continuam reservadas para triagem depois da Etapa 7.

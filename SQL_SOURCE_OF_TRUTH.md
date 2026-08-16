@@ -35,10 +35,11 @@ Aplicar nesta ordem, com QA entre as etapas:
 
 1. `supabase_harden_create_family.sql`
 2. `supabase_fix_plan_limits_canonical.sql`
-3. `supabase_app_error_reporting.sql`
-4. `supabase_fix_hotmart_idempotency.sql`
-5. Deploy de `supabase/functions/hotmart-webhook`
-6. Deploy de `supabase/functions/delete-account`
+3. `supabase_harden_reactivation_limits.sql`
+4. `supabase_app_error_reporting.sql`
+5. `supabase_fix_hotmart_idempotency.sql`
+6. Deploy de `supabase/functions/hotmart-webhook`
+7. Deploy de `supabase/functions/delete-account`
 
 Antes da etapa 1, execute `supabase_preflight_lote4.sql` e siga
 `DEPLOY_PRE_VENDA.md`. A nova Edge Function Hotmart tambem exige allowlist

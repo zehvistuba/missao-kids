@@ -355,6 +355,8 @@ Critério de pronto:
 | 2026-08-16 | Smoke autenticado do refresh Etapa 2 | Fechado e limpo | Conta QA iniciou sem termos, aceitou `2026-08-13`, criou familia Free e crianca ficticia, abriu o painel e foi excluida pela Edge LGPD. Perfil/familia/crianca ausentes, Auth ausente e relogin=`invalid_credentials`. Scroll entre telas corrigido. **Sem residuo QA, push, deploy ou SQL.** |
 | 2026-08-16 | Refresh visual Etapa 3 - shell do responsavel | Validado localmente | Sidebar desktop, topbar contextual, navegacao inferior mobile e largura total implantadas sem alterar fluxos internos. 24 testes PASS; browser autenticado em 1440x900, 768x1024 e 390x844 sem overflow; console limpo em aba nova. Conta QA removida e relogin recusado. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Refresh visual Etapa 4A - home do responsavel | Validado localmente | Resumo familiar, timers, central de acoes, filhos, missoes rapidas e convite reorganizados sem alterar contratos. 25 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844, sem overflow nem erro de console. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Backlog funcional pos-refresh do Lovable | Registrado | Funcionalidades extras serao inventariadas e priorizadas somente apos a Etapa 7, com analise de valor, contratos, seguranca, LGPD, custo e suporte. **Nenhuma funcionalidade adicional autorizada nesta fase.** |
+| 2026-08-16 | Refresh visual Etapa 4B - gestao de missoes | Validado localmente | Criacao, recorrencia, ordenacao, edicao, arquivo e reativacao reorganizados; falhas concorrentes e respostas funcionais agora sao tratadas. Migration de limites atomicos preparada, nao aplicada. 27 testes PASS; QA autenticado somente leitura em 1440x900, 768x1024 e 390x844. **Sem alteracao de dados, push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -540,6 +542,26 @@ Implementado e validado localmente em 2026-08-16:
 - Gates: 25/25 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 
 Estado vivo do produto: **dados, backend e release inalterados**. O QA nao criou, editou ou excluiu dados e nenhuma acao mutavel foi confirmada. Nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4B tratara a gestao completa de missoes e recorrencia em novo lote.
+
+## 7.9 Estado do Refresh Visual - Etapa 4B
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-4b`, baseada na Etapa 4A aprovada.
+- A gestao de missoes agora separa claramente criacao, catalogo ativo e arquivo, com contagens e limite Free visiveis no contexto correto.
+- O formulario de criacao possui campos semanticos para titulo, icone, recorrencia, KidCoins, XP e duracao, com validacao local e bloqueio durante envio.
+- Missoes ativas exibem recorrencia, recompensas e duracao; a ordenacao funciona por arrastar no desktop e por botoes nomeados em todos os dispositivos.
+- Falhas de ordenacao sao reportadas, o estado local deixa de simular sucesso e os dados autoritativos sao recarregados.
+- Criacao e edicao tratam erro de transporte e resposta funcional `success: false`; falha ao salvar a duracao permanece visivel em vez de ser substituida por mensagem de sucesso.
+- O modal de edicao ganhou rotulos, foco preso, fechamento por `Esc`, estados ocupados e confirmacao em duas etapas para arquivamento.
+- O arquivo informa a quantidade correta e impede reativacao paralela; no Free, o frontend falha fechado ao atingir o limite e direciona para Premium.
+- `supabase_harden_reactivation_limits.sql` foi preparado para aplicar os mesmos limites de catalogo a RPC, insert, update e concorrencia, com lock na familia, trigger compartilhado, `search_path` seguro e grants minimos.
+- A migration foi registrada em `SQL_SOURCE_OF_TRUTH.md`, mas nao foi aplicada ao banco.
+- Contratos automatizados cobrem composicao, recorrencia, ordenacao acessivel, rollback, respostas funcionais, duracao, limite Free, modal e o hardening SQL.
+- QA autenticado somente leitura em 1440x900, 768x1024 e 390x844: sem overflow, controles cortados ou conteudo atras da navegacao inferior; nenhuma acao mutavel foi confirmada.
+- Console limpo e gates aprovados: 27/27 testes, lint estrito, build PWA, `git diff --check` e audit de producao.
+
+Estado vivo do produto: **dados, backend e release inalterados**. Nenhuma missao foi criada, editada, reordenada, arquivada ou reativada durante o QA. Nenhum push, deploy, SQL ou liberacao foi realizado. A Etapa 4C tratara recompensas, resgates e cancelamento sem duplo estorno; o backlog extra do Lovable permanece adiado ate depois da Etapa 7.
 
 ## 8. Modelo Para Novas Entradas
 

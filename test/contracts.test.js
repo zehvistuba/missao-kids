@@ -319,7 +319,7 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
 
   assert.match(source, /import "\.\/styles\/parent-home-refresh\.css"/);
   assert.match(parent, /data-tab=\{tab\}/);
-  assert.match(parent, /tone=\{tab === "home" \? "light" : "dark"\}/);
+  assert.match(parent, /tone=\{tab === "home" \|\| tab === "missions" \? "light" : "dark"\}/);
   assert.match(home, /className="ru-home-overview"/);
   assert.match(home, /role="progressbar"/);
   assert.match(home, /className="ru-home-section ru-home-attention"/);
@@ -358,6 +358,79 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
   assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.ru-home-child-actions__correction[\s\S]*border-top: 1px solid/);
   assert.match(css, /:focus-visible/);
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
+test("gestao de missoes preserva contratos e trata falhas concorrentes", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/parent-missions-refresh.css", import.meta.url), "utf8");
+  const plan = await readFile(new URL("../PLANO_REFRESH_VISUAL.md", import.meta.url), "utf8");
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+  const missions = parent.slice(parent.indexOf('{tab === "missions"'), parent.indexOf("{/* REWARDS */}"));
+  const createMission = parent.slice(parent.indexOf("const createMission = async"), parent.indexOf("const createReward = async"));
+  const reorder = parent.slice(parent.indexOf("const saveMissionOrder = async"), parent.indexOf("const getChildLog"));
+  const editMission = parent.slice(parent.indexOf("{/* Modal editar missão */}"), parent.indexOf("{/* Modal editar recompensa */}"));
+  const modal = source.slice(source.indexOf("const MissionModal"), source.indexOf("const RewardModal"));
+
+  assert.match(source, /import "\.\/styles\/parent-missions-refresh\.css"/);
+  assert.match(missions, /className="ru-missions-page"/);
+  assert.match(missions, /id="ru-new-mission-form"[\s\S]*onSubmit=/);
+  assert.match(missions, /aria-pressed=\{newM\.frequency === o\.key\}/);
+  assert.match(missions, /draggable=\{isDesktop && !orderingMissions\}/);
+  assert.match(missions, /moveMission\(mission\.id, -1\)/);
+  assert.match(missions, /moveMission\(mission\.id, 1\)/);
+  assert.match(missions, /aria-live="polite"/);
+  assert.match(missions, /aria-expanded=\{showArchivedMissions\}/);
+  assert.match(missions, /missionLimitReached \? "Ver Premium" : "Reativar"/);
+
+  assert.match(createMission, /if \(creatingMission\) return/);
+  assert.match(createMission, /newM\.title\.trim\(\)/);
+  assert.match(createMission, /data\?\.success === false/);
+  assert.ok(createMission.indexOf("durationWarning") < createMission.indexOf('notify(durationWarning || "🎯 Missão criada!"'));
+  assert.match(createMission, /captureActionError\(durationError, "mission", "set_duration", "parent_missions"\)/);
+
+  assert.match(reorder, /const \{ error \} = await supabase\.rpc\("reorder_missions"/);
+  assert.ok(reorder.indexOf("if (error)") < reorder.indexOf("setMissions(withOrder)"));
+  assert.match(reorder, /setReorderStatus\("A nova ordem não foi salva\."\)/);
+  assert.match(parent, /familyPlan !== "premium" && missions\.length >= PLAN_LIMITS\.free\.activeMissions/);
+
+  assert.match(editMission, /updatedMission\?\.success === false/);
+  assert.ok(editMission.indexOf("updatedMission?.success === false") < editMission.indexOf("setEditingMission(null)"));
+  assert.match(editMission, /p_minutes: data\.duration_minutes/);
+  assert.match(modal, /mission\.duration_minutes \?\? 0/);
+  assert.match(modal, /aria-labelledby="ru-mission-dialog-title"/);
+  assert.match(modal, /aria-busy=\{saving\}/);
+  assert.match(modal, /aria-busy=\{deactivating\}/);
+
+  assert.match(css, /\.ru-parent-workspace\[data-tab="missions"\]/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+  assert.match(plan, /Backlog pos-refresh do Lovable/);
+  assert.match(plan, /nao uma autorizacao de implementacao/);
+});
+
+test("reativacao de missoes e recompensas respeita limites atomicos", async () => {
+  const sql = await readFile(new URL("../supabase_harden_reactivation_limits.sql", import.meta.url), "utf8");
+  const sourceOfTruth = await readFile(new URL("../SQL_SOURCE_OF_TRUTH.md", import.meta.url), "utf8");
+
+  assert.match(sql, /BEGIN;[\s\S]*COMMIT;/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.reactivate_mission\(p_mission_id UUID\)/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.reactivate_reward\(p_reward_id UUID\)/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.enforce_active_catalog_limit\(\)/);
+  assert.equal((sql.match(/FOR UPDATE;/g) || []).length, 3);
+  assert.equal((sql.match(/v_plan <> 'premium'/g) || []).length, 2);
+  assert.match(sql, /v_active_count >= 5/);
+  assert.match(sql, /v_active_count >= 3/);
+  assert.match(sql, /OLD\.family_id IS NOT DISTINCT FROM NEW\.family_id/);
+  assert.match(sql, /BEFORE INSERT OR UPDATE OF is_active, family_id ON public\.missions/);
+  assert.match(sql, /BEFORE INSERT OR UPDATE OF is_active, family_id ON public\.rewards/);
+  assert.equal((sql.match(/SET search_path = pg_catalog, public/g) || []).length, 3);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.enforce_active_catalog_limit\(\) FROM PUBLIC, anon, authenticated/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.reactivate_mission\(UUID\) FROM PUBLIC, anon/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.reactivate_reward\(UUID\) FROM PUBLIC, anon/);
+  assert.match(sql, /has_function_privilege\('authenticated'/);
+  assert.match(sourceOfTruth, /supabase_harden_reactivation_limits\.sql/);
 });
 
 test("IA e push limitam entrada e falham sem vazar detalhes internos", async () => {

@@ -1,0 +1,823 @@
+.ru-parent-workspace[data-tab="missions"] {
+  background: #f7f9fc;
+  color: #17213e;
+}
+
+.ru-parent-workspace[data-tab="missions"] .ru-parent-loading {
+  color: #59647b;
+}
+
+.ru-missions-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  color: #17213e;
+}
+
+.ru-missions-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dfe5ee;
+}
+
+.ru-missions-heading h2,
+.ru-mission-composer h3,
+.ru-mission-dialog h2,
+.ru-missions-active h3,
+.ru-mission-card h4,
+.ru-mission-archived-card h4 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.ru-missions-heading h2 {
+  font-size: 23px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.ru-missions-heading p {
+  margin: 5px 0 0;
+  color: #59647b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ru-missions-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #a93628;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-missions-heading__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ru-missions-limit,
+.ru-missions-button,
+.ru-mission-icon-button,
+.ru-mission-emoji-picker button,
+.ru-mission-frequency button,
+.ru-mission-dialog__categories button,
+.ru-mission-dialog__emojis button,
+.ru-missions-archive__toggle,
+.ru-mission-dialog__deactivate {
+  font-family: var(--ru-font);
+}
+
+.ru-missions-limit {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #9bcfbe;
+  border-radius: 7px;
+  background: #e9f7f2;
+  color: #12624f;
+  font-size: 10px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.ru-missions-limit[data-limit-reached="true"] {
+  border-color: #e2c269;
+  background: #fff8e6;
+  color: #6a4a06;
+}
+
+.ru-missions-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.ru-missions-button--primary {
+  background: #c84734;
+  color: #ffffff;
+}
+
+.ru-missions-button--primary:hover {
+  background: #ae392a;
+}
+
+.ru-missions-button--secondary,
+.ru-missions-button--edit {
+  border-color: #cfd7e3;
+  background: #ffffff;
+  color: #33405b;
+}
+
+.ru-missions-button--secondary:hover,
+.ru-missions-button--edit:hover {
+  border-color: #aeb8c9;
+  background: #f3f6fa;
+}
+
+.ru-missions-button:disabled,
+.ru-mission-icon-button:disabled,
+.ru-mission-composer button:disabled,
+.ru-mission-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.ru-mission-composer {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid #cfd7e3;
+  border-left: 4px solid #c84734;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(23, 33, 62, 0.06);
+}
+
+.ru-mission-composer > header {
+  margin-bottom: 17px;
+}
+
+.ru-mission-composer h3 {
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.ru-mission-emoji-picker,
+.ru-mission-frequency {
+  min-width: 0;
+  margin: 0 0 15px;
+  padding: 0;
+  border: 0;
+}
+
+.ru-mission-emoji-picker legend,
+.ru-mission-frequency legend,
+.ru-mission-field label {
+  display: block;
+  margin-bottom: 7px;
+  color: #59647b;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.ru-mission-emoji-picker > div {
+  display: grid;
+  grid-template-columns: repeat(10, 36px);
+  gap: 6px;
+}
+
+.ru-mission-emoji-picker button,
+.ru-mission-dialog__emojis button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  background: #f7f9fc;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.ru-mission-emoji-picker button[aria-pressed="true"],
+.ru-mission-dialog__emojis button[aria-pressed="true"] {
+  border: 2px solid #c84734;
+  background: #fff0ed;
+}
+
+.ru-mission-field {
+  min-width: 0;
+}
+
+.ru-mission-title-input {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  margin-bottom: 15px;
+  overflow: hidden;
+  border: 1px solid #cfd7e3;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ru-mission-title-input > span {
+  display: grid;
+  align-self: stretch;
+  place-items: center;
+  border-right: 1px solid #dfe5ee;
+  background: #f3f6fa;
+  font-size: 18px;
+}
+
+.ru-mission-title-input input,
+.ru-mission-field > input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid #cfd7e3;
+  border-radius: 8px;
+  outline: 0;
+  background: #ffffff;
+  color: #17213e;
+  font: 800 12px/1.3 var(--ru-font);
+}
+
+.ru-mission-title-input input {
+  border: 0;
+  border-radius: 0;
+}
+
+.ru-mission-title-input:focus-within,
+.ru-mission-field > input:focus {
+  border-color: #3977a8;
+  box-shadow: 0 0 0 3px rgba(57, 119, 168, 0.16);
+}
+
+.ru-mission-frequency > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.ru-mission-frequency button {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #59647b;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ru-mission-frequency button[aria-pressed="true"] {
+  border-color: #3977a8;
+  background: #edf5fb;
+  color: #22577d;
+}
+
+.ru-mission-value-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 17px;
+}
+
+.ru-mission-composer__actions,
+.ru-mission-dialog__actions {
+  display: flex;
+  gap: 9px;
+}
+
+.ru-missions-active > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ru-missions-active > header h3 {
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.ru-missions-active > header > span {
+  min-width: 22px;
+  min-height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #e9f7f2;
+  color: #12624f;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.ru-missions-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ru-mission-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(23, 33, 62, 0.04);
+}
+
+.ru-mission-card[data-dragging="true"] {
+  border-color: #3977a8;
+  background: #edf5fb;
+  opacity: 0.84;
+}
+
+.ru-mission-card__drag {
+  color: #8a95a8;
+  font-size: 18px;
+  cursor: grab;
+  user-select: none;
+}
+
+.ru-mission-card__emoji {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f3f6fa;
+  font-size: 23px;
+}
+
+.ru-mission-card__content {
+  min-width: 0;
+}
+
+.ru-mission-card h4 {
+  overflow: hidden;
+  color: #17213e;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-mission-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.ru-mission-card__meta span {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f3f6fa;
+  color: #59647b;
+  font-size: 9px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ru-mission-card__meta span[data-kind="coins"] {
+  background: #fff8e6;
+  color: #6a4a06;
+}
+
+.ru-mission-card__meta span[data-kind="xp"],
+.ru-mission-card__meta span[data-kind="duration"] {
+  background: #edf5fb;
+  color: #22577d;
+}
+
+.ru-mission-card__actions,
+.ru-mission-card__actions > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ru-mission-card__actions {
+  gap: 9px;
+}
+
+.ru-mission-icon-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #cfd7e3;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #33405b;
+  font-size: 15px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.ru-mission-icon-button:hover:not(:disabled) {
+  border-color: #aeb8c9;
+  background: #f3f6fa;
+}
+
+.ru-missions-empty {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px dashed #cfd7e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #59647b;
+}
+
+.ru-missions-empty > span {
+  font-size: 28px;
+}
+
+.ru-missions-empty strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ru-missions-archive {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #dfe5ee;
+}
+
+.ru-missions-archive__toggle {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 2px;
+  border: 0;
+  background: transparent;
+  color: #33405b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ru-missions-archive__toggle > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.ru-missions-archive__toggle strong {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.ru-missions-archive__toggle small {
+  color: #68738a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ru-missions-archive__toggle > span:last-child {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  background: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ru-missions-archive__list {
+  display: grid;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.ru-mission-archived-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e1e6ee;
+  border-radius: 8px;
+  background: #f3f6fa;
+}
+
+.ru-mission-archived-card > span {
+  font-size: 20px;
+  opacity: 0.7;
+}
+
+.ru-mission-archived-card h4 {
+  overflow: hidden;
+  color: #59647b;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: line-through;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ru-mission-archived-card p {
+  margin: 3px 0 0;
+  color: #68738a;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ru-mission-dialog-backdrop {
+  position: fixed;
+  z-index: 9000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 20, 36, 0.78);
+}
+
+.ru-mission-dialog {
+  width: min(620px, 100%);
+  max-height: min(780px, calc(100vh - 40px));
+  overflow-y: auto;
+  padding: 22px;
+  border: 1px solid #cfd7e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17213e;
+  box-shadow: 0 24px 70px rgba(15, 20, 36, 0.28);
+}
+
+.ru-mission-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.ru-mission-dialog h2 {
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.ru-mission-dialog__categories {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 9px;
+  padding-bottom: 3px;
+  overflow-x: auto;
+}
+
+.ru-mission-dialog__categories button {
+  min-height: 32px;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  background: #f7f9fc;
+  color: #59647b;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ru-mission-dialog__categories button[aria-pressed="true"] {
+  border-color: #c84734;
+  background: #fff0ed;
+  color: #a93628;
+}
+
+.ru-mission-dialog__emojis {
+  max-height: 130px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 15px;
+  padding: 3px 1px;
+  overflow-y: auto;
+}
+
+.ru-mission-dialog__actions {
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+.ru-mission-dialog__deactivate {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: transparent;
+  color: #68738a;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ru-mission-dialog__deactivate[data-confirming="true"] {
+  border-color: #c95a4a;
+  background: #fff0ed;
+  color: #a93628;
+}
+
+.ru-missions-limit:focus-visible,
+.ru-missions-button:focus-visible,
+.ru-mission-icon-button:focus-visible,
+.ru-mission-emoji-picker button:focus-visible,
+.ru-mission-frequency button:focus-visible,
+.ru-mission-dialog__categories button:focus-visible,
+.ru-mission-dialog__emojis button:focus-visible,
+.ru-missions-archive__toggle:focus-visible,
+.ru-mission-dialog__deactivate:focus-visible {
+  outline: 3px solid #3977a8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .ru-missions-heading {
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+  }
+
+  .ru-missions-heading h2 {
+    font-size: 20px;
+  }
+
+  .ru-missions-heading__actions {
+    gap: 6px;
+  }
+
+  .ru-missions-limit {
+    min-height: 40px;
+  }
+
+  .ru-missions-button {
+    min-height: 44px;
+  }
+
+  .ru-mission-composer {
+    padding: 16px;
+  }
+
+  .ru-mission-composer__actions {
+    scroll-margin-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  .ru-mission-emoji-picker > div {
+    grid-template-columns: repeat(10, 36px);
+    padding-bottom: 5px;
+    overflow-x: auto;
+  }
+
+  .ru-mission-card {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .ru-mission-card__drag {
+    display: none;
+  }
+
+  .ru-mission-card__emoji {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+
+  .ru-mission-card__actions {
+    gap: 6px;
+  }
+
+  .ru-mission-icon-button {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .ru-missions-button--edit {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .ru-missions-button--edit span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+}
+
+@media (max-width: 520px) {
+  .ru-missions-heading {
+    align-items: flex-start;
+  }
+
+  .ru-missions-heading p {
+    font-size: 10px;
+  }
+
+  .ru-missions-heading__actions {
+    display: grid;
+    justify-items: stretch;
+  }
+
+  .ru-missions-heading__actions > * {
+    width: 100%;
+  }
+
+  .ru-missions-limit {
+    min-height: 34px;
+  }
+
+  .ru-mission-frequency > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ru-mission-value-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ru-mission-value-grid > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .ru-mission-card {
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .ru-mission-card__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid #edf0f4;
+  }
+
+  .ru-mission-archived-card {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .ru-mission-archived-card .ru-missions-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .ru-mission-dialog-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ru-mission-dialog {
+    max-height: 92vh;
+    padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .ru-missions-heading {
+    display: grid;
+  }
+
+  .ru-missions-heading__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ru-mission-composer__actions,
+  .ru-mission-dialog__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ru-mission-card {
+    scroll-behavior: auto;
+  }
+}
