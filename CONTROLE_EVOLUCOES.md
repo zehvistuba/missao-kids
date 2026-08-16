@@ -352,6 +352,7 @@ Critério de pronto:
 | 2026-08-13 | Observabilidade e suporte Edge v6 | Validado localmente | Logs JSON correlacionados e sanitizados nas quatro Edge Functions; referencias curtas em erros de IA/exclusao; falhas de push passam ao reporte; runbook operacional criado. 21 testes PASS, lint estrito e parser das quatro funcoes verdes. **Nenhuma funcao, SQL ou frontend publicado.** |
 | 2026-08-16 | Refresh visual Etapa 1 - landing | Validado localmente | Landing reconstruida a partir da direcao Lovable, com asset proprio, contratos comerciais preservados e QA em 1440x900, 768x1024 e 390x844. 22 testes PASS, lint/build/audit verdes. **Sem push, deploy, SQL ou liberacao.** Ver `PLANO_REFRESH_VISUAL.md`. |
 | 2026-08-16 | Refresh visual Etapa 2 - entrada e onboarding | Validado localmente | Auth, recuperacao, termos, consentimento e onboarding migrados para o novo sistema visual. 23 testes PASS; QA publico responsivo e modal legal verdes; `recover_family` agora diferencia erro de rede de conta sem familia. **Smoke autenticado pendente; sem push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Smoke autenticado do refresh Etapa 2 | Fechado e limpo | Conta QA iniciou sem termos, aceitou `2026-08-13`, criou familia Free e crianca ficticia, abriu o painel e foi excluida pela Edge LGPD. Perfil/familia/crianca ausentes, Auth ausente e relogin=`invalid_credentials`. Scroll entre telas corrigido. **Sem residuo QA, push, deploy ou SQL.** |
 
 ---
 
@@ -486,7 +487,18 @@ Implementado e validado localmente em 2026-08-16:
 - QA publico real em 1440x900, 768x1024 e 390x844 sem overflow ou erros de console; login, cadastro, recuperacao e modal legal exercitados sem chamada mutavel.
 - Gates: 23/23 testes, lint estrito, build PWA, audit com 0 vulnerabilidades e contrastes AA aprovados.
 
-Estado vivo: **inalterado**. Nenhum push, deploy, SQL, login ou cadastro de teste foi executado. TermsGate e onboarding exigem smoke autenticado com conta descartavel e limpeza comprovada antes de merge ou publicacao.
+Smoke autenticado concluido com conta descartavel:
+
+- Perfil inicial nasceu `parent`, sem familia e sem aceite previo.
+- TermsGate bloqueou o avanco ate o checkbox, exibiu a versao `2026-08-13` e gravou `terms_accepted_at`.
+- Modal legal mostrou 14 secoes, prendeu foco, fechou com `Esc` e devolveu foco ao gatilho.
+- Onboarding validou escolha, convite normalizado, nome minimo, `create_family` e `add_child`.
+- Painel abriu no plano Free com owner correto e a crianca ficticia de 11 anos.
+- O QA encontrou scroll herdado entre telas; auth, App e onboarding agora restauram o topo a cada transicao.
+- `delete-account` removeu perfil, familia, crianca e login; nova autenticacao retornou `invalid_credentials`.
+- Sessao do browser foi encerrada e voltou para a landing sem o nome QA.
+
+Estado vivo do produto: **codigo inalterado e sem dados QA residuais**. Nenhum push, deploy ou SQL foi realizado. Etapa 2 fechada localmente; Etapa 3 pode iniciar em lote separado.
 
 ## 8. Modelo Para Novas Entradas
 

@@ -1123,6 +1123,10 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted, onBack }) => {
   const [inlineErr, setInlineErr] = useState("");
   const [agreedTerms, setAgreedTerms] = useState(false);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [mode]);
+
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
 
   const authErrPT = (msg = "") => {
@@ -1334,6 +1338,10 @@ const Onboarding = ({ onDone }) => {
   const [loading, setLoading]         = useState(false);
   const [err, setErr]                 = useState("");
   const [recoverAttempt, setRecoverAttempt] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [step]);
 
   // Tenta reconectar família automaticamente ao entrar no onboarding
   useEffect(() => {
@@ -4902,6 +4910,10 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstall, setShowInstall]     = useState(false);
   const finishSplash = useCallback(() => setSplashDone(true), []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [screen]);
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };

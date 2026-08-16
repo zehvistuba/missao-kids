@@ -1062,7 +1062,8 @@
   .ru-onboarding-shell--addchild {
     width: min(100% - 32px, 560px);
     min-height: calc(100svh - 70px);
-    padding: 30px 0 46px;
+    padding: 54px 0 46px;
+    justify-content: flex-start;
   }
 
   .ru-onboarding-heading {

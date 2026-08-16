@@ -71,13 +71,13 @@ Status: concluida localmente; nao publicada.
 
 ### Etapa 2 - Autenticacao, termos e onboarding
 
-Status: implementada e validada localmente; smoke autenticado pendente antes de publicacao.
+Status: concluida localmente, incluindo smoke autenticado e limpeza comprovada.
 
 - Entrar, cadastrar e recuperar senha agora usam formularios semanticos com rotulos, autocomplete e mensagens acessiveis.
 - TermsGate e modal juridico compartilham a nova identidade sem alterar versao, conteudo ou RPC de aceite.
 - Onboarding preserva recuperacao, criacao, convite e cadastro infantil, com tratamento separado para falha de `recover_family`.
 - QA publico real validou teclado semantico, foco do modal, loading, erros locais e responsividade.
-- Smoke autenticado com conta descartavel continua obrigatorio para renderizar TermsGate e onboarding contra o backend vivo.
+- Smoke autenticado com conta descartavel validou TermsGate e onboarding contra o backend vivo; perfil, familia, crianca e login foram removidos no encerramento.
 
 ### Etapa 3 - Shell do responsavel
 
@@ -160,8 +160,10 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Termos: 14 secoes, versao vigente, foco preso, `Esc`, scroll bloqueado e foco devolvido ao gatilho.
 - Recuperacao: formulario proprio, autocomplete de email e validacao local sem chamada de rede invalida.
 - Onboarding: nomes normalizados, codigo limitado a letras/numeros e falha de recuperacao com retry explicito e reporte operacional.
-- Dados reais: nenhum login, cadastro, RPC mutavel ou alteracao de conta foi executado nesta rodada.
+- Smoke autenticado: conta QA iniciou sem aceite, gravou a versao vigente, criou familia Free e uma crianca ficticia de 11 anos e abriu o painel do responsavel.
+- Limpeza: `delete-account` removeu perfil, familia, crianca e `auth.users`; nova autenticacao retornou `invalid_credentials` e a sessao local voltou para a landing.
+- Correcao de QA: mudancas de tela, modo de auth e etapa do onboarding agora restauram o scroll para o topo.
 
 ## 8. Proxima Decisao
 
-Executar o smoke autenticado da Etapa 2 com conta descartavel e limpeza comprovada. Depois, iniciar a Etapa 3 em novo commit para o shell do responsavel, mantendo backend e release fora do lote visual.
+Iniciar a Etapa 3 em nova branch/commit para o shell do responsavel, mantendo backend e release fora do lote visual.

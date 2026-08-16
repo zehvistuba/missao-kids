@@ -275,6 +275,7 @@ test("auth, consentimento e onboarding preservam contratos no refresh visual", a
   assert.match(onboarding, /setStep\("recover_error"\)/);
   assert.match(onboarding, /action: "recover_family"/);
   assert.match(source, /\["landing", "auth", "terms", "onboarding"\]\.includes\(activeScreen\)/);
+  assert.equal((source.match(/window\.scrollTo\(\{ top: 0, left: 0, behavior: "auto" \}\)/g) || []).length, 3);
 
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 620px\)/);
