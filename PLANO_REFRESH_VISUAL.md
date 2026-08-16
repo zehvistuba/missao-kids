@@ -124,11 +124,11 @@ Status: concluida localmente, validada e sem deploy.
 
 ### Etapa 6 - Administracao e suporte
 
-Status: pendente.
+Status: concluida localmente, validada e sem deploy.
 
-- Familias, planos e fila de erros de uso.
-- Manter o gate de platform admin e a minimizacao de PII.
-- Priorizar leitura, filtro, triagem e rastreabilidade operacional.
+- Familias, planos e fila de erros de uso reorganizados em uma superficie operacional responsiva.
+- Gate de platform admin, RPCs endurecidas e minimizacao de PII preservados.
+- Leitura, filtros, triagem, rastreabilidade e confirmacoes criticas validados localmente.
 
 ### Etapa 7 - QA transversal e preparacao de release
 
@@ -278,6 +278,23 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 31/31 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 - Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado; nao restou dado QA da Etapa 5.
 
-## 14. Proxima Decisao
+## 14. Evidencia da Etapa 6
 
-Iniciar a Etapa 6 em nova branch/commit para renovar administracao e suporte, preservando o gate de platform admin, a minimizacao de PII e a fila de erros de uso. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.
+- Branch: `codex/refresh-visual-etapa-6`, derivada da Etapa 5 aprovada.
+- Superficie: painel administrativo passou a ocupar o viewport inteiro, com navegacao propria, visao geral, familias e reportes.
+- Contratos: continuaram exclusivas as RPCs `admin_get_families`, `admin_set_plan`, `admin_delete_family`, `platform_get_error_reports` e `platform_update_error_report`; nenhuma tabela passou a ser lida diretamente.
+- Seguranca: autorizacao continua decidida pelo backend com `is_platform_admin()`; a tela de acesso negado apenas representa a decisao do servidor.
+- PII: email e nome do responsavel aparecem apenas na lista restrita de familias; filhos retornados pelo contrato vivo nao sao exibidos, e identificadores tecnicos de rastreio sao truncados.
+- Operacao: indicadores de familias, membros, conversao Premium, reportes abertos e recorrencia foram derivados dos dados ja autorizados.
+- Planos: alteracoes exigem uma etapa explicita de confirmacao, com aviso adicional no downgrade.
+- Exclusao: remocao administrativa exige abrir a area de risco e digitar `REMOVER`; falhas e sucessos criticos permanecem visiveis ate dispensa do operador.
+- Reportes: busca, filtro por origem, estados aberto/resolvido/ignorado, recorrencia e dados tecnicos recolhidos em `details` melhoram a triagem sem ampliar o payload.
+- Temas: claro e escuro compartilham o novo layout; o escuro preserva coral, roxo, amarelo, azul e verde da identidade original.
+- Browser: fixture exclusivamente local, sem Supabase, validou 1440x900, 768x1024, 390x844 e 320x700; foi removido integralmente antes dos gates finais.
+- Limites do QA: nenhuma mudanca de plano, exclusao de familia ou triagem foi confirmada; o smoke autenticado do dono contra as RPCs vivas permanece na regressao da Etapa 7.
+- Automacao: 32/32 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado; nenhum dado QA foi criado.
+
+## 15. Proxima Decisao
+
+Iniciar a Etapa 7 em nova branch/commit para a regressao transversal autenticada de adulto, crianca gerenciada e admin, seguida dos gates de acessibilidade, PWA, performance, seguranca e preparacao de release. O aplicativo permanece fechado e as funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao somente depois desta etapa.

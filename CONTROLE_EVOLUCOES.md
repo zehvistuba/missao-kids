@@ -651,7 +651,46 @@ Matriz executada:
 
 Gates: 31/31 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 
-Estado vivo do produto: **release e codigo publicado inalterados e nenhum residuo QA da Etapa 5**. O modo infantil legado autenticado continua como divida tecnica sem rota de negocio no MVP parent-managed e sera tratado na Etapa 6/7. O residuo sintetico independente da 4C permanece registrado como pendencia operacional. Nenhum push, deploy, SQL ou liberacao foi realizado.
+Estado vivo do produto: **release e codigo publicado inalterados e nenhum residuo QA da Etapa 5**. O modo infantil legado autenticado continua como divida tecnica sem rota de negocio no MVP parent-managed e sera tratado na Etapa 7. O residuo sintetico independente da 4C permanece registrado como pendencia operacional. Nenhum push, deploy, SQL ou liberacao foi realizado.
+
+## 7.13 Estado do Refresh Visual - Etapa 6
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-6`, baseada na Etapa 5 aprovada.
+- O painel administrativo deixou o enquadramento legado de 700px e ganhou shell responsivo com navegacao propria, visao geral, familias e reportes.
+- Nenhuma migration, policy ou permissao mudou. O frontend continua usando somente `admin_get_families`, `admin_set_plan`, `admin_delete_family`, `platform_get_error_reports` e `platform_update_error_report`.
+- O gate continua autoritativo no servidor por `is_platform_admin()`; o frontend nao tenta inferir nem ampliar permissao de plataforma.
+- A visao geral calcula familias, membros, criancas, conversao Premium, reportes abertos e recorrencia a partir dos contratos ja autorizados.
+- A lista de familias oferece busca por nome/contato e filtro Free/Premium. Nome e email ficam restritos a esta visao; o JSON de membros nao e exibido.
+- Alteracao de plano ganhou confirmacao em duas etapas e aviso de downgrade. Remocao irreversivel exige a palavra `REMOVER` antes de liberar a RPC.
+- Sucesso ou falha de plano/exclusao usa aviso persistente e dispensavel, reduzindo ambiguidade operacional.
+- A fila de reportes ganhou busca, filtro usuario/automatico, estados aberto/resolvido/ignorado, recorrencia, versao e rastreio tecnico recolhido. IDs e hashes sao truncados na interface.
+- O painel herdou os temas claro/escuro do responsavel. O tema escuro manteve a paleta original do RotinUp no layout novo.
+- Um fixture temporario exclusivamente local, com dados ficticios e sem chamadas ao Supabase, permitiu inspecao visual completa e foi removido antes dos gates finais.
+
+Matriz executada:
+
+| Cenario | Resultado |
+|---|---|
+| Desktop 1440x900, claro e escuro | PASS - shell, metricas, listas e temas sem corte ou overflow |
+| Tablet 768x1024, escuro | PASS - navegacao horizontal, topbar e secoes em uma coluna preservadas |
+| Mobile 390x844, escuro | PASS - metricas 2x2, filtros, cards e navegacao sem sobreposicao |
+| Largura minima 320x700 | PASS - tabs e botoes mantiveram largura e nomes completos |
+| Alteracao de plano | PASS - primeiro clique apenas abriu confirmacao; nenhuma RPC foi executada |
+| Exclusao de familia | PASS - botao permaneceu bloqueado ate `REMOVER`; nenhuma exclusao foi confirmada |
+| Reportes | PASS - aberto/resolvido/ignorado, busca/origem e rastreio responsivos |
+| PII | PASS - contato somente na lista restrita; membros nao renderizados; identificadores truncados |
+| Console | PASS - nenhum erro ou warning durante o QA visual |
+| Fixture de QA | PASS - removido integralmente; nenhuma conta, familia ou reporte criado |
+
+Protecao automatizada adicionada: o teste de contrato falha se o painel fizer leitura direta de tabela, abandonar uma das RPCs autorizadas, perder `REMOVER`, perder a confirmacao de plano ou voltar ao enquadramento estreito.
+
+Limite declarado: o navegador nao possuia sessao RotinUp reutilizavel do dono. Por isso, nenhuma acao viva de plano, exclusao ou triagem foi disparada. O gate e as RPCs ja possuem evidencia black-box anterior; o smoke autenticado do painel renovado sera repetido na Etapa 7 antes de qualquer decisao de release.
+
+Gates: 32/32 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Estado vivo do produto: **release e codigo publicado inalterados; nenhum SQL, push, deploy ou liberacao foi realizado**. O residuo sintetico independente da 4C continua registrado como pendencia operacional. A proxima etapa e a regressao transversal da Etapa 7, ainda com o aplicativo fechado.
 
 ## 8. Modelo Para Novas Entradas
 

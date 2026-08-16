@@ -77,6 +77,27 @@ test("painel admin aceita o contrato vivo e o contrato legado", () => {
   assert.equal(getAdminChildCount({ children: null }), 0);
 });
 
+test("painel admin renovado preserva RPCs seguras e confirma acoes criticas", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const panelStart = source.indexOf("const AdminPanel =");
+  const panelEnd = source.indexOf("function useIsDesktop", panelStart);
+  const panelSource = source.slice(panelStart, panelEnd);
+  const css = await readFile(new URL("../src/styles/admin-refresh.css", import.meta.url), "utf8");
+
+  assert.ok(panelStart >= 0 && panelEnd > panelStart);
+  assert.match(panelSource, /rpc\("admin_get_families"\)/);
+  assert.match(panelSource, /rpc\("admin_set_plan"/);
+  assert.match(panelSource, /rpc\("admin_delete_family"/);
+  assert.match(panelSource, /rpc\("platform_get_error_reports"/);
+  assert.match(panelSource, /rpc\("platform_update_error_report"/);
+  assert.doesNotMatch(panelSource, /supabase\.from\(/);
+  assert.match(panelSource, /pendingPlanChange/);
+  assert.match(panelSource, /toUpperCase\(\) !== "REMOVER"/);
+  assert.match(source, /isWideScreen = isRefreshScreen \|\| isParentRefreshScreen \|\| isAdminRefreshScreen/);
+  assert.match(css, /\.ru-admin-shell/);
+  assert.match(css, /@media \(max-width: 700px\)/);
+});
+
 test("webhook aprovado usa assinatura como chave e normaliza email", () => {
   const parsed = parseHotmartWebhook(approvedPayload);
   assert.equal(parsed.eventId, "evt-approved-1");

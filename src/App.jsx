@@ -23,6 +23,7 @@ import "./styles/parent-rewards-refresh.css";
 import "./styles/parent-theme-refresh.css";
 import "./styles/parent-account-refresh.css";
 import "./styles/managed-child-refresh.css";
+import "./styles/admin-refresh.css";
 
 const PARENT_THEME_STORAGE_KEY = "rotinup-parent-theme-v1";
 const REWARD_EMOJIS = ["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"];
@@ -5249,92 +5250,165 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 // ADMIN PANEL
 // ═══════════════════════════════════════════════════════════
 const AdminPanel = ({ onBack }) => {
-  const [adminView, setAdminView] = useState("families");
-  const [families, setFamilies]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [toggling, setToggling]       = useState(null);
-  const [search, setSearch]           = useState("");
-  const [notif, setNotif]             = useState(null);
-  const [notifType, setNotifType]     = useState("success");
-  const [denied, setDenied]           = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(null); // family_id
-  const [deleting, setDeleting]       = useState(null);           // family_id
-  const [errorReports, setErrorReports] = useState([]);
+  const [adminView, setAdminView] = useState("overview");
+  const [adminTheme, setAdminTheme] = useState(getStoredParentTheme);
+  const [families, setFamilies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [denied, setDenied] = useState(false);
+  const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [pendingPlanChange, setPendingPlanChange] = useState(null);
+  const [toggling, setToggling] = useState(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [deleting, setDeleting] = useState(null);
+  const [reportsByStatus, setReportsByStatus] = useState({ open: [], resolved: [], ignored: [] });
   const [errorStatus, setErrorStatus] = useState("open");
-  const [errorsLoading, setErrorsLoading] = useState(false);
+  const [errorSearch, setErrorSearch] = useState("");
+  const [errorKind, setErrorKind] = useState("all");
+  const [errorsLoading, setErrorsLoading] = useState(null);
   const [errorsLoadError, setErrorsLoadError] = useState(null);
   const [updatingReport, setUpdatingReport] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [notif, setNotif] = useState(null);
+  const notifTimerRef = useRef(null);
 
-  const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
+  const notify = useCallback((message, type = "success", persistent = false) => {
+    if (notifTimerRef.current) window.clearTimeout(notifTimerRef.current);
+    setNotif({ message, type });
+    if (!persistent) {
+      notifTimerRef.current = window.setTimeout(() => setNotif(null), 5000);
+    }
+  }, []);
 
-  const [loadError, setLoadError] = useState(null);
+  useEffect(() => () => {
+    if (notifTimerRef.current) window.clearTimeout(notifTimerRef.current);
+  }, []);
 
-  async function load() {
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PARENT_THEME_STORAGE_KEY, adminTheme);
+    } catch {
+      // O tema continua funcional mesmo quando o storage do navegador esta bloqueado.
+    }
+  }, [adminTheme]);
+
+  const loadFamilies = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     const { data, error } = await supabase.rpc("admin_get_families");
     setLoading(false);
     if (error) {
       console.error("[Admin] admin_get_families error:", error);
-      if (error.message?.includes("Acesso negado")) { setDenied(true); return; }
+      if (error.message?.includes("Acesso negado")) {
+        setDenied(true);
+        return false;
+      }
       void reportAppError({ error, source: "admin", action: "load_families", screen: "admin" });
       setLoadError(error.message || "Erro desconhecido");
-      return;
+      return false;
     }
+    setDenied(false);
     setFamilies((data || []).map((family) => ({
       ...family,
       child_count: getAdminChildCount(family),
     })));
-  }
+    setLastUpdated(new Date());
+    return true;
+  }, []);
 
   const loadErrorReports = useCallback(async (status) => {
-    setErrorsLoading(true);
+    setErrorsLoading(status);
     setErrorsLoadError(null);
     const { data, error } = await supabase.rpc("platform_get_error_reports", {
       p_status: status,
       p_limit: 100,
     });
-    setErrorsLoading(false);
+    setErrorsLoading(null);
     if (error) {
+      if (error.message?.includes("Acesso negado")) {
+        setDenied(true);
+        return false;
+      }
       void reportAppError({ error, source: "admin", action: "load_error_reports", screen: "admin_errors" });
       setErrorsLoadError(error.message || "Erro ao carregar reportes");
-      return;
+      return false;
     }
-    setErrorReports(data || []);
+    setReportsByStatus((current) => ({ ...current, [status]: data || [] }));
+    setLastUpdated(new Date());
+    return true;
   }, []);
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => load(), 0);
+    const initialLoad = window.setTimeout(async () => {
+      const canContinue = await loadFamilies();
+      if (canContinue) await loadErrorReports("open");
+    }, 0);
     return () => window.clearTimeout(initialLoad);
-  }, []);
+  }, [loadErrorReports, loadFamilies]);
 
   useEffect(() => {
     if (adminView !== "errors") return undefined;
-    const initialLoad = window.setTimeout(() => loadErrorReports(errorStatus), 0);
-    return () => window.clearTimeout(initialLoad);
+    const nextLoad = window.setTimeout(() => loadErrorReports(errorStatus), 0);
+    return () => window.clearTimeout(nextLoad);
   }, [adminView, errorStatus, loadErrorReports]);
 
-  const togglePlan = async (familyId, currentPlan) => {
+  const refreshCurrentView = async () => {
+    if (adminView === "errors") await loadErrorReports(errorStatus);
+    else {
+      const canContinue = await loadFamilies();
+      if (adminView === "overview" && canContinue) await loadErrorReports("open");
+    }
+  };
+
+  const openPlanConfirmation = (familyId) => {
+    setConfirmingDelete(null);
+    setDeleteConfirmationText("");
+    setPendingPlanChange((current) => current === familyId ? null : familyId);
+  };
+
+  const applyPlanChange = async (familyId, currentPlan) => {
     const newPlan = currentPlan === "premium" ? "free" : "premium";
     setToggling(familyId);
     const { error } = await supabase.rpc("admin_set_plan", { p_family_id: familyId, p_plan: newPlan });
     setToggling(null);
-    if (error) { captureActionError(error, "admin", "set_plan", "admin_families"); notify("Erro: " + error.message, "error"); return; }
-    notify(newPlan === "premium" ? "👑 Premium ativado!" : "✅ Voltou para Free");
-    setFamilies(prev => prev.map(f => f.family_id === familyId ? { ...f, plan: newPlan } : f));
+    if (error) {
+      captureActionError(error, "admin", "set_plan", "admin_families");
+      notify(`Não foi possível alterar o plano: ${error.message}`, "error", true);
+      return;
+    }
+    setPendingPlanChange(null);
+    setFamilies((current) => current.map((family) => (
+      family.family_id === familyId ? { ...family, plan: newPlan } : family
+    )));
+    notify(newPlan === "premium" ? "Plano Premium ativado." : "Plano alterado para Free.", "success", true);
+  };
+
+  const openDeleteConfirmation = (familyId) => {
+    setPendingPlanChange(null);
+    setConfirmingDelete((current) => current === familyId ? null : familyId);
+    setDeleteConfirmationText("");
   };
 
   const deleteFamily = async (familyId) => {
+    if (deleteConfirmationText.trim().toUpperCase() !== "REMOVER") return;
     setDeleting(familyId);
     const { error } = await supabase.rpc("admin_delete_family", { p_family_id: familyId });
     setDeleting(null);
+    if (error) {
+      captureActionError(error, "admin", "delete_family", "admin_families");
+      notify(`Não foi possível remover a família: ${error.message}`, "error", true);
+      return;
+    }
     setConfirmingDelete(null);
-    if (error) { captureActionError(error, "admin", "delete_family", "admin_families"); notify("Erro ao remover: " + error.message, "error"); return; }
-    notify("🗑️ Família removida.");
-    setFamilies(prev => prev.filter(f => f.family_id !== familyId));
+    setDeleteConfirmationText("");
+    setFamilies((current) => current.filter((family) => family.family_id !== familyId));
+    notify("Família removida. A operação foi concluída no servidor.", "success", true);
   };
 
   const updateErrorReport = async (reportId, status) => {
+    const currentReport = reportsByStatus[errorStatus].find((report) => report.report_id === reportId);
     setUpdatingReport(reportId);
     const { error } = await supabase.rpc("platform_update_error_report", {
       p_report_id: reportId,
@@ -5343,219 +5417,369 @@ const AdminPanel = ({ onBack }) => {
     setUpdatingReport(null);
     if (error) {
       void reportAppError({ error, source: "admin", action: "update_error_report", screen: "admin_errors" });
-      notify("Erro ao atualizar reporte", "error");
+      notify("Não foi possível atualizar o reporte.", "error", true);
       return;
     }
-    setErrorReports((current) => current.filter((report) => report.report_id !== reportId));
-    notify(status === "resolved" ? "Reporte resolvido." : status === "ignored" ? "Reporte ignorado." : "Reporte reaberto.");
+    setReportsByStatus((current) => {
+      const next = {
+        ...current,
+        [errorStatus]: current[errorStatus].filter((report) => report.report_id !== reportId),
+      };
+      if (currentReport && status !== errorStatus) {
+        next[status] = [{ ...currentReport, report_status: status }, ...current[status]];
+      }
+      return next;
+    });
+    notify(status === "resolved" ? "Reporte marcado como resolvido." : status === "ignored" ? "Reporte ignorado." : "Reporte reaberto.");
   };
 
-  const filtered = families.filter(f =>
-    (f.family_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (f.parent_email || "").toLowerCase().includes(search.toLowerCase()) ||
-    (f.parent_name  || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
+  const filteredFamilies = families.filter((family) => {
+    const matchesPlan = planFilter === "all" || family.plan === planFilter;
+    const matchesSearch = !normalizedSearch || [family.family_name, family.parent_email, family.parent_name]
+      .some((value) => String(value || "").toLocaleLowerCase("pt-BR").includes(normalizedSearch));
+    return matchesPlan && matchesSearch;
+  });
 
-  const premCount = families.filter(f => f.plan === "premium").length;
+  const visibleReports = reportsByStatus[errorStatus] || [];
+  const normalizedErrorSearch = errorSearch.trim().toLocaleLowerCase("pt-BR");
+  const filteredReports = visibleReports.filter((report) => {
+    const matchesKind = errorKind === "all" || report.report_kind === errorKind;
+    const matchesSearch = !normalizedErrorSearch || [report.reference, report.message, report.source, report.action, report.screen, report.error_name]
+      .some((value) => String(value || "").toLocaleLowerCase("pt-BR").includes(normalizedErrorSearch));
+    return matchesKind && matchesSearch;
+  });
+
+  const premiumCount = families.filter((family) => family.plan === "premium").length;
+  const freeCount = families.length - premiumCount;
+  const childrenCount = families.reduce((total, family) => total + Number(family.child_count || 0), 0);
+  const memberCount = families.reduce((total, family) => {
+    const fallbackCount = Array.isArray(family.children) ? family.children.length : Number(family.child_count || 0) + 1;
+    return total + Number(family.member_count ?? fallbackCount);
+  }, 0);
+  const premiumShare = families.length ? Math.round((premiumCount / families.length) * 100) : 0;
+  const openReports = reportsByStatus.open;
+  const recurringOpenReports = openReports.filter((report) => Number(report.occurrences || 0) >= 3).length;
+  const recentFamilies = [...families]
+    .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0))
+    .slice(0, 5);
+
+  const formatDate = (value, withTime = false) => {
+    if (!value) return "Não informado";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Data inválida";
+    return new Intl.DateTimeFormat("pt-BR", withTime ? {
+      dateStyle: "short",
+      timeStyle: "short",
+    } : { dateStyle: "short" }).format(date);
+  };
+
+  const shortId = (value) => value ? `${String(value).slice(0, 8)}…` : "Não vinculado";
+
+  const navItems = [
+    { key: "overview", icon: "⌂", label: "Visão geral" },
+    { key: "families", icon: "◎", label: "Famílias" },
+    { key: "errors", icon: "!", label: "Reportes", count: openReports.length },
+  ];
 
   if (denied) {
     return (
-      <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🚫</div>
-        <div style={{ color: T.pink, fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Acesso negado</div>
-        <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 28, textAlign: "center" }}>Esta conta não tem permissão de admin.</div>
-        <button onClick={onBack} style={{ padding: "12px 24px", borderRadius: 14, border: "none", background: `${T.primary}22`, color: T.primary, fontWeight: 800, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>← Voltar</button>
+      <div className="ru-parent-shell ru-admin-shell ru-admin-denied" data-theme={adminTheme}>
+        <section className="ru-admin-denied__panel" role="alert">
+          <span className="ru-admin-denied__icon" aria-hidden="true">×</span>
+          <p className="ru-admin-kicker">Área restrita</p>
+          <h1>Acesso não autorizado</h1>
+          <p>O servidor não reconheceu esta conta como administradora da plataforma.</p>
+          <button type="button" className="ru-admin-button ru-admin-button--primary" onClick={onBack}>← Voltar ao aplicativo</button>
+        </section>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", maxWidth: 700, margin: "0 auto" }}>
-      <Notif msg={notif} type={notifType} />
-
-      {/* Header */}
-      <div style={{ background: `linear-gradient(135deg, ${T.purple}22, ${T.pink}12)`, padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div>
-            <div style={{ color: T.purple, fontSize: 10, fontWeight: 800, letterSpacing: 1.5 }}>PAINEL ADMIN</div>
-            <div style={{ color: T.text, fontSize: 22, fontWeight: 900 }}>🛡️ RotinUp Admin</div>
-          </div>
-          <button onClick={onBack} style={{ padding: "9px 18px", borderRadius: 12, border: `1px solid ${T.purple}44`, background: `${T.purple}18`, color: T.purple, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-            ← Meu app
-          </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          {[
-            { ic: "🏠", label: "Famílias", value: families.length,             color: T.blue      },
-            { ic: "👑", label: "Premium",  value: premCount,                   color: T.secondary },
-            { ic: "🆓", label: "Free",     value: families.length - premCount, color: T.textMuted },
-          ].map((s, i) => (
-            <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "12px 10px", textAlign: "center", border: `1px solid ${s.color}22` }}>
-              <div style={{ fontSize: 18, marginBottom: 2 }}>{s.ic}</div>
-              <div style={{ color: s.color, fontWeight: 900, fontSize: 24, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ color: T.textMuted, fontSize: 10, marginTop: 3 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-        {/* Conversão Premium — % de famílias no plano pago */}
-        {families.length > 0 && (() => {
-          const share = Math.round((premCount / families.length) * 100);
-          return (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                <span style={{ color: T.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>CONVERSÃO PREMIUM</span>
-                <span style={{ color: T.secondary, fontSize: 12, fontWeight: 900 }}>{share}%</span>
-              </div>
-              <div style={{ height: 7, borderRadius: 5, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${share}%`, borderRadius: 5, background: `linear-gradient(90deg, ${T.purple}, ${T.secondary})`, transition: "width 0.5s ease" }} />
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
-      <div role="tablist" aria-label="Visao administrativa" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, margin: "14px 20px 0", padding: 4, background: "rgba(255,255,255,0.05)", borderRadius: 8 }}>
-        {[
-          { key: "families", label: "Familias" },
-          { key: "errors", label: `Erros${errorStatus === "open" && errorReports.length ? ` (${errorReports.length})` : ""}` },
-        ].map((item) => (
-          <button key={item.key} type="button" role="tab" aria-selected={adminView === item.key} onClick={() => setAdminView(item.key)} style={{ minHeight: 38, border: 0, borderRadius: 6, background: adminView === item.key ? T.cardLight : "transparent", color: adminView === item.key ? T.text : T.textMuted, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{item.label}</button>
-        ))}
-      </div>
-
-      {/* Busca */}
-      {adminView === "families" && <div style={{ padding: "14px 20px 0" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar família, email ou responsável..."
-          style={{ width: "100%", padding: "12px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: T.text, fontSize: 14, fontFamily: "'Nunito', sans-serif", outline: "none", boxSizing: "border-box" }}
-          onFocus={e => e.target.style.borderColor = T.purple}
-          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-        />
-      </div>}
-
-      {/* Erro persistente de carregamento */}
-      {adminView === "families" && loadError && (
-        <div style={{ margin: "12px 20px 0", padding: "14px 18px", borderRadius: 16, background: `${T.pink}15`, border: `1px solid ${T.pink}44`, color: T.pink }}>
-          <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>⚠️ Erro ao carregar famílias</div>
-          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10, wordBreak: "break-all" }}>{loadError}</div>
-          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
-            Tente novamente. Se o erro persistir, verifique a RPC segura <strong style={{ color: T.text }}>admin_get_families</strong> e os logs do Supabase.
-          </div>
-          <button onClick={load} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: `${T.pink}22`, color: T.pink, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>🔄 Tentar novamente</button>
+    <div className="ru-parent-shell ru-admin-shell" data-theme={adminTheme}>
+      {notif && (
+        <div className="ru-admin-notification" data-type={notif.type} role={notif.type === "error" ? "alert" : "status"} aria-live={notif.type === "error" ? "assertive" : "polite"}>
+          <span>{notif.message}</span>
+          <button type="button" onClick={() => setNotif(null)} aria-label="Fechar aviso" title="Fechar aviso">×</button>
         </div>
       )}
 
-      {adminView === "errors" && (
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px" }}>
-          <div role="tablist" aria-label="Status dos reportes" style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-            {[
-              { key: "open", label: "Abertos" },
-              { key: "resolved", label: "Resolvidos" },
-              { key: "ignored", label: "Ignorados" },
-            ].map((item) => (
-              <button key={item.key} type="button" role="tab" aria-selected={errorStatus === item.key} onClick={() => setErrorStatus(item.key)} style={{ flex: 1, minHeight: 36, borderRadius: 8, border: `1px solid ${errorStatus === item.key ? T.blue + "66" : "rgba(255,255,255,0.08)"}`, background: errorStatus === item.key ? `${T.blue}18` : "transparent", color: errorStatus === item.key ? T.blue : T.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{item.label}</button>
-            ))}
+      <aside className="ru-admin-sidebar">
+        <div className="ru-admin-brand">
+          <span className="ru-admin-brand__mark" aria-hidden="true">R</span>
+          <div>
+            <strong>Rotin<span>Up</span></strong>
+            <small>Administração</small>
           </div>
+        </div>
 
-          {errorsLoadError && (
-            <div role="alert" style={{ padding: 14, marginBottom: 12, borderRadius: 8, border: `1px solid ${T.pink}44`, background: `${T.pink}12`, color: T.pink, fontSize: 12 }}>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Nao foi possivel carregar os reportes.</div>
-              <button type="button" onClick={() => loadErrorReports(errorStatus)} style={{ padding: "7px 12px", border: 0, borderRadius: 6, background: `${T.pink}22`, color: T.pink, fontWeight: 800, cursor: "pointer" }}>Tentar novamente</button>
-            </div>
+        <nav className="ru-admin-nav" aria-label="Navegação administrativa">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-current={adminView === item.key ? "page" : undefined}
+              onClick={() => setAdminView(item.key)}
+            >
+              <span className="ru-admin-nav__icon" aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+              {item.count > 0 && <span className="ru-admin-nav__count" aria-label={`${item.count} reporte${item.count === 1 ? "" : "s"} aberto${item.count === 1 ? "" : "s"}`}>{item.count > 99 ? "99+" : item.count}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="ru-admin-sidebar__footer">
+          <div className="ru-admin-access-status">
+            <span aria-hidden="true" />
+            <div><strong>Acesso restrito</strong><small>Gate validado pelo servidor</small></div>
+          </div>
+          <button type="button" className="ru-admin-back" onClick={onBack}>← Meu aplicativo</button>
+        </div>
+      </aside>
+
+      <div className="ru-admin-main">
+        <header className="ru-admin-topbar">
+          <div>
+            <p className="ru-admin-kicker">Operação da plataforma</p>
+            <h1>{adminView === "overview" ? "Visão geral" : adminView === "families" ? "Famílias e planos" : "Fila de reportes"}</h1>
+          </div>
+          <div className="ru-admin-topbar__actions">
+            {lastUpdated && <span className="ru-admin-last-update">Atualizado {formatDate(lastUpdated, true)}</span>}
+            <button type="button" className="ru-admin-icon-button" onClick={refreshCurrentView} disabled={loading || Boolean(errorsLoading)} aria-label="Atualizar dados" title="Atualizar dados">↻</button>
+            <button type="button" className="ru-parent-theme-toggle" onClick={() => setAdminTheme((current) => current === "dark" ? "light" : "dark")} aria-label={`Ativar tema ${adminTheme === "dark" ? "claro" : "escuro"}`} title={`Ativar tema ${adminTheme === "dark" ? "claro" : "escuro"}`}>
+              <span aria-hidden="true">{adminTheme === "dark" ? "☀" : "☾"}</span>
+              <span className="ru-parent-theme-toggle__label">{adminTheme === "dark" ? "Claro" : "Escuro"}</span>
+            </button>
+            <button type="button" className="ru-admin-topbar__back" onClick={onBack}>← Meu aplicativo</button>
+          </div>
+        </header>
+
+        <main className="ru-admin-workspace">
+          {adminView === "overview" && (
+            <section className="ru-admin-page" aria-labelledby="admin-overview-heading">
+              <header className="ru-admin-page-heading">
+                <div>
+                  <h2 id="admin-overview-heading">Estado operacional</h2>
+                  <p>Indicadores essenciais para acompanhar famílias, planos e incidentes.</p>
+                </div>
+              </header>
+
+              {loadError && (
+                <div className="ru-admin-load-error" role="alert">
+                  <div><strong>Não foi possível carregar as famílias.</strong><span>{loadError}</span></div>
+                  <button type="button" onClick={loadFamilies}>Tentar novamente</button>
+                </div>
+              )}
+
+              <dl className="ru-admin-metrics" aria-busy={loading}>
+                <div><dt>Famílias</dt><dd>{loading ? "…" : families.length}</dd><small>{freeCount} Free e {premiumCount} Premium</small></div>
+                <div><dt>Membros</dt><dd>{loading ? "…" : memberCount}</dd><small>{childrenCount} criança{childrenCount === 1 ? "" : "s"} cadastrada{childrenCount === 1 ? "" : "s"}</small></div>
+                <div data-tone="premium"><dt>Premium</dt><dd>{loading ? "…" : `${premiumShare}%`}</dd><small>{premiumCount} família{premiumCount === 1 ? "" : "s"} no plano</small></div>
+                <div data-tone={openReports.length ? "attention" : "stable"}><dt>Reportes abertos</dt><dd>{errorsLoading === "open" ? "…" : openReports.length}</dd><small>{recurringOpenReports} recorrente{recurringOpenReports === 1 ? "" : "s"}</small></div>
+              </dl>
+
+              <section className="ru-admin-conversion" aria-label="Conversão para o plano Premium">
+                <div><strong>Conversão Premium</strong><span>{premiumShare}%</span></div>
+                <div className="ru-admin-progress" role="progressbar" aria-label="Famílias Premium" aria-valuemin="0" aria-valuemax="100" aria-valuenow={premiumShare}>
+                  <span style={{ width: `${premiumShare}%` }} />
+                </div>
+              </section>
+
+              <div className="ru-admin-overview-grid">
+                <section className="ru-admin-section" aria-labelledby="admin-priorities-heading">
+                  <header><div><p className="ru-admin-kicker">Suporte</p><h2 id="admin-priorities-heading">Prioridades abertas</h2></div><button type="button" onClick={() => setAdminView("errors")}>Ver fila →</button></header>
+                  {errorsLoading === "open" ? (
+                    <div className="ru-admin-empty" aria-live="polite">Carregando reportes…</div>
+                  ) : errorsLoadError ? (
+                    <div className="ru-admin-inline-error" role="alert"><span>Falha ao consultar reportes.</span><button type="button" onClick={() => loadErrorReports("open")}>Repetir</button></div>
+                  ) : openReports.length === 0 ? (
+                    <div className="ru-admin-empty" data-tone="success"><strong>Fila em dia</strong><span>Nenhum reporte aberto no momento.</span></div>
+                  ) : (
+                    <div className="ru-admin-priority-list">
+                      {openReports.slice(0, 4).map((report) => (
+                        <button key={report.report_id} type="button" onClick={() => { setErrorStatus("open"); setAdminView("errors"); }}>
+                          <span className="ru-admin-report-kind" data-kind={report.report_kind}>{report.report_kind === "user" ? "Usuário" : "Automático"}</span>
+                          <strong>{report.error_name || report.action || "Erro reportado"}</strong>
+                          <small>#{report.reference} · {report.occurrences || 1} ocorrência{Number(report.occurrences || 1) === 1 ? "" : "s"} · {formatDate(report.last_seen_at, true)}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="ru-admin-section" aria-labelledby="admin-recent-heading">
+                  <header><div><p className="ru-admin-kicker">Base</p><h2 id="admin-recent-heading">Famílias recentes</h2></div><button type="button" onClick={() => setAdminView("families")}>Ver todas →</button></header>
+                  {loading ? (
+                    <div className="ru-admin-empty" aria-live="polite">Carregando famílias…</div>
+                  ) : recentFamilies.length === 0 ? (
+                    <div className="ru-admin-empty"><strong>Nenhuma família</strong><span>Novos cadastros aparecerão aqui.</span></div>
+                  ) : (
+                    <div className="ru-admin-recent-list">
+                      {recentFamilies.map((family) => (
+                        <button key={family.family_id} type="button" onClick={() => { setSearch(family.family_name || ""); setAdminView("families"); }}>
+                          <span className="ru-admin-family-symbol" data-plan={family.plan} aria-hidden="true">{family.plan === "premium" ? "P" : "F"}</span>
+                          <span><strong>{family.family_name || "Família sem nome"}</strong><small>{family.child_count} filho{family.child_count === 1 ? "" : "s"} · desde {formatDate(family.created_at)}</small></span>
+                          <span className="ru-admin-plan-badge" data-plan={family.plan}>{family.plan === "premium" ? "Premium" : "Free"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+            </section>
           )}
 
-          {errorsLoading ? (
-            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando reportes...</div>
-          ) : !errorsLoadError && errorReports.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhum reporte neste status.</div>
-          ) : errorReports.map((report) => (
-            <article key={report.report_id} style={{ background: T.card, borderRadius: 8, padding: 16, marginBottom: 10, border: `1px solid ${report.report_kind === "user" ? T.blue + "44" : "rgba(255,255,255,0.08)"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 9 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: report.report_kind === "user" ? T.blue : T.primary, fontSize: 10, fontWeight: 900 }}>{report.report_kind === "user" ? "USUARIO" : "AUTOMATICO"} · #{report.reference}</div>
-                  <div style={{ color: T.text, fontWeight: 800, fontSize: 14, marginTop: 4, overflowWrap: "anywhere" }}>{report.report_kind === "user" ? report.action : report.error_name || report.action || "Erro"}</div>
-                </div>
-                <div style={{ color: T.secondary, fontWeight: 900, fontSize: 12, flexShrink: 0 }}>{report.occurrences}x</div>
-              </div>
-              <div style={{ color: T.text, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{report.message}</div>
-              <div style={{ color: T.textMuted, fontSize: 10, lineHeight: 1.6, marginTop: 10 }}>
-                {report.source} / {report.action || "-"} / {report.screen || "-"}<br />
-                Ultimo: {new Date(report.last_seen_at).toLocaleString("pt-BR")} · versao {report.app_version || "unknown"}
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                {errorStatus === "open" ? (
-                  <>
-                    <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "resolved")} style={{ flex: 1, padding: 9, border: 0, borderRadius: 6, background: `${T.accent}22`, color: T.accent, fontWeight: 800, cursor: "pointer" }}>Resolver</button>
-                    <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "ignored")} style={{ flex: 1, padding: 9, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, background: "transparent", color: T.textMuted, fontWeight: 800, cursor: "pointer" }}>Ignorar</button>
-                  </>
-                ) : (
-                  <button type="button" disabled={updatingReport === report.report_id} onClick={() => updateErrorReport(report.report_id, "open")} style={{ width: "100%", padding: 9, border: `1px solid ${T.blue}44`, borderRadius: 6, background: `${T.blue}12`, color: T.blue, fontWeight: 800, cursor: "pointer" }}>Reabrir</button>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+          {adminView === "families" && (
+            <section className="ru-admin-page" aria-labelledby="admin-families-heading">
+              <header className="ru-admin-page-heading">
+                <div><h2 id="admin-families-heading">Famílias cadastradas</h2><p>Consulte responsáveis e altere o plano somente quando houver solicitação validada.</p></div>
+                <span className="ru-admin-result-count">{filteredFamilies.length} de {families.length}</span>
+              </header>
 
-      {/* Lista */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 60px", display: adminView === "families" ? "block" : "none" }}>
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Carregando famílias... ⏳</div>
-        ) : !loadError && filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>Nenhuma família encontrada</div>
-        ) : filtered.map(f => (
-          <div key={f.family_id} style={{ background: T.card, borderRadius: 18, padding: "14px 16px", marginBottom: 10, border: `1px solid ${confirmingDelete === f.family_id ? T.pink + "55" : f.plan === "premium" ? T.secondary + "55" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, background: f.plan === "premium" ? `linear-gradient(135deg, ${T.purple}33, ${T.pink}22)` : "rgba(255,255,255,0.05)", border: `1px solid ${f.plan === "premium" ? T.secondary + "44" : "rgba(255,255,255,0.08)"}` }}>{f.plan === "premium" ? "👑" : "🏠"}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{f.family_name || "Sem nome"}</span>
-                  <span style={{ background: f.plan === "premium" ? `linear-gradient(135deg, ${T.purple}, ${T.pink})` : "rgba(255,255,255,0.08)", color: f.plan === "premium" ? "#fff" : T.textMuted, fontSize: 9, fontWeight: 900, borderRadius: 999, padding: "2px 9px", letterSpacing: 0.5 }}>
-                    {f.plan === "premium" ? "👑 PREMIUM" : "FREE"}
-                  </span>
-                </div>
-                <div style={{ color: T.textMuted, fontSize: 12 }}>{f.parent_email || "—"}</div>
-                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>
-                  {f.parent_name || "—"} · {f.child_count} filho{f.child_count !== 1 ? "s" : ""} · {new Date(f.created_at).toLocaleDateString("pt-BR")}
+              <div className="ru-admin-toolbar">
+                <label className="ru-admin-search">
+                  <span>Buscar</span>
+                  <span aria-hidden="true">⌕</span>
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Família, responsável ou email" />
+                </label>
+                <div className="ru-admin-segmented" role="group" aria-label="Filtrar por plano">
+                  {[{ key: "all", label: "Todos" }, { key: "free", label: "Free" }, { key: "premium", label: "Premium" }].map((item) => (
+                    <button key={item.key} type="button" aria-pressed={planFilter === item.key} onClick={() => setPlanFilter(item.key)}>{item.label}</button>
+                  ))}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                <button
-                  onClick={() => togglePlan(f.family_id, f.plan)}
-                  disabled={toggling === f.family_id || deleting === f.family_id}
-                  style={{ padding: "8px 14px", borderRadius: 10, border: "none", minWidth: 88, textAlign: "center", fontFamily: "'Nunito', sans-serif", fontWeight: 900, fontSize: 12, cursor: toggling === f.family_id ? "not-allowed" : "pointer", transition: "all 0.18s",
-                    background: toggling === f.family_id ? "rgba(255,255,255,0.06)" : f.plan === "premium" ? `${T.pink}28` : `linear-gradient(135deg, ${T.purple}, ${T.pink})`,
-                    color: toggling === f.family_id ? T.textMuted : f.plan === "premium" ? T.pink : "#fff",
-                  }}>
-                  {toggling === f.family_id ? "..." : f.plan === "premium" ? "→ Free" : "👑 Premium"}
-                </button>
-                <button
-                  onClick={() => confirmingDelete === f.family_id ? setConfirmingDelete(null) : setConfirmingDelete(f.family_id)}
-                  disabled={deleting === f.family_id}
-                  style={{ padding: "6px 14px", borderRadius: 10, border: `1px solid ${T.pink}44`, background: confirmingDelete === f.family_id ? `${T.pink}22` : "transparent", color: T.pink, fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "'Nunito', sans-serif", textAlign: "center" }}>
-                  {deleting === f.family_id ? "..." : "🗑️ Remover"}
-                </button>
-              </div>
-            </div>
-            {/* Confirmação de remoção expandida */}
-            {confirmingDelete === f.family_id && (
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.pink}33` }}>
-                <div style={{ color: T.pink, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-                  ⚠️ Isso apaga <strong>todas</strong> as missões, coins, filhos e histórico desta família. Irreversível.
+
+              <p className="ru-admin-privacy-note"><span aria-hidden="true">i</span> Dados de contato aparecem somente nesta área restrita e apenas para suporte operacional.</p>
+
+              {loadError && (
+                <div className="ru-admin-load-error" role="alert"><div><strong>Não foi possível carregar as famílias.</strong><span>{loadError}</span></div><button type="button" onClick={loadFamilies}>Tentar novamente</button></div>
+              )}
+
+              {loading ? (
+                <div className="ru-admin-empty ru-admin-empty--large" aria-live="polite">Carregando famílias…</div>
+              ) : !loadError && filteredFamilies.length === 0 ? (
+                <div className="ru-admin-empty ru-admin-empty--large"><strong>Nenhum resultado</strong><span>Revise a busca ou o filtro de plano.</span></div>
+              ) : (
+                <div className="ru-admin-family-list">
+                  <div className="ru-admin-family-list__header" aria-hidden="true"><span>Família</span><span>Responsável</span><span>Uso</span><span>Plano e ações</span></div>
+                  {filteredFamilies.map((family) => {
+                    const isConfirmingPlan = pendingPlanChange === family.family_id;
+                    const isConfirmingDelete = confirmingDelete === family.family_id;
+                    const nextPlan = family.plan === "premium" ? "Free" : "Premium";
+                    const busy = toggling === family.family_id || deleting === family.family_id;
+                    return (
+                      <article key={family.family_id} className="ru-admin-family-row" data-expanded={isConfirmingPlan || isConfirmingDelete ? "true" : "false"}>
+                        <div className="ru-admin-family-row__main">
+                          <div className="ru-admin-family-identity">
+                            <span className="ru-admin-family-symbol" data-plan={family.plan} aria-hidden="true">{family.plan === "premium" ? "P" : "F"}</span>
+                            <div><strong>{family.family_name || "Família sem nome"}</strong><small>Criada em {formatDate(family.created_at)}</small></div>
+                          </div>
+                          <div className="ru-admin-family-contact"><span>Responsável</span><strong>{family.parent_name || "Não informado"}</strong><small>{family.parent_email || "Email não informado"}</small></div>
+                          <div className="ru-admin-family-usage"><span>Uso</span><strong>{family.child_count} filho{family.child_count === 1 ? "" : "s"}</strong><small>{Number(family.member_count ?? family.child_count + 1)} membro{Number(family.member_count ?? family.child_count + 1) === 1 ? "" : "s"}</small></div>
+                          <div className="ru-admin-family-actions">
+                            <span className="ru-admin-plan-badge" data-plan={family.plan}>{family.plan === "premium" ? "Premium" : "Free"}</span>
+                            <button type="button" className="ru-admin-button ru-admin-button--secondary" disabled={busy} onClick={() => openPlanConfirmation(family.family_id)}>Alterar plano</button>
+                            <button type="button" className="ru-admin-icon-button ru-admin-icon-button--danger" disabled={busy} onClick={() => openDeleteConfirmation(family.family_id)} aria-label={`Remover ${family.family_name || "família"}`} title="Remover família">×</button>
+                          </div>
+                        </div>
+
+                        {isConfirmingPlan && (
+                          <div className="ru-admin-confirmation" data-tone={family.plan === "premium" ? "warning" : "premium"}>
+                            <div><strong>Alterar para {nextPlan}?</strong><span>{family.plan === "premium" ? "O downgrade passa a aplicar os limites do plano gratuito imediatamente." : "O upgrade libera os limites Premium para esta família."}</span></div>
+                            <div className="ru-admin-confirmation__actions">
+                              <button type="button" className="ru-admin-button ru-admin-button--primary" disabled={busy} onClick={() => applyPlanChange(family.family_id, family.plan)}>{toggling === family.family_id ? "Salvando…" : `Confirmar ${nextPlan}`}</button>
+                              <button type="button" className="ru-admin-button ru-admin-button--ghost" disabled={busy} onClick={() => setPendingPlanChange(null)}>Cancelar</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {isConfirmingDelete && (
+                          <div className="ru-admin-confirmation" data-tone="danger">
+                            <div><strong>Remoção irreversível</strong><span>Esta ação apaga a família e todos os dados dependentes. Digite REMOVER para liberar o botão.</span></div>
+                            <div className="ru-admin-delete-controls">
+                              <label><span>Confirmação</span><input value={deleteConfirmationText} onChange={(event) => setDeleteConfirmationText(event.target.value)} placeholder="REMOVER" autoComplete="off" /></label>
+                              <button type="button" className="ru-admin-button ru-admin-button--danger" disabled={busy || deleteConfirmationText.trim().toUpperCase() !== "REMOVER"} onClick={() => deleteFamily(family.family_id)}>{deleting === family.family_id ? "Removendo…" : "Remover definitivamente"}</button>
+                              <button type="button" className="ru-admin-button ru-admin-button--ghost" disabled={busy} onClick={() => { setConfirmingDelete(null); setDeleteConfirmationText(""); }}>Cancelar</button>
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => deleteFamily(f.family_id)} disabled={deleting === f.family_id}
-                    style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${T.pink}, #CC0000)`, color: "#fff", fontWeight: 900, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                    {deleting === f.family_id ? "Removendo..." : "✓ Confirmar remoção"}
-                  </button>
-                  <button onClick={() => setConfirmingDelete(null)}
-                    style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-                    Cancelar
-                  </button>
+              )}
+            </section>
+          )}
+
+          {adminView === "errors" && (
+            <section className="ru-admin-page" aria-labelledby="admin-errors-heading">
+              <header className="ru-admin-page-heading">
+                <div><h2 id="admin-errors-heading">Reportes de uso</h2><p>Triagem de falhas automáticas e relatos enviados por usuários.</p></div>
+                <span className="ru-admin-result-count">{filteredReports.length} resultado{filteredReports.length === 1 ? "" : "s"}</span>
+              </header>
+
+              <div className="ru-admin-status-tabs" role="tablist" aria-label="Status dos reportes">
+                {[{ key: "open", label: "Abertos" }, { key: "resolved", label: "Resolvidos" }, { key: "ignored", label: "Ignorados" }].map((item) => (
+                  <button key={item.key} type="button" role="tab" aria-selected={errorStatus === item.key} onClick={() => setErrorStatus(item.key)}>{item.label}<span>{reportsByStatus[item.key].length}</span></button>
+                ))}
+              </div>
+
+              <div className="ru-admin-toolbar">
+                <label className="ru-admin-search"><span>Buscar</span><span aria-hidden="true">⌕</span><input value={errorSearch} onChange={(event) => setErrorSearch(event.target.value)} placeholder="Referência, mensagem, ação ou tela" /></label>
+                <div className="ru-admin-segmented" role="group" aria-label="Filtrar origem do reporte">
+                  {[{ key: "all", label: "Todos" }, { key: "user", label: "Usuário" }, { key: "automatic", label: "Automático" }].map((item) => (
+                    <button key={item.key} type="button" aria-pressed={errorKind === item.key} onClick={() => setErrorKind(item.key)}>{item.label}</button>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {errorsLoadError && (
+                <div className="ru-admin-load-error" role="alert"><div><strong>Não foi possível carregar os reportes.</strong><span>{errorsLoadError}</span></div><button type="button" onClick={() => loadErrorReports(errorStatus)}>Tentar novamente</button></div>
+              )}
+
+              {errorsLoading === errorStatus ? (
+                <div className="ru-admin-empty ru-admin-empty--large" aria-live="polite">Carregando reportes…</div>
+              ) : !errorsLoadError && filteredReports.length === 0 ? (
+                <div className="ru-admin-empty ru-admin-empty--large" data-tone={errorStatus === "open" ? "success" : undefined}><strong>{errorStatus === "open" ? "Fila em dia" : "Nenhum reporte"}</strong><span>{visibleReports.length ? "Revise a busca ou o filtro de origem." : "Não há itens neste status."}</span></div>
+              ) : (
+                <div className="ru-admin-report-list">
+                  {filteredReports.map((report) => {
+                    const isUpdating = updatingReport === report.report_id;
+                    const occurrenceCount = Number(report.occurrences || 1);
+                    return (
+                      <article key={report.report_id} className="ru-admin-report-card" data-kind={report.report_kind}>
+                        <header>
+                          <div><span className="ru-admin-report-kind" data-kind={report.report_kind}>{report.report_kind === "user" ? "Usuário" : "Automático"}</span><code>#{report.reference}</code>{occurrenceCount >= 3 && <span className="ru-admin-recurring">Recorrente</span>}</div>
+                          <span className="ru-admin-occurrences">{occurrenceCount}x</span>
+                        </header>
+                        <h3>{report.report_kind === "user" ? report.action || "Relato do usuário" : report.error_name || report.action || "Erro automático"}</h3>
+                        <p>{report.message || "Sem mensagem registrada."}</p>
+                        <dl className="ru-admin-report-meta">
+                          <div><dt>Origem</dt><dd>{report.source || "Não informada"}</dd></div>
+                          <div><dt>Ação</dt><dd>{report.action || "Não informada"}</dd></div>
+                          <div><dt>Tela</dt><dd>{report.screen || "Não informada"}</dd></div>
+                          <div><dt>Último registro</dt><dd>{formatDate(report.last_seen_at, true)}</dd></div>
+                        </dl>
+                        <details className="ru-admin-report-trace">
+                          <summary>Dados de rastreio</summary>
+                          <dl><div><dt>Primeiro registro</dt><dd>{formatDate(report.first_seen_at, true)}</dd></div><div><dt>Versão</dt><dd>{report.app_version || "Não informada"}</dd></div><div><dt>Família</dt><dd>{shortId(report.family_id)}</dd></div><div><dt>Hash técnico</dt><dd>{shortId(report.stack_hash)}</dd></div></dl>
+                        </details>
+                        <footer>
+                          {errorStatus === "open" ? (
+                            <><button type="button" className="ru-admin-button ru-admin-button--success" disabled={isUpdating} onClick={() => updateErrorReport(report.report_id, "resolved")}>{isUpdating ? "Atualizando…" : "Marcar resolvido"}</button><button type="button" className="ru-admin-button ru-admin-button--ghost" disabled={isUpdating} onClick={() => updateErrorReport(report.report_id, "ignored")}>Ignorar</button></>
+                          ) : (
+                            <button type="button" className="ru-admin-button ru-admin-button--secondary" disabled={isUpdating} onClick={() => updateErrorReport(report.report_id, "open")}>{isUpdating ? "Atualizando…" : "Reabrir reporte"}</button>
+                          )}
+                        </footer>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );
@@ -5687,13 +5911,14 @@ export default function App() {
   }
   const isRefreshScreen = ["landing", "auth", "terms", "onboarding"].includes(activeScreen);
   const isParentRefreshScreen = activeScreen === "parent";
-  const isWideScreen = isRefreshScreen || isParentRefreshScreen;
+  const isAdminRefreshScreen = activeScreen === "admin";
+  const isWideScreen = isRefreshScreen || isParentRefreshScreen || isAdminRefreshScreen;
 
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen ? "#101526" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: isWideScreen ? "none" : activeScreen === "admin" ? 700 : 430, overflow: "hidden", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen ? "#101526" : T.darker, boxShadow: isWideScreen ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen || isAdminRefreshScreen ? "#101526" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
+        <div style={{ width: "100%", maxWidth: isWideScreen ? "none" : 430, overflow: "hidden", minHeight: "100vh", background: isRefreshScreen ? "#F7F9FC" : isParentRefreshScreen || isAdminRefreshScreen ? "#101526" : T.darker, boxShadow: isWideScreen ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {activeScreen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
