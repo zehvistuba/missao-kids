@@ -360,6 +360,7 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 4C - temas, recompensas e resgates | Validado localmente | Tema claro/escuro persistente, com modo escuro baseado na paleta original do RotinUp; recompensas e fila de resgates migradas para o layout novo com travas de concorrencia e confirmacao de cancelamento. 29 testes PASS; QA autenticado nos dois temas e tres viewports. **Sem acao mutavel confirmada, push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Residuo sintetico do QA visual 4C | Aberto (operacional) | O primeiro seed interrompido deixou `Familia QA Visual 4C`, `Lia QA`, 3 recompensas e 2 resgates aprovados. Dados ficticios, isolados por RLS e sem PII real; requer purga administrativa posterior. A conta da rodada final foi removida e o relogin falhou como esperado. |
 | 2026-08-16 | Refresh visual Etapa 4D - estatisticas, conta, Premium e LGPD | Validado localmente | Visao familiar, IA, configuracoes, notificacoes, plano, suporte e privacidade migrados para os dois temas. Copia de IA alinhada aos limites 40/200; acoes concorrentes e exclusao por `EXCLUIR` endurecidas. 30 testes PASS; QA autenticado em tres viewports; conta 4D removida e relogin recusado. **Sem push, deploy, SQL ou liberacao.** |
+| 2026-08-16 | Refresh visual Etapa 5 - modo crianca acompanhado | Validado localmente | Rotina, premios, conquistas e perfil infantil agora abrem dentro da sessao adulta, sem criar login da crianca. Missoes, resgates e timers reutilizam somente handlers/RPCs autorizados do responsavel; repeticao e gasto exigem confirmacao. 31 testes PASS; QA funcional e visual em tres viewports/dois temas; conta e familia sinteticas removidas por LGPD. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
 
 ---
 
@@ -616,6 +617,41 @@ Implementado e validado localmente em 2026-08-16:
 - Console sem erros/avisos da aplicacao. Gates: 30/30 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 
 Estado vivo do produto: **release e codigo publicado inalterados, sem residuo QA da 4D**. O QA criou e removeu somente dados sinteticos da propria familia. Nenhum push, deploy, SQL ou liberacao foi realizado. O residuo sintetico independente da 4C continua registrado como pendencia operacional. A Etapa 5 tratara o modo crianca parent-managed.
+
+## 7.12 Estado do Refresh Visual - Etapa 5
+
+Implementado e validado localmente em 2026-08-16:
+
+- Branch isolada `codex/refresh-visual-etapa-5`, baseada na Etapa 4D aprovada.
+- O cartao de cada crianca ganhou uma acao primaria `Abrir rotina`, separada de extrato, resgate, edicao e tropeco.
+- O novo modo acompanhado permanece dentro da sessao do responsavel e oferece quatro visoes: Rotina, Premios, Conquistas e Perfil.
+- Nenhuma consulta, permissao, migration ou rota de autenticacao infantil foi criada; a tela recebe somente dados ja carregados pelo painel adulto.
+- Missoes usam `parent_check_mission`; resgates usam `redeem_for_child`; cronometros reutilizam as RPCs existentes do responsavel.
+- Repetir uma missao ja concluida e gastar KidCoins exigem confirmacao em duas etapas. Busy states bloqueiam operacoes concorrentes e os dados autoritativos sao recarregados depois de cada acao.
+- A secao interna selecionada foi elevada ao painel adulto para sobreviver ao recarregamento autoritativo. O QA encontrou e corrigiu o retorno indevido de Premios para Rotina apos um resgate.
+- A composicao se adapta a tres faixas etarias sem mudar regras de negocio. O QA encontrou e corrigiu contraste insuficiente do texto sobre o azul no tema escuro para a faixa de 8 a 11 anos.
+- Estados vazios, progresso, saldo, XP, sequencia, fila de premios, jornada de niveis, perfil gerenciado e extrato possuem nomes e estrutura acessiveis.
+- O menu inferior mobile fica oculto durante o modo acompanhado; o retorno explicito leva ao painel familiar e a navegacao adulta desktop continua disponivel.
+
+Matriz executada:
+
+| Cenario | Resultado |
+|---|---|
+| Desktop 1440x900, escuro | PASS - Rotina, Premios e Conquistas sem corte ou sobreposicao |
+| Tablet 768x1024, escuro | PASS - grid de niveis e navegacao preservados |
+| Mobile 390x844, claro e escuro | PASS - hero, tabs, loja e perfil responsivos; sem menu inferior sobreposto |
+| Missao pelo modo acompanhado | PASS - +20 KidCoins, +15 XP, streak 1 e progresso sincronizados |
+| Repeticao de missao | PASS - primeiro clique apenas exibiu `Confirmar repeticao`; saldo permaneceu inalterado |
+| Resgate pelo modo acompanhado | PASS - primeiro clique apenas confirmou o gasto; segundo criou a entrega e atualizou saldo/fila |
+| Persistencia da visao apos resgate | PASS - permaneceu em Premios depois do reload autoritativo |
+| Timer de premio | PASS - entrega criou timer; iniciar e pausar funcionaram pela nova tela |
+| Conquistas e perfil | PASS - progresso para nivel, seis niveis, edicao e extrato acessiveis |
+| Console | PASS - somente mensagens de Vite/React DevTools, sem erro ou warning da aplicacao |
+| Limpeza LGPD | PASS - conta, familia e dados sinteticos removidos; relogin recusado |
+
+Gates: 31/31 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Estado vivo do produto: **release e codigo publicado inalterados e nenhum residuo QA da Etapa 5**. O modo infantil legado autenticado continua como divida tecnica sem rota de negocio no MVP parent-managed e sera tratado na Etapa 6/7. O residuo sintetico independente da 4C permanece registrado como pendencia operacional. Nenhum push, deploy, SQL ou liberacao foi realizado.
 
 ## 8. Modelo Para Novas Entradas
 

@@ -22,6 +22,7 @@ import "./styles/parent-missions-refresh.css";
 import "./styles/parent-rewards-refresh.css";
 import "./styles/parent-theme-refresh.css";
 import "./styles/parent-account-refresh.css";
+import "./styles/managed-child-refresh.css";
 
 const PARENT_THEME_STORAGE_KEY = "rotinup-parent-theme-v1";
 const REWARD_EMOJIS = ["🎁","🍕","🎮","🎬","🏖️","🍦","📱","🎪","🎠","🚀","🎤","🏆","🛍️","🎲","🧸","🍫","🌟","🍿","🎡","🎯"];
@@ -3212,6 +3213,264 @@ const DemeritModal = ({ child, onApply, onClose }) => {
   );
 };
 
+const ManagedChildView = ({
+  child,
+  missions,
+  rewards,
+  redemptions,
+  activeTimers,
+  checkingMission,
+  redeemingFor,
+  timerBusy,
+  theme,
+  getLog,
+  countLogs,
+  onComplete,
+  onRedeem,
+  onStartTimer,
+  onPauseTimer,
+  onFinishTimer,
+  onEdit,
+  onStatement,
+  onBack,
+  section,
+  onSectionChange,
+}) => {
+  const [confirmMission, setConfirmMission] = useState(null);
+  const [confirmReward, setConfirmReward] = useState(null);
+  const level = getLvl(child.xp || 0);
+  const nextLevel = getNext(child.xp || 0);
+  const age = child.birth_date ? calcAge(child.birth_date) : child.age;
+  const ageBand = age && age <= 7 ? "junior" : age && age <= 11 ? "explorer" : "independent";
+  const xpRange = Math.max(1, nextLevel.xpNeeded - level.xpNeeded);
+  const xpProgress = level === nextLevel ? 1 : Math.max(0, Math.min(1, ((child.xp || 0) - level.xpNeeded) / xpRange));
+  const completed = missions.filter(mission => getLog(child.id, mission.id, mission.frequency)?.status === "approved").length;
+  const progress = missions.length ? completed / missions.length : 0;
+  const activeRewards = rewards.filter(reward => reward.is_active !== false);
+  const childRedemptions = redemptions.filter(redemption => redemption.child_id === child.id);
+  const childTimers = activeTimers.filter(timer => timer.child_id === child.id);
+  const sectionTabs = [
+    { key: "routine", icon: "🎯", label: "Rotina" },
+    { key: "rewards", icon: "🎁", label: "Prêmios" },
+    { key: "achievements", icon: "🏆", label: "Conquistas" },
+    { key: "profile", icon: "👤", label: "Perfil" },
+  ];
+
+  const completeMission = async (mission, alreadyDone) => {
+    if (checkingMission) return;
+    if (alreadyDone && confirmMission !== mission.id) {
+      setConfirmMission(mission.id);
+      return;
+    }
+    setConfirmMission(null);
+    await onComplete(child.id, mission.id);
+  };
+
+  const redeemReward = async (reward) => {
+    if (redeemingFor || (child.kidcoins || 0) < reward.coin_cost) return;
+    if (confirmReward !== reward.id) {
+      setConfirmReward(reward.id);
+      return;
+    }
+    setConfirmReward(null);
+    await onRedeem(reward, child);
+  };
+
+  const chooseSection = (nextSection) => {
+    onSectionChange(nextSection);
+    setConfirmMission(null);
+    setConfirmReward(null);
+  };
+
+  return (
+    <div className="ru-managed-child" data-age-band={ageBand}>
+      <div className="ru-managed-child__toolbar">
+        <button type="button" className="ru-managed-child__back" onClick={onBack}>
+          <span aria-hidden="true">←</span> Painel da família
+        </button>
+        <span className="ru-managed-child__supervision"><span aria-hidden="true">◆</span> Modo acompanhado</span>
+      </div>
+
+      <section className="ru-managed-child__hero" aria-labelledby="ru-managed-child-title">
+        <div className="ru-managed-child__identity">
+          <XPRing size={88} stroke={5} pct={xpProgress} color={level.color} trackColor="rgba(255,255,255,0.22)">
+            <AvatarImg value={child.avatar_emoji} size={70} radius={35} style={{ background: "#ffffff" }} />
+          </XPRing>
+          <div>
+            <span className="ru-managed-child__kicker">Jornada de hoje</span>
+            <h2 id="ru-managed-child-title">{child.display_name}</h2>
+            <p>{level.emoji} {level.name}{age ? ` · ${age} anos` : ""}</p>
+          </div>
+        </div>
+        <dl className="ru-managed-child__stats">
+          <div><dt>KidCoins</dt><dd><span aria-hidden="true">🪙</span> {child.kidcoins || 0}</dd></div>
+          <div><dt>XP total</dt><dd><span aria-hidden="true">⚡</span> {child.xp || 0}</dd></div>
+          <div><dt>Sequência</dt><dd><span aria-hidden="true">🔥</span> {child.streak || 0}</dd></div>
+        </dl>
+        <div className="ru-managed-child__day-progress">
+          <div><span>Missões do período</span><strong>{completed}/{missions.length}</strong></div>
+          <div role="progressbar" aria-label={`Progresso de ${child.display_name}`} aria-valuemin={0} aria-valuemax={missions.length || 1} aria-valuenow={completed}>
+            <span style={{ width: `${progress * 100}%` }} />
+          </div>
+        </div>
+      </section>
+
+      <nav className="ru-managed-child__tabs" aria-label={`Jornada de ${child.display_name}`}>
+        {sectionTabs.map(item => (
+          <button key={item.key} type="button" onClick={() => chooseSection(item.key)} aria-current={section === item.key ? "page" : undefined}>
+            <span aria-hidden="true">{item.icon}</span>{item.label}
+          </button>
+        ))}
+      </nav>
+
+      {section === "routine" && (
+        <div className="ru-managed-child__section">
+          <header className="ru-managed-child__heading">
+            <div><span>Agora</span><h3>Missões</h3></div>
+            <strong>{missions.length - completed} restante{missions.length - completed !== 1 ? "s" : ""}</strong>
+          </header>
+          {childTimers.length > 0 && (
+            <section className="ru-managed-child__timers" aria-labelledby="ru-managed-timers-title">
+              <h4 id="ru-managed-timers-title">Prêmios em andamento</h4>
+              {childTimers.map(timer => (
+                <div key={timer.id} className="ru-managed-child__timer-row">
+                  <span className="ru-managed-child__item-icon" aria-hidden="true">{timer.reward_emoji || "⏱️"}</span>
+                  <div><strong>{timer.reward_title}</strong><span>Cronômetro do prêmio</span></div>
+                  <TimerControl t={timer} onStart={onStartTimer} onPause={onPauseTimer} onFinish={onFinishTimer} busy={timerBusy === timer.id} tone={theme} />
+                </div>
+              ))}
+            </section>
+          )}
+          {missions.length === 0 ? (
+            <div className="ru-managed-child__empty"><span aria-hidden="true">🎯</span><strong>Nenhuma missão ativa</strong><p>A rotina está livre por enquanto.</p></div>
+          ) : (
+            <div className="ru-managed-child__mission-grid">
+              {missions.map(mission => {
+                const log = getLog(child.id, mission.id, mission.frequency);
+                const done = log?.status === "approved";
+                const waiting = log?.status === "pending";
+                const busy = checkingMission === `${child.id}-${mission.id}`;
+                const confirming = confirmMission === mission.id;
+                const occurrences = countLogs(child.id, mission.id, mission.frequency);
+                return (
+                  <article key={mission.id} className="ru-managed-child__mission" data-status={waiting ? "waiting" : done ? "done" : "open"}>
+                    <div className="ru-managed-child__mission-main">
+                      <span className="ru-managed-child__item-icon" aria-hidden="true">{done ? "✓" : mission.emoji}</span>
+                      <div><span>{freqLabel(mission.frequency)}</span><h4>{mission.title}</h4></div>
+                    </div>
+                    <div className="ru-managed-child__mission-meta">
+                      <span>🪙 {mission.coins_reward}</span><span>⚡ {mission.xp_reward} XP</span>
+                      {mission.duration_minutes > 0 && <span>⏱ {mission.duration_minutes} min</span>}
+                      {occurrences > 1 && <span>↻ {occurrences} vezes</span>}
+                    </div>
+                    {waiting ? (
+                      <span className="ru-managed-child__status">Aguardando aprovação</span>
+                    ) : (
+                      <button type="button" className="ru-managed-child__primary-action" data-confirming={confirming} onClick={() => completeMission(mission, done)} disabled={Boolean(checkingMission)} aria-busy={busy}>
+                        {busy ? "Salvando..." : confirming ? "Confirmar repetição" : done ? "Registrar de novo" : "Marcar como feita"}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {section === "rewards" && (
+        <div className="ru-managed-child__section">
+          <header className="ru-managed-child__heading">
+            <div><span>Loja</span><h3>Prêmios</h3></div>
+            <strong>🪙 {child.kidcoins || 0}</strong>
+          </header>
+          {childRedemptions.length > 0 && (
+            <section className="ru-managed-child__redemptions" aria-labelledby="ru-managed-redemptions-title">
+              <h4 id="ru-managed-redemptions-title">Pedidos em andamento</h4>
+              <div>
+                {childRedemptions.map(redemption => (
+                  <article key={redemption.id}>
+                    <span aria-hidden="true">{redemption.reward_emoji || "🎁"}</span>
+                    <div><strong>{redemption.reward_title}</strong><small>{redemption.status === "approved" ? "Aguardando entrega" : "Aguardando aprovação"}</small></div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+          {activeRewards.length === 0 ? (
+            <div className="ru-managed-child__empty"><span aria-hidden="true">🎁</span><strong>Nenhum prêmio disponível</strong><p>O catálogo está vazio por enquanto.</p></div>
+          ) : (
+            <div className="ru-managed-child__reward-grid">
+              {activeRewards.map(reward => {
+                const affordable = (child.kidcoins || 0) >= reward.coin_cost;
+                const busy = redeemingFor === reward.id;
+                const confirming = confirmReward === reward.id;
+                return (
+                  <article key={reward.id} className="ru-managed-child__reward" data-affordable={affordable}>
+                    <span className="ru-managed-child__reward-icon" aria-hidden="true">{reward.emoji || "🎁"}</span>
+                    <div><h4>{reward.title}</h4>{reward.duration_minutes > 0 && <span>⏱ {reward.duration_minutes} min</span>}</div>
+                    <strong>🪙 {reward.coin_cost}</strong>
+                    <button type="button" data-confirming={confirming} onClick={() => redeemReward(reward)} disabled={!affordable || Boolean(redeemingFor)} aria-busy={busy}>
+                      {busy ? "Resgatando..." : !affordable ? `Faltam ${reward.coin_cost - (child.kidcoins || 0)}` : confirming ? `Confirmar ${reward.coin_cost} KidCoins` : "Resgatar"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {section === "achievements" && (
+        <div className="ru-managed-child__section">
+          <header className="ru-managed-child__heading">
+            <div><span>Progresso</span><h3>Conquistas</h3></div>
+            <strong>Nível {level.level}</strong>
+          </header>
+          <section className="ru-managed-child__next-level" aria-labelledby="ru-managed-next-level-title">
+            <div><span>Próximo nível</span><h4 id="ru-managed-next-level-title">{level === nextLevel ? `${level.emoji} Jornada completa` : `${nextLevel.emoji} ${nextLevel.name}`}</h4></div>
+            <strong>{level === nextLevel ? `${child.xp || 0} XP` : `${Math.max(0, nextLevel.xpNeeded - (child.xp || 0))} XP restantes`}</strong>
+            <div role="progressbar" aria-label="Progresso para o próximo nível" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(xpProgress * 100)}><span style={{ width: `${xpProgress * 100}%` }} /></div>
+          </section>
+          <div className="ru-managed-child__level-grid">
+            {LEVELS.map(item => {
+              const reached = (child.xp || 0) >= item.xpNeeded;
+              const current = item.level === level.level;
+              return (
+                <article key={item.level} data-reached={reached} data-current={current}>
+                  <span aria-hidden="true">{item.emoji}</span>
+                  <div><small>Nível {item.level}</small><h4>{item.name}</h4><p>{item.xpNeeded} XP</p></div>
+                  <strong>{current ? "Atual" : reached ? "Conquistado" : "Bloqueado"}</strong>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {section === "profile" && (
+        <div className="ru-managed-child__section">
+          <header className="ru-managed-child__heading"><div><span>Resumo</span><h3>Perfil</h3></div></header>
+          <div className="ru-managed-child__profile">
+            <section className="ru-managed-child__profile-main" aria-labelledby="ru-managed-profile-title">
+              <AvatarImg value={child.avatar_emoji} size={84} radius={42} style={{ background: "var(--ru-parent-surface-muted)" }} />
+              <div><span>Perfil gerenciado</span><h4 id="ru-managed-profile-title">{child.display_name}</h4><p>{age ? `${age} anos · ` : ""}{level.emoji} {level.name}</p></div>
+              <button type="button" onClick={onEdit}>Editar perfil</button>
+            </section>
+            <dl className="ru-managed-child__profile-stats">
+              <div><dt>KidCoins</dt><dd>{child.kidcoins || 0}</dd></div>
+              <div><dt>XP total</dt><dd>{child.xp || 0}</dd></div>
+              <div><dt>Nível</dt><dd>{level.level}</dd></div>
+              <div><dt>Sequência</dt><dd>{child.streak || 0}</dd></div>
+            </dl>
+            <button type="button" className="ru-managed-child__statement" onClick={onStatement}><span aria-hidden="true">📋</span><span><strong>Extrato de KidCoins</strong><small>Entradas, resgates e tropeços</small></span><b aria-hidden="true">›</b></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Resgatar recompensa em nome do filho — responsável escolhe e resgata pro filho
 const RedeemForChildModal = ({ child, rewards, redeemingFor, onRedeem, onClose }) => {
   const dialogRef = useModalDialog(onClose);
@@ -3334,6 +3593,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   const [showArchivedMissions, setShowArchivedMissions] = useState(false);
   const [showArchivedRewards, setShowArchivedRewards]   = useState(false);
   const [showReportIssue, setShowReportIssue] = useState(false);
+  const [managedChildId, setManagedChildId]   = useState(null);
+  const [managedChildSection, setManagedChildSection] = useState("routine");
   const [reactivating, setReactivating]       = useState(null);
   const pendingRef = useRef(null);
   const contentRef = useRef(null);
@@ -3351,7 +3612,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   useEffect(() => {
     if (isDesktop) contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
     else window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [isDesktop, tab]);
+  }, [isDesktop, tab, managedChildId]);
 
   const notify = (msg, type="success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3000); };
   const tryAddChild = () => { if (familyPlan === "free" && children.length >= PLAN_LIMITS.free.children) { setShowUpgrade(true); } else { setShowAddChild(true); } };
@@ -3642,20 +3903,26 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     setCheckingMission(key);
     const { error } = await supabase.rpc("parent_check_mission", { p_child_id: childId, p_mission_id: missionId });
     setCheckingMission(null);
-    if (error) return notify(error.message || "Erro ao marcar missão", "error");
+    if (error) {
+      captureActionError(error, "mission", "parent_check", "managed_child");
+      notify(error.message || "Erro ao marcar missão", "error");
+      return false;
+    }
     notify("✅ Missão marcada como concluída!"); load();
     const child = children.find(c => c.id === childId);
     pushNotify([childId], "Missão concluída! 🎉", `Parabéns${child ? `, ${child.display_name}` : ""}! Continue assim! 🚀`);
+    return true;
   };
 
   // Resgatar recompensa EM NOME DO FILHO (criança sem celular)
-  const redeemForChild = async (reward) => {
-    if (!redeemTarget) return false;
+  const redeemForChild = async (reward, childOverride = null) => {
+    const targetChild = childOverride || redeemTarget;
+    if (!targetChild) return false;
     setRedeemingFor(reward.id);
-    const { error } = await supabase.rpc("redeem_for_child", { p_child_id: redeemTarget.id, p_reward_id: reward.id, p_quantity: 1 });
+    const { error } = await supabase.rpc("redeem_for_child", { p_child_id: targetChild.id, p_reward_id: reward.id, p_quantity: 1 });
     setRedeemingFor(null);
     if (error) { captureActionError(error, "redemption", "redeem_for_child", "parent_rewards"); notify(error.message || "Erro ao resgatar", "error"); return false; }
-    notify(`🎁 ${reward.title} resgatado para ${redeemTarget.display_name}! Veja em "Aguardando entrega".`);
+    notify(`🎁 ${reward.title} resgatado para ${targetChild.display_name}! Veja em "Aguardando entrega".`);
     load();
     return true;
   };
@@ -3934,6 +4201,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     { key: "settings", icon: "⚙️", label: "Conta" },
   ];
   const activeTab = navTabs.find(item => item.key === tab) || navTabs[0];
+  const managedChild = children.find(child => child.id === managedChildId) || null;
+  const selectParentTab = (nextTab) => {
+    setManagedChildId(null);
+    setTab(nextTab);
+  };
   const requestedRedemptions = redemptions.filter(redemption => redemption.status === "requested");
   const deliveryRedemptions = redemptions.filter(redemption => redemption.status === "approved");
   const activeRewards = rewards.filter(reward => reward.is_active !== false);
@@ -3971,12 +4243,13 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     { icon: "👶", text: `${children.length} filho${children.length !== 1 ? "s" : ""}`, tone: "family" },
   ].filter(Boolean);
   const jumpToPending = () => {
+    setManagedChildId(null);
     setTab("home");
     window.setTimeout(() => pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
   return (
-    <div className="ru-parent-shell" data-theme={parentTheme}>
+    <div className="ru-parent-shell" data-theme={parentTheme} data-managed-child={Boolean(managedChild)}>
       <a className="ru-parent-skip-link" href="#ru-parent-content">Pular para o conteúdo</a>
       <Notif msg={notif} type={notifType} />
 
@@ -4153,8 +4426,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
                 key={item.key}
                 type="button"
                 className="ru-parent-nav__item"
-                aria-current={tab === item.key ? "page" : undefined}
-                onClick={() => setTab(item.key)}
+                aria-current={!managedChild && tab === item.key ? "page" : undefined}
+                onClick={() => selectParentTab(item.key)}
               >
                 <span className="ru-parent-nav__icon" aria-hidden="true">{item.icon}</span>
                 <span className="ru-parent-nav__text">{item.label}</span>
@@ -4181,8 +4454,8 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         <div className="ru-parent-topbar__inner">
           <div className="ru-parent-topbar__primary">
             <div className="ru-parent-title">
-              <span className="ru-parent-title__eyebrow">{getSaudacao()}, {profile.display_name}</span>
-              <h1>{activeTab.label}</h1>
+              <span className="ru-parent-title__eyebrow">{managedChild ? "Modo acompanhado" : `${getSaudacao()}, ${profile.display_name}`}</span>
+              <h1>{managedChild ? `Rotina de ${managedChild.display_name}` : activeTab.label}</h1>
             </div>
             <div className="ru-parent-family-status" aria-label={`${children.length} filho${children.length !== 1 ? "s" : ""} no plano ${familyPlan === "premium" ? "Premium" : "Gratuito"}`}>
               {children.length > 0 && (
@@ -4233,9 +4506,34 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
         </div>
       </header>
 
-      <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={tab} tabIndex={-1}>
+      <main id="ru-parent-content" ref={contentRef} className="ru-parent-workspace" data-tab={managedChild ? "child" : tab} tabIndex={-1}>
         <div className="ru-parent-workspace__inner">
-        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={parentTheme} /> : <>
+        {loading ? <div className="ru-parent-loading" role="status">Carregando... ⏳</div> : loadError ? <LoadErrorBlock onRetry={load} tone={parentTheme} /> : managedChild ? (
+          <ManagedChildView
+            key={managedChild.id}
+            child={managedChild}
+            missions={missions}
+            rewards={rewards}
+            redemptions={redemptions}
+            activeTimers={activeTimers}
+            checkingMission={checkingMission}
+            redeemingFor={redeemingFor}
+            timerBusy={timerBusy}
+            theme={parentTheme}
+            getLog={getChildLog}
+            countLogs={countChildLogsInPeriod}
+            onComplete={parentCheck}
+            onRedeem={redeemForChild}
+            onStartTimer={startTimer}
+            onPauseTimer={pauseTimer}
+            onFinishTimer={finishTimer}
+            onEdit={() => setEditingChild(managedChild)}
+            onStatement={() => setExtratoTarget(managedChild)}
+            onBack={() => setManagedChildId(null)}
+            section={managedChildSection}
+            onSectionChange={setManagedChildSection}
+          />
+        ) : <>
 
           {/* HOME */}
           {tab === "home" && (
@@ -4430,6 +4728,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
 
                           <div className="ru-home-child-actions">
                             <div className="ru-home-child-actions__primary" role="group" aria-label={`Ações de acompanhamento de ${child.display_name}`}>
+                              <button type="button" className="ru-home-child-action ru-home-child-action--routine" onClick={() => { setManagedChildSection("routine"); setManagedChildId(child.id); }}>
+                                <span aria-hidden="true">🚀</span>
+                                Abrir rotina
+                              </button>
                               <button type="button" className="ru-home-child-action ru-home-child-action--statement" onClick={() => setExtratoTarget(child)}>
                                 <span aria-hidden="true">📋</span>
                                 Extrato
@@ -4918,7 +5220,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
       </main>
       </div>{/* fecha área principal (header + conteúdo) */}
 
-      {!isDesktop && (
+      {!isDesktop && !managedChild && (
         <nav className="ru-parent-bottom-nav" aria-label="Navegação principal">
           {navTabs.map(item => (
             <button
@@ -4926,7 +5228,7 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
               type="button"
               className="ru-parent-bottom-nav__item"
               aria-current={tab === item.key ? "page" : undefined}
-              onClick={() => setTab(item.key)}
+              onClick={() => selectParentTab(item.key)}
             >
               <span className="ru-parent-bottom-nav__icon" aria-hidden="true">{item.icon}</span>
               <span className="ru-parent-bottom-nav__label">{item.mobileLabel || item.label}</span>

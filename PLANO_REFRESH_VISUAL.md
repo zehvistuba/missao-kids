@@ -115,11 +115,12 @@ Status: concluida localmente; lotes 4A, 4B, 4C e 4D validados, sem deploy.
 
 ### Etapa 5 - Modo crianca parent-managed
 
-Status: pendente.
+Status: concluida localmente, validada e sem deploy.
 
-- Adequar visual por faixa etaria sem criar login infantil inexistente.
-- Revisar missao, loja, conquistas e perfil.
-- Manter acoes sensiveis sob controle do responsavel.
+- Visual adaptado por faixa etaria sem criar login infantil inexistente.
+- Rotina, premios, conquistas e perfil revisados dentro da sessao adulta.
+- Missoes, resgates e timers permanecem sob controle e RPCs do responsavel.
+- Confirmacoes, estados vazios, responsividade e temas validados ponta a ponta.
 
 ### Etapa 6 - Administracao e suporte
 
@@ -262,6 +263,21 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 - Automacao: 30/30 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
 - Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado; nao restou dado QA da 4D.
 
-## 13. Proxima Decisao
+## 13. Evidencia da Etapa 5
 
-Iniciar a Etapa 5 em nova branch/commit para migrar a experiencia infantil parent-managed, sem criar login infantil ou ampliar permissoes. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.
+- Branch: `codex/refresh-visual-etapa-5`, derivada da Etapa 4D aprovada.
+- Entrada: cada cartao infantil possui `Abrir rotina`, separado de extrato, resgate, edicao e tropeco.
+- Arquitetura: a experiencia roda dentro de `ParentDash`, recebe dados ja carregados e nao acessa Supabase diretamente.
+- Rotina: conclusao usa `parent_check_mission`; repeticao exige confirmacao e o progresso recarrega do servidor.
+- Premios: resgate usa `redeem_for_child`, exige confirmacao de gasto e preserva a aba apos sincronizacao autoritativa.
+- Timers: entrega, inicio e pausa foram validados pela tela nova com as RPCs existentes.
+- Conquistas: seis niveis, nivel atual e progresso de XP usam o contrato estatico ja existente.
+- Perfil: resumo, edicao e extrato permanecem operacoes do responsavel.
+- Browser autenticado: 1440x900, 768x1024 e 390x844 aprovados em claro/escuro; contraste azul do tema escuro corrigido durante o QA.
+- Limpeza: conta, familia, crianca, missoes, recompensas, resgates e timer sinteticos removidos pelo fluxo LGPD; relogin recusado.
+- Automacao: 31/31 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado; nao restou dado QA da Etapa 5.
+
+## 14. Proxima Decisao
+
+Iniciar a Etapa 6 em nova branch/commit para renovar administracao e suporte, preservando o gate de platform admin, a minimizacao de PII e a fila de erros de uso. As funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao depois da Etapa 7.

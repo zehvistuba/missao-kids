@@ -318,7 +318,7 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
   const review = parent.slice(parent.indexOf("const review = async"), parent.indexOf("const isLimitError"));
 
   assert.match(source, /import "\.\/styles\/parent-home-refresh\.css"/);
-  assert.match(parent, /data-tab=\{tab\}/);
+  assert.match(parent, /data-tab=\{managedChild \? "child" : tab\}/);
   assert.match(parent, /<LoadErrorBlock onRetry=\{load\} tone=\{parentTheme\}/);
   assert.match(home, /className="ru-home-overview"/);
   assert.match(home, /role="progressbar"/);
@@ -356,6 +356,47 @@ test("home do responsavel preserva aprovacoes, timers e gestao familiar", async 
   assert.match(css, /\.ru-home-mission-list[\s\S]*max-height: none/);
   assert.match(css, /\.ru-home-child-actions__correction[\s\S]*border-left: 1px solid/);
   assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.ru-home-child-actions__correction[\s\S]*border-top: 1px solid/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+});
+
+test("modo acompanhado preserva controle adulto e experiencia infantil", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/managed-child-refresh.css", import.meta.url), "utf8");
+  const managed = source.slice(source.indexOf("const ManagedChildView"), source.indexOf("// Resgatar recompensa em nome do filho"));
+  const parent = source.slice(source.indexOf("const ParentDash"), source.indexOf("// ADMIN PANEL"));
+  const parentCheck = parent.slice(parent.indexOf("const parentCheck"), parent.indexOf("// Resgatar recompensa EM NOME DO FILHO"));
+  const parentRedeem = parent.slice(parent.indexOf("const redeemForChild"), parent.indexOf("// Cronômetro de recompensa"));
+
+  assert.match(source, /import "\.\/styles\/managed-child-refresh\.css"/);
+  assert.match(managed, /key: "routine"/);
+  assert.match(managed, /key: "rewards"/);
+  assert.match(managed, /key: "achievements"/);
+  assert.match(managed, /key: "profile"/);
+  assert.match(managed, /confirmMission !== mission\.id/);
+  assert.match(managed, /confirmReward !== reward\.id/);
+  assert.match(managed, /onComplete\(child\.id, mission\.id\)/);
+  assert.match(managed, /onRedeem\(reward, child\)/);
+  assert.match(managed, /<TimerControl[\s\S]*tone=\{theme\}/);
+  assert.doesNotMatch(managed, /supabase\./);
+
+  assert.match(parent, /const managedChild = children\.find\(child => child\.id === managedChildId\)/);
+  assert.match(parent, /data-managed-child=\{Boolean\(managedChild\)\}/);
+  assert.match(parent, /const \[managedChildSection, setManagedChildSection\] = useState\("routine"\)/);
+  assert.match(parent, /setManagedChildId\(child\.id\)/);
+  assert.match(parent, /!isDesktop && !managedChild/);
+  assert.match(parent, /<ManagedChildView[\s\S]*onComplete=\{parentCheck\}[\s\S]*onRedeem=\{redeemForChild\}[\s\S]*section=\{managedChildSection\}[\s\S]*onSectionChange=\{setManagedChildSection\}/);
+  assert.match(parentCheck, /supabase\.rpc\("parent_check_mission"/);
+  assert.match(parentCheck, /return false/);
+  assert.match(parentCheck, /return true/);
+  assert.match(parentRedeem, /const targetChild = childOverride \|\| redeemTarget/);
+  assert.match(parentRedeem, /p_child_id: targetChild\.id/);
+
+  assert.match(css, /\.ru-parent-workspace\[data-tab="child"\]/);
+  assert.match(css, /\.ru-parent-shell\[data-managed-child="true"\]/);
+  assert.match(css, /\.ru-parent-shell\[data-theme="dark"\]/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(css, /:focus-visible/);
   assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
 });
