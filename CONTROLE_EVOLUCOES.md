@@ -350,6 +350,7 @@ Critério de pronto:
 | 2026-08-13 | Observabilidade de erros de uso v5 | Validado localmente | Reporte automatico e manual com sanitizacao de PII, deduplicacao, rate limit, RLS/ACL fechadas, Error Boundary e fila administrativa. Migration `supabase_app_error_reporting.sql` preparada. **Sem SQL ou frontend publicado.** |
 | 2026-08-13 | Briefing mestre de layout para Lovable | Preparado | Escopo visual completo para visitante, responsavel, crianca e admin; preserva contratos comerciais, seguranca, acessibilidade e estados de uso. Proibe publicacao, conexao com producao e migrations. Ver `PROMPT_LOVABLE_LAYOUT_ROTINUP.md`. |
 | 2026-08-13 | Observabilidade e suporte Edge v6 | Validado localmente | Logs JSON correlacionados e sanitizados nas quatro Edge Functions; referencias curtas em erros de IA/exclusao; falhas de push passam ao reporte; runbook operacional criado. 21 testes PASS, lint estrito e parser das quatro funcoes verdes. **Nenhuma funcao, SQL ou frontend publicado.** |
+| 2026-08-16 | Refresh visual Etapa 1 - landing | Validado localmente | Landing reconstruida a partir da direcao Lovable, com asset proprio, contratos comerciais preservados e QA em 1440x900, 768x1024 e 390x844. 22 testes PASS, lint/build/audit verdes. **Sem push, deploy, SQL ou liberacao.** Ver `PLANO_REFRESH_VISUAL.md`. |
 
 ---
 
@@ -452,6 +453,22 @@ Implementado e validado localmente em 2026-08-13:
 Evidencia local: 21 testes PASS, lint estrito sem avisos, `git diff --check` sem erros e parser/bundle das quatro Edge Functions concluido. O build PWA final deve permanecer verde no fechamento do lote.
 
 Estado vivo: **nao aplicado**. Nao houve deploy, push, migration nem liberacao do app. A ativacao exige seguir o gate de `OPERACAO_SUPORTE.md` e a ordem de `DEPLOY_PRE_VENDA.md`.
+
+## 7.5 Estado do Refresh Visual - Etapa 1
+
+Implementado e validado localmente em 2026-08-16:
+
+- Trabalho isolado na branch `codex/refresh-visual-etapa-1`.
+- Projeto Lovable inventariado como referencia, sem copiar contratos ou dados simulados.
+- Landing publica migrada para uma linguagem visual clara, multicolorida e responsiva.
+- Hero full-bleed usa asset WebP proprio de 153.088 bytes e mantém a proxima secao visivel no primeiro viewport.
+- Planos Free/Premium continuam consumindo as constantes reais e os mesmos checkouts Hotmart.
+- Cadastro, consentimento e modal juridico continuam ligados aos fluxos existentes.
+- Teste contratual impede regressao de H1, links comerciais, breakpoint, foco, asset e uso de gradientes na landing.
+- QA em browser: 1440x900, 768x1024 e 390x844 sem overflow; um H1; imagens com `alt`; controles nomeados; modal fecha com `Esc`; console limpo.
+- Gates: 22/22 testes, lint estrito, build PWA, `git diff --check` e audit de producao aprovados.
+
+Estado vivo: **inalterado**. Nenhum push, deploy, SQL ou liberacao foi realizado. A sequencia visual e controlada por `PLANO_REFRESH_VISUAL.md`; a Etapa 2 cobre autenticacao, termos e onboarding em commit separado.
 
 ## 8. Modelo Para Novas Entradas
 

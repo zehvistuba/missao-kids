@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -238,6 +238,21 @@ test("Edge Functions usam logs estruturados e correlacao sem console avulso", as
     assert.match(source, /getRequestId\(req\)/);
     assert.doesNotMatch(source, /console\.(?:log|info|warn|error)/);
   }
+});
+
+test("landing visual preserva contratos e usa asset otimizado", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/styles/landing-refresh.css", import.meta.url), "utf8");
+  const hero = await stat(new URL("../src/assets/rotinup-hero-family.webp", import.meta.url));
+
+  assert.match(source, /FREE_FEATURES\.map/);
+  assert.match(source, /HOTMART_CHECKOUT_URLS\[billing\]/);
+  assert.match(source, /heroFamilyImage/);
+  assert.match(source, /<h1 id="ru-hero-title">RotinUp<\/h1>/);
+  assert.match(css, /@media \(max-width: 820px\)/);
+  assert.match(css, /:focus-visible/);
+  assert.doesNotMatch(css, /(?:linear|radial)-gradient/);
+  assert.ok(hero.size < 200_000, `hero acima do limite: ${hero.size} bytes`);
 });
 
 test("IA e push limitam entrada e falham sem vazar detalhes internos", async () => {

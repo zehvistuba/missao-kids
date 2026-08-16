@@ -13,6 +13,8 @@ import {
 import { useModalDialog } from "./hooks/useModalDialog.js";
 import { reportAppError, reportUserIssue } from "./lib/errorReporter.js";
 import { supabase } from "./lib/supabase.js";
+import heroFamilyImage from "./assets/rotinup-hero-family.webp";
+import "./styles/landing-refresh.css";
 
 const TEXT_BUTTON_STYLE = {
   padding: 0,
@@ -715,59 +717,46 @@ const LandingPremiumCard = () => {
   const plan = PLANS[billing];
 
   return (
-    <div style={{ background: `linear-gradient(145deg, #1E1040, #2A1060)`, borderRadius: 20, padding: 20, border: `2px solid ${T.purple}55`, position: "relative", overflow: "hidden" }}>
-      {/* glow */}
-      <div style={{ position: "absolute", top: -40, right: -40, width: 140, height: 140, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}33, transparent)`, pointerEvents: "none" }} />
-
-      {/* header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+    <article className="ru-plan ru-plan--premium">
+      <div className="ru-plan__header">
         <div>
-          <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>👑 Premium</div>
-          <div style={{ color: T.textMuted, fontSize: 12 }}>Desbloqueie tudo</div>
+          <h3>Premium</h3>
+          <p>Mais espaço para a família crescer</p>
         </div>
-        <span style={{ background: `${T.purple}33`, color: T.purple, fontSize: 10, fontWeight: 900, borderRadius: 8, padding: "4px 9px" }}>{plan.badge}</span>
+        <span className="ru-plan__badge">{plan.badge}</span>
       </div>
 
-      {/* toggle */}
-      <div style={{ display: "flex", background: "rgba(255,255,255,0.07)", borderRadius: 12, padding: 3, marginBottom: 16 }}>
+      <div className="ru-plan__toggle" aria-label="Período da assinatura">
         {["monthly","annual"].map(b => (
-          <button key={b} onClick={() => setBilling(b)} style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all 0.2s", background: billing === b ? T.purple : "transparent", color: billing === b ? "#fff" : T.textMuted }}>
+          <button key={b} type="button" aria-pressed={billing === b} onClick={() => setBilling(b)}>
             {b === "monthly" ? "Mensal" : "Anual"}
           </button>
         ))}
       </div>
 
-      {/* price */}
-      <div style={{ textAlign: "center", marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4 }}>
-          <span style={{ color: T.textMuted, fontSize: 13, marginBottom: 4 }}>R$</span>
-          <span style={{ color: T.text, fontWeight: 900, fontSize: 36 }}>{plan.price}</span>
-          <span style={{ color: T.textMuted, fontSize: 13, marginBottom: 6 }}>{plan.period}</span>
+      <div className="ru-plan__price">
+        <div>
+          <span>R$</span>
+          <strong>{plan.price}</strong>
+          <span>{plan.period}</span>
         </div>
         {billing === "annual" && (
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-            <span style={{ color: T.accent, fontSize: 12, fontWeight: 800 }}>≈ R$ {plan.total}</span>
-            <span style={{ background: `${T.accent}22`, color: T.accent, fontSize: 11, fontWeight: 900, borderRadius: 8, padding: "2px 8px" }}>Economize {plan.savings}</span>
+          <div className="ru-plan__saving">
+            <span>≈ R$ {plan.total}</span>
+            <strong>Economize {plan.savings}</strong>
           </div>
         )}
       </div>
 
-      {/* features */}
-      {PREMIUM_FEATURES.map(item => (
-        <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <span style={{ color: T.purple, fontWeight: 900, fontSize: 14 }}>✓</span>
-          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13 }}>{item}</span>
-        </div>
-      ))}
+      <ul className="ru-plan__features">
+        {PREMIUM_FEATURES.map(item => <li key={item}><span aria-hidden="true">✓</span>{item}</li>)}
+      </ul>
 
-      {/* CTA */}
-      <a href={HOTMART_CHECKOUT_URLS[billing]} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 16, textDecoration: "none" }}>
-        <button style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg, ${T.purple}, #7B2FBE)`, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 6px 20px ${T.purple}44` }}>
-          👑 Assinar {plan.label} — R$ {plan.price}{plan.period}
-        </button>
+      <a className="ru-button ru-button--premium" href={HOTMART_CHECKOUT_URLS[billing]} target="_blank" rel="noopener noreferrer">
+        Assinar {plan.label} · R$ {plan.price}{plan.period}
       </a>
-      <div style={{ textAlign: "center", marginTop: 10, color: T.textMuted, fontSize: 11 }}>Pagamento 100% seguro via Hotmart</div>
-    </div>
+      <p className="ru-plan__payment">Pagamento seguro via Hotmart</p>
+    </article>
   );
 };
 
@@ -775,140 +764,148 @@ const LandingPremiumCard = () => {
 // LANDING PAGE
 // ═══════════════════════════════════════════════════════════
 const LandingPage = ({ onSignup, onLogin }) => {
-  const isDesktop = useIsDesktop(900);
+  const [showTerms, setShowTerms] = useState(false);
   const features = [
-    { emoji: "🎯", title: "Missões Diárias", desc: "Transforme tarefas em aventuras épicas que as crianças adoram completar" },
-    { emoji: "🪙", title: "KidCoins & Recompensas", desc: "Ganhe moedas e troque por recompensas escolhidas pela família" },
+    { emoji: "🎯", title: "Missões Diárias", desc: "Transforme tarefas em missões claras e adequadas à rotina da família" },
+    { emoji: "🪙", title: "KidCoins & Recompensas", desc: "A criança acumula moedas e troca por recompensas definidas pela família" },
     { emoji: "🤖", title: "IA Personalizada", desc: "Sugestões inteligentes de missões e relatórios semanais automáticos" },
-    { emoji: "👨‍👩‍👧", title: "Toda a Família", desc: "Responsáveis aprovam, crianças evoluem, todos acompanham juntos" },
+    { emoji: "👨‍👩‍👧", title: "Toda a Família", desc: "Responsáveis organizam e acompanham o progresso de cada criança" },
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: T.darker, overflowY: "auto" }}>
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(160deg, ${T.darker} 0%, #1A0A2E 100%)`, padding: isDesktop ? "72px 64px 60px" : "60px 28px 50px", textAlign: "center", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${T.primary}22, transparent)`, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${T.purple}22, transparent)`, pointerEvents: "none" }} />
-        <img src="/icon.png" alt="RotinUp" style={{ width: 100, height: 100, marginBottom: 16, borderRadius: 24, animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", filter: "drop-shadow(0 0 28px #9B5DE555)" }} />
-        <div style={{ fontSize: 36, fontWeight: 900, color: T.text, letterSpacing: 0, marginBottom: 6, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
-        <div style={{ color: T.textMuted, fontSize: 16, marginBottom: 10, letterSpacing: 1 }}>TRANSFORME A ROTINA EM AVENTURA</div>
-        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: isDesktop ? 17 : 15, lineHeight: 1.6, maxWidth: isDesktop ? 560 : 320, margin: "0 auto 36px" }}>
-          O app de gamificação que faz as crianças amarem sua rotina — e os pais amarem a paz em casa.
+    <div className="ru-landing">
+      <section className="ru-hero" aria-labelledby="ru-hero-title">
+        <img className="ru-hero__media" src={heroFamilyImage} alt="Família organizando missões e recompensas da rotina" />
+        <header className="ru-hero__header">
+          <div className="ru-brand" aria-label="RotinUp">
+            <img src="/icon.png" alt="" />
+            <span>rotin<strong>up</strong></span>
+          </div>
+          <button type="button" className="ru-button ru-button--quiet" onClick={onLogin}>Entrar</button>
+        </header>
+        <div className="ru-hero__content">
+          <p className="ru-eyebrow">Rotina leve para toda a família</p>
+          <h1 id="ru-hero-title">RotinUp</h1>
+          <h2>Transforme tarefas em pequenas conquistas.</h2>
+          <p className="ru-hero__copy">Missões, KidCoins e recompensas ajudam crianças de diferentes idades a construir autonomia com acompanhamento dos responsáveis.</p>
+          <div className="ru-hero__actions">
+            <button type="button" className="ru-button ru-button--primary" onClick={onSignup}>Criar conta grátis</button>
+            <button type="button" className="ru-button ru-button--secondary" onClick={onLogin}>Já tenho conta</button>
+          </div>
+          <p className="ru-hero__trust">Comece sem cartão · Perfis infantis gerenciados pelo responsável</p>
         </div>
-        <div style={{ display: "flex", flexDirection: isDesktop ? "row" : "column", gap: 12, maxWidth: isDesktop ? 650 : 320, margin: "0 auto" }}>
-          <button onClick={onSignup} style={{ flex: 1, padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
-            ✨ Criar conta grátis
-          </button>
-          <button onClick={onLogin} style={{ flex: 1, padding: "15px 28px", borderRadius: 18, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: T.text, fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-            Já tenho conta
-          </button>
-        </div>
-      </div>
+      </section>
 
-      {/* Stats strip */}
-      <div style={{ background: T.card, padding: isDesktop ? "24px 48px" : "20px 16px", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        {[{ n: "100%", label: "gratuito para começar" }, { n: "6", label: "níveis de evolução" }, { n: "16", label: "conquistas para ganhar" }].map((s, i) => (
-          <div key={i} style={{ minWidth: 0, textAlign: "center", padding: "0 4px", borderLeft: i === 0 ? "none" : "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ color: T.primary, fontWeight: 900, fontSize: 22 }}>{s.n}</div>
-            <div style={{ color: T.textMuted, fontSize: 10, lineHeight: 1.35, marginTop: 2 }}>{s.label}</div>
+      <section className="ru-stats" aria-label="Destaques do RotinUp">
+        {[{ n: "R$ 0", label: "para começar" }, { n: "6", label: "níveis de evolução" }, { n: "16", label: "conquistas para ganhar" }].map((s, i) => (
+          <div key={i}>
+            <strong>{s.n}</strong>
+            <span>{s.label}</span>
           </div>
         ))}
-      </div>
+      </section>
 
-      {/* Features */}
-      <div style={{ padding: isDesktop ? "52px 48px" : "36px 24px", maxWidth: 1040, margin: "0 auto" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Tudo que você precisa</div>
-        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", gap: 14 }}>
+      <section className="ru-section ru-section--features" aria-labelledby="ru-features-title">
+        <div className="ru-section__heading">
+          <p className="ru-eyebrow">Um sistema simples de repetir</p>
+          <h2 id="ru-features-title">Tudo que sua família precisa</h2>
+          <p>Organize a rotina, reconheça o esforço e acompanhe a evolução sem transformar a casa em uma planilha.</p>
+        </div>
+        <div className="ru-feature-grid">
           {features.map((f, i) => (
-            <div key={i} style={{ background: T.card, borderRadius: 20, padding: "18px 20px", display: "flex", alignItems: "flex-start", gap: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.primary}22, ${T.purple}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{f.emoji}</div>
+            <article className={`ru-feature ru-feature--${i + 1}`} key={f.title}>
+              <div className="ru-feature__icon" aria-hidden="true">{f.emoji}</div>
               <div>
-                <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{f.title}</div>
-                <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.5 }}>{f.desc}</div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
               </div>
-            </div>
+            </article>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* How it works */}
-      <div style={{ padding: isDesktop ? "0 48px 52px" : "0 24px 40px", maxWidth: 1040, margin: "0 auto" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 28 }}>Como funciona</div>
-        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", columnGap: 40 }}>
-        {[
+      <section className="ru-section ru-section--steps" aria-labelledby="ru-steps-title">
+        <div className="ru-section__heading">
+          <p className="ru-eyebrow">Do combinado à conquista</p>
+          <h2 id="ru-steps-title">Como funciona</h2>
+        </div>
+        <ol className="ru-step-grid">
+          {[
           { step: "1", emoji: "👨‍👩‍👧", title: "Crie a família", desc: "Responsável cadastra a família e adiciona os filhos" },
           { step: "2", emoji: "🎯", title: "Crie missões", desc: "Defina tarefas do dia a dia como missões com recompensas" },
-          { step: "3", emoji: "⭐", title: "Crianças completam", desc: "Elas fazem a tarefa e marcam como concluída no app" },
-          { step: "4", emoji: "✅", title: "Você aprova", desc: "Revise e aprove — KidCoins são creditados automaticamente" },
-        ].map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 14, background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>{item.step}</div>
-            <div style={{ paddingTop: 4 }}>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 15 }}>{item.emoji} {item.title}</div>
-              <div style={{ color: T.textMuted, fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>
+          { step: "3", emoji: "⭐", title: "Registre o progresso", desc: "A família acompanha as tarefas concluídas e o avanço de cada criança" },
+          { step: "4", emoji: "✅", title: "Reconheça o esforço", desc: "Aprove as missões e libere KidCoins para as recompensas combinadas" },
+        ].map(item => (
+          <li key={item.step}>
+            <span className="ru-step__number">{item.step}</span>
+            <div>
+              <h3><span aria-hidden="true">{item.emoji}</span> {item.title}</h3>
+              <p>{item.desc}</p>
             </div>
-          </div>
-        ))}
-        </div>
-      </div>
+          </li>
+          ))}
+        </ol>
+      </section>
 
-      {/* Níveis de evolução */}
-      <div style={{ padding: isDesktop ? "0 48px 52px" : "0 24px 40px", maxWidth: 1040, margin: "0 auto" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>6 Níveis de Evolução</div>
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Cada missão ganha XP — a criança sobe de nível e desbloqueia conquistas</div>
-        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(3, minmax(0, 1fr))" : "1fr", gap: 10 }}>
+      <section className="ru-section ru-section--levels" aria-labelledby="ru-levels-title">
+        <div className="ru-section__heading">
+          <p className="ru-eyebrow">Progresso que dá para perceber</p>
+          <h2 id="ru-levels-title">6 níveis de evolução</h2>
+          <p>Cada missão soma XP, celebra a constância e abre novas conquistas.</p>
+        </div>
+        <div className="ru-level-grid">
           {LEVELS.map((lv, i) => (
-            <div key={lv.level} style={{ background: T.card, borderRadius: 16, padding: "13px 16px", display: "flex", alignItems: "center", gap: 14, border: `1px solid ${lv.color}33` }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: `${lv.color}22`, border: `2px solid ${lv.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{lv.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: lv.color, fontWeight: 900, fontSize: 14 }}>Nível {lv.level} — {lv.name}</div>
-                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{lv.xpNeeded === 0 ? "Início da jornada" : `A partir de ${lv.xpNeeded} XP`}</div>
+            <article className="ru-level" key={lv.level} style={{ "--level-color": lv.color }}>
+              <div className="ru-level__icon" aria-hidden="true">{lv.emoji}</div>
+              <div>
+                <h3>Nível {lv.level} · {lv.name}</h3>
+                <p>{lv.xpNeeded === 0 ? "Início da jornada" : `A partir de ${lv.xpNeeded} XP`}</p>
               </div>
-              {i === LEVELS.length - 1 && <span style={{ fontSize: 10, fontWeight: 800, color: lv.color, background: `${lv.color}22`, borderRadius: 8, padding: "3px 8px" }}>TOPO</span>}
-            </div>
+              {i === LEVELS.length - 1 && <span className="ru-level__top">Topo</span>}
+            </article>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Planos FREE vs PREMIUM */}
-      <div style={{ padding: isDesktop ? "0 48px 64px" : "0 24px 48px", maxWidth: 1040, margin: "0 auto" }}>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 20, textAlign: "center", marginBottom: 8 }}>Escolha seu plano</div>
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Comece grátis. Faça upgrade quando quiser crescer.</div>
-        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr", gap: 14, alignItems: "start" }}>
-          {/* FREE */}
-          <div style={{ background: T.card, borderRadius: 20, padding: 20, border: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <section className="ru-section ru-section--plans" aria-labelledby="ru-plans-title">
+        <div className="ru-section__heading">
+          <p className="ru-eyebrow">Comece no seu ritmo</p>
+          <h2 id="ru-plans-title">Escolha seu plano</h2>
+          <p>Use o essencial gratuitamente e faça upgrade quando a família precisar de mais espaço.</p>
+        </div>
+        <div className="ru-plan-grid">
+          <article className="ru-plan ru-plan--free">
+            <div className="ru-plan__header">
               <div>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>Gratuito</div>
-                <div style={{ color: T.textMuted, fontSize: 12 }}>Para sempre, sem cartão</div>
+                <h3>Gratuito</h3>
+                <p>Para sempre, sem cartão</p>
               </div>
-              <div style={{ color: T.accent, fontWeight: 900, fontSize: 22 }}>R$ 0</div>
+              <strong className="ru-plan__free-price">R$ 0</strong>
             </div>
-            {["1 filho","1 responsável","Até 5 missões ativas","Até 3 recompensas ativas","KidCoins & gamificação completa","IA: sugestão de missões (limitado)"].map(item => (
-              <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ color: T.accent, fontWeight: 900, fontSize: 14 }}>✓</span>
-                <span style={{ color: T.textMuted, fontSize: 13 }}>{item}</span>
-              </div>
-            ))}
-            <button onClick={onSignup} style={{ width: "100%", marginTop: 8, padding: "13px", borderRadius: 14, border: `1px solid ${T.accent}55`, background: `${T.accent}14`, color: T.accent, fontWeight: 900, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
-              Criar conta grátis
-            </button>
-          </div>
-
-          {/* PREMIUM com toggle Mensal/Anual */}
+            <ul className="ru-plan__features">
+              {FREE_FEATURES.map(item => <li key={item}><span aria-hidden="true">✓</span>{item}</li>)}
+            </ul>
+            <button type="button" className="ru-button ru-button--secondary ru-button--full" onClick={onSignup}>Criar conta grátis</button>
+          </article>
           <LandingPremiumCard />
         </div>
-      </div>
+      </section>
 
-      {/* Bottom CTA */}
-      <div style={{ background: `linear-gradient(135deg, ${T.primary}18, ${T.purple}18)`, padding: "36px 28px 60px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-        <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginBottom: 8 }}>Pronto para começar?</div>
-        <div style={{ color: T.textMuted, fontSize: 14, marginBottom: 28 }}>Gratuito para sempre. Sem cartão de crédito.</div>
-        <button onClick={onSignup} style={{ width: "100%", maxWidth: 320, padding: "17px 28px", borderRadius: 18, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 900, fontSize: 16, cursor: "pointer", fontFamily: "'Nunito', sans-serif", boxShadow: `0 8px 24px ${T.primary}44` }}>
-          ✨ Começar grátis agora
-        </button>
-      </div>
+      <section className="ru-final-cta" aria-labelledby="ru-final-title">
+        <span aria-hidden="true">★</span>
+        <h2 id="ru-final-title">Uma rotina mais leve começa com o primeiro combinado.</h2>
+        <p>Crie sua família gratuitamente. Sem cartão de crédito.</p>
+        <button type="button" className="ru-button ru-button--light" onClick={onSignup}>Começar grátis agora</button>
+      </section>
+      <footer className="ru-footer">
+        <div className="ru-brand" aria-label="RotinUp">
+          <img src="/icon.png" alt="" />
+          <span>rotin<strong>up</strong></span>
+        </div>
+        <p>Rotinas mais claras, conquistas compartilhadas.</p>
+        <button type="button" onClick={() => setShowTerms(true)}>Termos de Uso e Política de Privacidade</button>
+      </footer>
+      {showTerms && createPortal(<TermsModal onClose={() => setShowTerms(false)} />, document.body)}
     </div>
   );
 };
@@ -4910,8 +4907,8 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
-        <div style={{ width: "100%", maxWidth: activeScreen === "admin" ? 700 : (activeScreen === "landing" && isDesktop ? 1040 : activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: T.darker, boxShadow: isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", background: activeScreen === "landing" ? "#F7F9FC" : "radial-gradient(circle at 18% 16%, rgba(155,93,229,0.18), transparent 42%), radial-gradient(circle at 84% 26%, rgba(76,201,240,0.14), transparent 42%), radial-gradient(circle at 50% 94%, rgba(247,37,133,0.11), transparent 46%), #080810" }}>
+        <div style={{ width: "100%", maxWidth: activeScreen === "landing" ? "none" : activeScreen === "admin" ? 700 : (activeScreen === "parent" && isDesktop ? 880 : 430), overflow: "hidden", minHeight: "100vh", background: activeScreen === "landing" ? "#F7F9FC" : T.darker, boxShadow: activeScreen === "landing" ? "none" : isDesktop ? "0 0 0 1px rgba(255,255,255,0.06), 0 24px 70px rgba(0,0,0,0.55)" : "none" }}>
           {activeScreen === "admin" && (
             <AdminPanel onBack={() => {
               window.history.pushState({}, "", "/");
