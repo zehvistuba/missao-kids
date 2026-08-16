@@ -223,3 +223,62 @@ test("bootstrap instala captura global e Error Boundary", async () => {
   assert.match(source, /installGlobalErrorReporting\(\)/);
   assert.match(source, /<AppErrorBoundary>/);
 });
+
+test("Edge Functions usam logs estruturados e correlacao sem console avulso", async () => {
+  const shared = await readFile(new URL("../supabase/functions/_shared/observability.ts", import.meta.url), "utf8");
+  assert.match(shared, /JSON\.stringify\(\{/);
+  assert.match(shared, /request_id: safeRequestId/);
+  assert.match(shared, /\[email\]/);
+  assert.match(shared, /\[token\]/);
+  assert.match(shared, /\[payment\]/);
+
+  for (const path of ["ai-assistant", "delete-account", "hotmart-webhook", "push-notify"]) {
+    const source = await readFile(new URL(`../supabase/functions/${path}/index.ts`, import.meta.url), "utf8");
+    assert.match(source, /createEdgeLogger/);
+    assert.match(source, /getRequestId\(req\)/);
+    assert.doesNotMatch(source, /console\.(?:log|info|warn|error)/);
+  }
+});
+
+test("IA e push limitam entrada e falham sem vazar detalhes internos", async () => {
+  const ai = await readFile(new URL("../supabase/functions/ai-assistant/index.ts", import.meta.url), "utf8");
+  const push = await readFile(new URL("../supabase/functions/push-notify/index.ts", import.meta.url), "utf8");
+
+  assert.match(ai, /MAX_PAYLOAD_BYTES = 64_000/);
+  assert.match(ai, /ALLOWED_ACTIONS/);
+  assert.ok(ai.indexOf("ALLOWED_ACTIONS.has(action)") < ai.indexOf('rpc("ai_check_and_bump")'));
+  assert.ok(ai.indexOf('rpc("get_family_plan")') < ai.indexOf('rpc("ai_check_and_bump")'));
+  assert.doesNotMatch(ai, /Gemini \$\{geminiRes\.status\}/);
+  assert.doesNotMatch(ai, /result\.slice\(0, 200\)/);
+
+  assert.match(push, /\.maybeSingle\(\)/);
+  assert.match(push, /constantTimeEqual/);
+  assert.match(push, /UUID_PATTERN/);
+  assert.match(push, /membersError/g);
+  assert.match(push, /!body\.url\.startsWith\("\/\/"\)/);
+  assert.match(push, /requestedUserIds\.includes\(id\)/);
+  assert.doesNotMatch(push, /falhou user=/);
+});
+
+test("frontend exibe referencia curta para falhas correlacionadas das Edge Functions", async () => {
+  const source = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const withRequestReference/);
+  assert.match(source, /slice\(-8\)\.toUpperCase\(\)/);
+  assert.match(source, /\(ref\. \$\{compactId\}\)/);
+  assert.match(source, /responseBody\?\.requestId/);
+  assert.match(source, /readFunctionFailure\(data, error, "Erro ao excluir conta"\)/g);
+  assert.match(source, /const invokePushNotification/);
+  assert.doesNotMatch(source, /fire-and-forget, falha silenciosa/);
+});
+
+test("briefing Lovable preserva contratos e proibe publicacao", async () => {
+  const prompt = await readFile(new URL("../PROMPT_LOVABLE_LAYOUT_ROTINUP.md", import.meta.url), "utf8");
+
+  assert.match(prompt, /React 19/);
+  assert.match(prompt, /Supabase/);
+  assert.match(prompt, /Free.*1 filho/s);
+  assert.match(prompt, /Premium.*10 filhos/s);
+  assert.match(prompt, /390x844/);
+  assert.match(prompt, /n.o publique, n.o conecte a produ..o e n.o execute migrations/i);
+});

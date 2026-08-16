@@ -5,6 +5,7 @@ import {
   minimizeHotmartPayload,
   parseHotmartWebhook,
 } from "./domain.js";
+import { createEdgeLogger, getErrorMetadata, getRequestId } from "../_shared/observability.ts";
 
 const jsonResponse = (body: unknown, status = 200) => new Response(
   JSON.stringify(body),
@@ -19,9 +20,12 @@ const splitEnvList = (value: string) => value
 const MAX_PAYLOAD_BYTES = 1_000_000;
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
-
-  const requestId = crypto.randomUUID();
+  const requestId = getRequestId(req);
+  const logger = createEdgeLogger("hotmart-webhook", requestId);
+  if (req.method !== "POST") {
+    logger.warn("method_not_allowed", { method: req.method });
+    return jsonResponse({ error: "method_not_allowed", requestId }, 405);
+  }
   const hottokSecret = Deno.env.get("HOTMART_HOTTOK") ?? "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -37,7 +41,12 @@ Deno.serve(async (req) => {
     || !serviceKey
     || (allowedProductIds.length === 0 && allowedProductUcodes.length === 0)
   ) {
-    console.error("[hotmart] Configuração obrigatória ausente", { requestId });
+    logger.error("server_misconfigured", {
+      has_hottok: Boolean(hottokSecret),
+      has_supabase_url: Boolean(supabaseUrl),
+      has_service_credential: Boolean(serviceKey),
+      has_product_allowlist: allowedProductIds.length > 0 || allowedProductUcodes.length > 0,
+    });
     return jsonResponse({ error: "server_misconfigured", requestId }, 500);
   }
 
@@ -46,15 +55,16 @@ Deno.serve(async (req) => {
   const legacyQueryToken = allowLegacyQueryToken ? url.searchParams.get("hottok") ?? "" : "";
   const receivedToken = headerToken || legacyQueryToken;
   if (!receivedToken || !constantTimeEqual(receivedToken, hottokSecret)) {
-    console.warn("[hotmart] Hottok inválido", { requestId });
+    logger.warn("unauthorized");
     return jsonResponse({ error: "unauthorized", requestId }, 401);
   }
   if (!headerToken && legacyQueryToken) {
-    console.warn("[hotmart] Hottok recebido por query legada", { requestId });
+    logger.warn("legacy_query_token_used");
   }
 
   const contentLength = Number(req.headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES) {
+    logger.warn("payload_too_large", { content_length: contentLength });
     return jsonResponse({ error: "payload_too_large", requestId }, 413);
   }
 
@@ -62,10 +72,12 @@ Deno.serve(async (req) => {
   try {
     const rawBody = await req.text();
     if (new TextEncoder().encode(rawBody).byteLength > MAX_PAYLOAD_BYTES) {
+      logger.warn("payload_too_large", { measured: true });
       return jsonResponse({ error: "payload_too_large", requestId }, 413);
     }
     body = JSON.parse(rawBody);
-  } catch {
+  } catch (error) {
+    logger.warn("invalid_json", getErrorMetadata(error));
     return jsonResponse({ error: "invalid_json", requestId }, 400);
   }
 
@@ -74,29 +86,27 @@ Deno.serve(async (req) => {
     parsed = parseHotmartWebhook(body);
   } catch (error) {
     const message = error instanceof Error ? error.message : "payload inválido";
-    console.warn("[hotmart] Payload rejeitado", { requestId, message });
+    logger.warn("invalid_payload", { reason: message });
     return jsonResponse({ error: "invalid_payload", message, requestId }, 400);
   }
 
   if (!isAllowedHotmartProduct(parsed, allowedProductIds, allowedProductUcodes)) {
-    console.warn("[hotmart] Evento de produto não autorizado", {
-      requestId,
-      eventId: parsed.eventId,
-      productId: parsed.productId,
-      productUcode: parsed.productUcode,
+    logger.warn("product_not_allowed", {
+      event_id: parsed.eventId,
+      product_id: parsed.productId,
+      product_ucode: parsed.productUcode,
     });
     return jsonResponse({ ok: true, ignored: "product_not_allowed", requestId });
   }
 
   if (!parsed.newPlan) {
-    console.info("[hotmart] Evento ignorado", { requestId, eventId: parsed.eventId, event: parsed.event });
+    logger.info("event_ignored", { event_id: parsed.eventId, event_type: parsed.event });
     return jsonResponse({ ok: true, ignored: parsed.event, requestId });
   }
   if (!parsed.entitlementKey) {
-    console.warn("[hotmart] Evento sem identificador de compra/assinatura", {
-      requestId,
-      eventId: parsed.eventId,
-      event: parsed.event,
+    logger.warn("missing_entitlement_key", {
+      event_id: parsed.eventId,
+      event_type: parsed.event,
     });
     return jsonResponse({ error: "missing_entitlement_key", requestId }, 400);
   }
@@ -117,19 +127,16 @@ Deno.serve(async (req) => {
   });
 
   if (error) {
-    console.error("[hotmart] Falha no processamento atômico", {
-      requestId,
-      eventId: parsed.eventId,
-      code: error.code,
-      message: error.message,
+    logger.error("processing_failed", {
+      event_id: parsed.eventId,
+      ...getErrorMetadata(error),
     });
     return jsonResponse({ error: "processing_failed", requestId }, 500);
   }
 
-  console.info("[hotmart] Evento processado", {
-    requestId,
-    eventId: parsed.eventId,
-    event: parsed.event,
+  logger.info("event_processed", {
+    event_id: parsed.eventId,
+    event_type: parsed.event,
     duplicate: data?.duplicate ?? false,
     linked: data?.linked ?? false,
   });

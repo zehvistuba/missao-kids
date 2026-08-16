@@ -348,6 +348,8 @@ Critério de pronto:
 | 2026-08-13 | Lote de qualidade e performance v4 | ✅ Validado localmente | Lint estrito 0/0; 14/14 testes; audit 0 vulnerabilidades; bundle principal 612→226 kB; singleton Supabase; hardening `create_family`; landing desktop responsiva; QA público mobile/desktop aprovado. **Sem deploy ou SQL aplicado.** |
 | 2026-08-13 | Revisao final de receita Hotmart | ✅ Corrigido localmente | Webhook agora exige produto RotinUp em allowlist, versao 2.0.0 e corpo real <=1 MB; cancelamento preserva Premium ate `date_next_charge`. Runbook e preflight criados. **Exige configurar produto/segredo antes do deploy.** |
 | 2026-08-13 | Observabilidade de erros de uso v5 | Validado localmente | Reporte automatico e manual com sanitizacao de PII, deduplicacao, rate limit, RLS/ACL fechadas, Error Boundary e fila administrativa. Migration `supabase_app_error_reporting.sql` preparada. **Sem SQL ou frontend publicado.** |
+| 2026-08-13 | Briefing mestre de layout para Lovable | Preparado | Escopo visual completo para visitante, responsavel, crianca e admin; preserva contratos comerciais, seguranca, acessibilidade e estados de uso. Proibe publicacao, conexao com producao e migrations. Ver `PROMPT_LOVABLE_LAYOUT_ROTINUP.md`. |
+| 2026-08-13 | Observabilidade e suporte Edge v6 | Validado localmente | Logs JSON correlacionados e sanitizados nas quatro Edge Functions; referencias curtas em erros de IA/exclusao; falhas de push passam ao reporte; runbook operacional criado. 21 testes PASS, lint estrito e parser das quatro funcoes verdes. **Nenhuma funcao, SQL ou frontend publicado.** |
 
 ---
 
@@ -431,6 +433,25 @@ Implementado e validado localmente em 2026-08-13:
 Evidencia local: `npm run check` verde, 17 testes PASS, audit de producao com 0 vulnerabilidades, build PWA concluido e QA publico 390x844/1440x900 sem overflow ou erros de console.
 
 Estado vivo: **nao aplicado**. A migration `supabase_app_error_reporting.sql` deve ser aplicada e verificada antes de publicar o frontend deste lote. Depois, executar O1-O11 de `QA_PRE_VENDA_LOTE3.md` com contas descartaveis.
+
+## 7.4 Estado do Lote v6 - Observabilidade Edge e suporte
+
+Implementado e validado localmente em 2026-08-13:
+
+- Logger compartilhado em JSON para `hotmart-webhook`, `delete-account`, `ai-assistant` e `push-notify`.
+- `request_id` unico em respostas e logs; o frontend mostra somente uma referencia curta nos erros correlacionaveis.
+- Sanitizacao defensiva de email, UUID, token, documento, telefone, cartao, query string e metadados sensiveis.
+- Erros internos e respostas brutas de provedores deixaram de ser devolvidos ao usuario.
+- IA valida acao e entitlement Premium antes de consumir cota; consulta de plano falha fechada.
+- Push limita corpo e destinatarios, valida UUIDs, restringe URL a caminho local, prova a familia e verifica todos os erros de consulta.
+- Falhas de push em segundo plano agora entram no reporte de erros sem interromper a acao principal.
+- Comparacao em tempo constante aplicada aos segredos aceitos pela funcao push.
+- `OPERACAO_SUPORTE.md` define coleta minima, correlacao, severidade, roteiros e gate de ativacao.
+- `DEPLOY_PRE_VENDA.md` inclui as quatro funcoes, smoke de logs sem PII e rollback completo.
+
+Evidencia local: 21 testes PASS, lint estrito sem avisos, `git diff --check` sem erros e parser/bundle das quatro Edge Functions concluido. O build PWA final deve permanecer verde no fechamento do lote.
+
+Estado vivo: **nao aplicado**. Nao houve deploy, push, migration nem liberacao do app. A ativacao exige seguir o gate de `OPERACAO_SUPORTE.md` e a ordem de `DEPLOY_PRE_VENDA.md`.
 
 ## 8. Modelo Para Novas Entradas
 

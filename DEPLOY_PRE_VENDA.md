@@ -15,7 +15,7 @@ Interrompa antes de publicar se qualquer item estiver ausente:
 - ID numerico ou `ucode` oficial do produto RotinUp obtido no payload Hotmart 2.0.0.
 - Novo Hottok forte disponivel, sem ser gravado no repositorio ou neste documento.
 - Contas descartaveis: Free, Premium, co-responsavel e duas familias isoladas.
-- Deploy anterior do frontend e das duas Edge Functions identificado para rollback.
+- Deploy anterior do frontend e das quatro Edge Functions identificado para rollback.
 
 ## 2. Variaveis obrigatorias
 
@@ -26,6 +26,10 @@ Configure os segredos da Edge Function `hotmart-webhook` antes de publicar a nov
 - `HOTMART_PRODUCT_UCODES`: `ucode`s permitidos, separados por virgula.
 - `SERVICE_ROLE_KEY`: chave de servico existente no ambiente.
 - `ALLOW_LEGACY_HOTTOK_QUERY`: ausente ou `false`.
+- `GEMINI_API_KEY`: credencial da IA, restrita ao ambiente da funcao.
+- `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`: par ativo das notificacoes push.
+- `CRON_SECRET`: segredo forte quando `push-notify` for chamado por rotina automatica.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`: presentes nas funcoes que os exigem.
 - `VITE_APP_VERSION`: opcional; use o SHA do deploy. Na Vercel, o build usa `VERCEL_GIT_COMMIT_SHA` como fallback.
 
 Ao menos uma allowlist de produto e obrigatoria. Sem ela, o webhook falha fechado com HTTP 500. Nunca use o codigo da pagina de checkout (`E105936971D`) como `product.id` sem confirmar no payload oficial.
@@ -43,11 +47,13 @@ Execute uma etapa por vez e pare ao primeiro resultado divergente:
 7. Smoke autenticado de reporte manual, deduplicacao e rate limit; provar que usuario comum nao lista nem atualiza reportes.
 8. Aplicar `supabase_fix_hotmart_idempotency.sql`; conferir tabela, RPC e ACL finais.
 9. Configurar os segredos/allowlist e publicar `hotmart-webhook` sem verificacao JWT da plataforma, pois a autenticacao e o header `X-HOTMART-HOTTOK`.
-10. Publicar `delete-account` mantendo verificacao JWT.
-11. Executar toda a secao Hotmart de `QA_PRE_VENDA_LOTE3.md` antes do frontend.
-12. Publicar o frontend e executar smoke publico em mobile e desktop.
-13. Executar QA autenticado completo, fila administrativa de erros e regressao K1-K10.
-14. Registrar hashes, horario, operador, respostas e decisao em `CONTROLE_EVOLUCOES.md`.
+10. Publicar `delete-account`, `ai-assistant` e `push-notify` mantendo verificacao JWT e incluindo `_shared/observability.ts` no artefato.
+11. Forcar uma falha controlada em cada Edge Function; confirmar JSON valido, `request_id` e ausencia de PII nos logs.
+12. Executar toda a secao Hotmart de `QA_PRE_VENDA_LOTE3.md` antes do frontend.
+13. Publicar o frontend e executar smoke publico em mobile e desktop.
+14. Executar QA autenticado completo, fila administrativa de erros e regressao K1-K10.
+15. Validar os roteiros de `OPERACAO_SUPORTE.md` e a busca pelas referencias curtas.
+16. Registrar hashes, horario, operador, respostas e decisao em `CONTROLE_EVOLUCOES.md`.
 
 ## 4. Criterios de parada
 
@@ -71,7 +77,7 @@ Rollback de aplicacao:
 
 1. Suspender temporariamente o webhook Hotmart no painel para impedir novos efeitos durante a reversao.
 2. Restaurar o deploy anterior do frontend.
-3. Republicar as versoes anteriores de `hotmart-webhook` e `delete-account` a partir do commit conhecido.
+3. Republicar as versoes anteriores de `hotmart-webhook`, `delete-account`, `ai-assistant` e `push-notify` a partir do commit conhecido.
 4. Restaurar `create_family`, `add_child`, `join_family_by_code` e `claim_premium_by_email` usando exatamente as definicoes capturadas pelo preflight.
 5. Reaplicar as ACLs capturadas e executar `NOTIFY pgrst, 'reload schema';`.
 6. Nao apagar colunas, eventos ou `hotmart_entitlements` durante rollback emergencial. Estruturas aditivas podem permanecer sem serem usadas e preservam evidencia financeira.

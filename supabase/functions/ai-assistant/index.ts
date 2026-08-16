@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.105.4";
+import { createEdgeLogger, getErrorMetadata, getRequestId } from "../_shared/observability.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,37 +14,90 @@ const respond = (body: unknown, status = 200) =>
 
 // Actions that require Premium plan
 const PREMIUM_ACTIONS = new Set(["weekly_report", "surprise_mission"]);
+const ALLOWED_ACTIONS = new Set(["suggest_missions", "weekly_report", "motivational", "companion", "surprise_mission"]);
+const MAX_PAYLOAD_BYTES = 64_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const requestId = getRequestId(req);
+  const logger = createEdgeLogger("ai-assistant", requestId);
+  if (req.method !== "POST") {
+    logger.warn("method_not_allowed", { method: req.method });
+    return respond({ error: "method_not_allowed", requestId }, 405);
+  }
+
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return respond({ error: "GEMINI_API_KEY não configurado nos secrets do Supabase" }, 500);
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+    const supabaseUrl  = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!GEMINI_API_KEY || !supabaseUrl || !supabaseAnon) {
+      logger.error("server_misconfigured", {
+        has_gemini_credential: Boolean(GEMINI_API_KEY),
+        has_supabase_url: Boolean(supabaseUrl),
+        has_anon_credential: Boolean(supabaseAnon),
+      });
+      return respond({ error: "Serviço de IA temporariamente indisponível.", requestId }, 500);
+    }
+
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES) {
+      logger.warn("payload_too_large", { content_length: contentLength });
+      return respond({ error: "Solicitação muito grande.", requestId }, 413);
     }
 
     let body: { action?: string; context?: Record<string, unknown> };
     try {
-      body = await req.json();
-    } catch {
-      return respond({ error: "Body JSON inválido" }, 400);
+      const rawBody = await req.text();
+      if (new TextEncoder().encode(rawBody).byteLength > MAX_PAYLOAD_BYTES) {
+        logger.warn("payload_too_large", { measured: true });
+        return respond({ error: "Solicitação muito grande.", requestId }, 413);
+      }
+      body = JSON.parse(rawBody);
+    } catch (error) {
+      logger.warn("invalid_json", getErrorMetadata(error));
+      return respond({ error: "Body JSON inválido", requestId }, 400);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      logger.warn("invalid_body");
+      return respond({ error: "Body JSON inválido", requestId }, 400);
     }
 
     const { action, context = {} } = body;
+    if (!action || !ALLOWED_ACTIONS.has(action) || !context || typeof context !== "object" || Array.isArray(context)) {
+      logger.warn("invalid_action", { action: action ?? "missing" });
+      return respond({ error: "Ação inválida", requestId }, 400);
+    }
 
     // Auth obrigatória em TODAS as ações — bloqueia abuso anônimo e custo aberto na IA.
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return respond({ error: "unauthorized" }, 401);
-    const supabaseUrl  = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
+    if (!authHeader) {
+      logger.warn("unauthorized", { reason: "missing_bearer" });
+      return respond({ error: "unauthorized", requestId }, 401);
+    }
     const callerClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: authErr } = await callerClient.auth.getUser();
-    if (authErr || !user) return respond({ error: "unauthorized" }, 401);
+    if (authErr || !user) {
+      logger.warn("unauthorized", authErr ? getErrorMetadata(authErr) : { reason: "user_not_found" });
+      return respond({ error: "unauthorized", requestId }, 401);
+    }
+
+    // Valide o entitlement antes de consumir a cota diária.
+    if (action && PREMIUM_ACTIONS.has(action)) {
+      const { data: plan, error: planError } = await callerClient.rpc("get_family_plan");
+      if (planError) {
+        logger.error("plan_lookup_failed", { action, ...getErrorMetadata(planError) });
+        return respond({ error: "Não foi possível verificar seu plano agora.", requestId }, 503);
+      }
+      if (plan !== "premium") {
+        logger.warn("premium_required", { action });
+        return respond({ error: "premium_required", requestId }, 403);
+      }
+    }
 
     // Rate-limit por usuário/dia (cota decidida pelo plano no servidor) — anti-abuso/custo.
     // FAIL-CLOSED: se a cota não puder ser verificada (erro/RPC ausente), bloqueia.
@@ -52,15 +106,12 @@ Deno.serve(async (req) => {
       const msg = rlErr || !rl
         ? "Não foi possível verificar o limite de IA agora. Tente novamente em instantes."
         : `Limite de IA de hoje atingido (${rl.limit}/dia). Tente amanhã.`;
-      return respond({ error: msg }, 429);
-    }
-
-    // Ações premium exigem plano premium
-    if (action && PREMIUM_ACTIONS.has(action)) {
-      const { data: plan } = await callerClient.rpc("get_family_plan");
-      if (plan !== "premium") {
-        return respond({ error: "premium_required" }, 403);
-      }
+      logger.warn("quota_rejected", {
+        action,
+        dependency_error: Boolean(rlErr || !rl),
+        limit: rl?.limit ?? null,
+      });
+      return respond({ error: msg, requestId }, 429);
     }
     let prompt = "";
     let isJson = false;
@@ -137,7 +188,8 @@ Crie UMA missão surpresa criativa e realizável hoje. Retorne APENAS JSON váli
 Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60, XP 15-50, português BR, descrição em 2ª pessoa.`;
 
     } else {
-      return respond({ error: `Ação desconhecida: ${action}` }, 400);
+      logger.warn("invalid_action", { action });
+      return respond({ error: "Ação inválida", requestId }, 400);
     }
 
     const geminiUrl =
@@ -157,8 +209,9 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
     });
 
     if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      return respond({ error: `Gemini ${geminiRes.status}: ${errText.slice(0, 300)}` }, 502);
+      await geminiRes.body?.cancel();
+      logger.error("provider_failed", { action, provider_status: geminiRes.status });
+      return respond({ error: "Não foi possível gerar o conteúdo agora. Tente novamente.", requestId }, 502);
     }
 
     const geminiData = await geminiRes.json();
@@ -170,14 +223,16 @@ Regras: criativa e diferente de rotinas normais, adequada à idade, coins 20-60,
       try {
         JSON.parse(result);
       } catch {
-        return respond({ error: "Resposta da IA não é JSON válido: " + result.slice(0, 200) }, 502);
+        logger.error("invalid_provider_response", { action, response_length: result.length });
+        return respond({ error: "A IA retornou uma resposta inválida. Tente novamente.", requestId }, 502);
       }
     }
 
-    return respond({ result });
+    logger.info("request_completed", { action, result_length: result.length });
+    return respond({ result, requestId });
 
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return respond({ error: msg }, 500);
+    logger.error("unexpected_error", getErrorMetadata(err));
+    return respond({ error: "Erro interno ao processar sua solicitação.", requestId }, 500);
   }
 });

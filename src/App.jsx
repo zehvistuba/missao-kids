@@ -46,6 +46,25 @@ const sanitizeContext = (ctx) => {
 const aiCooldowns = {};
 const AI_COOLDOWN_MS = 8000;
 
+const withRequestReference = (message, requestId) => {
+  const compactId = String(requestId ?? "").replace(/[^A-Za-z0-9]/g, "").slice(-8).toUpperCase();
+  return compactId ? `${message} (ref. ${compactId})` : message;
+};
+
+const readFunctionFailure = async (data, error, fallback) => {
+  let responseBody = data;
+  if (!responseBody && error?.context?.json) {
+    try {
+      responseBody = await error.context.json();
+    } catch {
+      // Network and gateway failures may not expose a JSON response body.
+    }
+  }
+
+  const message = responseBody?.error || error?.message || fallback;
+  return withRequestReference(message, responseBody?.requestId);
+};
+
 const callAI = async (action, context) => {
   const now = Date.now();
   if (aiCooldowns[action] && now - aiCooldowns[action] < AI_COOLDOWN_MS) {
@@ -60,18 +79,30 @@ const callAI = async (action, context) => {
     let msg = error.message;
     try {
       const body = await error.context?.json?.();
-      if (body?.error) msg = body.error;
+      if (body?.error) msg = withRequestReference(body.error, body.requestId);
     } catch {
       // Some network errors do not expose a JSON response body.
     }
     throw new Error(msg);
   }
-  if (data?.error) throw new Error(data.error);
+  if (data?.error) throw new Error(withRequestReference(data.error, data.requestId));
   return data?.result;
 };
 
 const captureActionError = (error, source, action, screen) => {
   void reportAppError({ error, source, action, screen });
+};
+
+const invokePushNotification = async (body, source, screen) => {
+  try {
+    const { data, error } = await supabase.functions.invoke("push-notify", { body });
+    if (error || data?.error) {
+      const failure = await readFunctionFailure(data, error, "Erro ao enviar notificação");
+      captureActionError(new Error(failure), source, "send", screen);
+    }
+  } catch (error) {
+    captureActionError(error, source, "send", screen);
+  }
 };
 
 const FREQ_OPTS = [
@@ -1677,9 +1708,10 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     // Edge function: apaga dados do app + remove do Auth (LGPD)
     const { data, error } = await supabase.functions.invoke("delete-account");
     if (error || data?.error) {
-      captureActionError(error || new Error(data.error), "child_account", "delete", "child_profile");
+      const failure = await readFunctionFailure(data, error, "Erro ao excluir conta");
+      captureActionError(new Error(failure), "child_account", "delete", "child_profile");
       setDeletingAccount(false);
-      return notify(data?.error || error?.message || "Erro ao excluir conta", "error");
+      return notify(failure, "error");
     }
     await supabase.auth.signOut();
     setDeletingAccount(false);
@@ -1914,9 +1946,11 @@ const ChildDash = ({ profile, onSignOut, onRefresh }) => {
     if (error) return notify("Erro ao enviar missão", "error");
     notify("✅ Missão enviada para aprovação!"); load();
     const mission = missions.find(m => m.id === mid);
-    supabase.functions.invoke("push-notify", {
-      body: { family_id: profile.family_id, title: "Nova missão para aprovar! 📋", body: `${mission?.emoji || "✅"} ${mission?.title || "Missão"} foi enviada por ${profile.display_name}` },
-    }).catch(() => {});
+    void invokePushNotification(
+      { family_id: profile.family_id, title: "Nova missão para aprovar! 📋", body: `${mission?.emoji || "✅"} ${mission?.title || "Missão"} foi enviada por ${profile.display_name}` },
+      "push_notification",
+      "child_missions",
+    );
   }
 
   useEffect(() => {
@@ -3246,9 +3280,10 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
     // Edge function: apaga dados do app + remove do Auth (LGPD)
     const { data, error } = await supabase.functions.invoke("delete-account");
     if (error || data?.error) {
-      captureActionError(error || new Error(data.error), "parent_account", "delete", "parent_settings");
+      const failure = await readFunctionFailure(data, error, "Erro ao excluir conta");
+      captureActionError(new Error(failure), "parent_account", "delete", "parent_settings");
       setDeletingAccount(false);
-      return notify(data?.error || error?.message || "Erro ao excluir conta", "error");
+      return notify(failure, "error");
     }
     await supabase.auth.signOut();
     setDeletingAccount(false);
@@ -3360,9 +3395,11 @@ const ParentDash = ({ profile, onSignOut, onRefresh }) => {
   };
 
   const pushNotify = (userIds, title, body) => {
-    supabase.functions.invoke("push-notify", {
-      body: { user_ids: userIds, title, body },
-    }).catch(() => {}); // fire-and-forget, falha silenciosa
+    void invokePushNotification(
+      { user_ids: userIds, title, body },
+      "push_notification",
+      "parent_dashboard",
+    );
   };
 
   const parentCheck = async (childId, missionId) => {

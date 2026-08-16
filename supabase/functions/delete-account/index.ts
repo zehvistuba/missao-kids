@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.105.4";
+import { createEdgeLogger, getErrorMetadata, getRequestId } from "../_shared/observability.ts";
 
 // Exclusão de conta (LGPD): apaga os dados do app (RPC delete_my_account, com a
 // permissão do próprio usuário) e remove o usuário do Supabase Auth + push subs.
@@ -11,20 +12,30 @@ const respond = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return respond({ error: "method_not_allowed" }, 405);
-
-  const requestId = crypto.randomUUID();
+  const requestId = getRequestId(req);
+  const logger = createEdgeLogger("delete-account", requestId);
+  if (req.method !== "POST") {
+    logger.warn("method_not_allowed", { method: req.method });
+    return respond({ error: "method_not_allowed", requestId }, 405);
+  }
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
     const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const ANON_KEY     = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
-      console.error("[delete-account] Configuração obrigatória ausente", { requestId });
+      logger.error("server_misconfigured", {
+        has_supabase_url: Boolean(SUPABASE_URL),
+        has_service_credential: Boolean(SERVICE_KEY),
+        has_anon_credential: Boolean(ANON_KEY),
+      });
       return respond({ error: "server_misconfigured", requestId }, 500);
     }
 
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    if (!jwt) return respond({ error: "unauthorized", requestId }, 401);
+    if (!jwt) {
+      logger.warn("unauthorized", { reason: "missing_bearer" });
+      return respond({ error: "unauthorized", requestId }, 401);
+    }
 
     // identifica o usuário pelo próprio token
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -32,7 +43,10 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return respond({ error: "unauthorized", requestId }, 401);
+    if (authErr || !user) {
+      logger.warn("unauthorized", authErr ? getErrorMetadata(authErr) : { reason: "user_not_found" });
+      return respond({ error: "unauthorized", requestId }, 401);
+    }
     const uid = user.id;
 
     // 1) apaga os dados do app com a permissão do próprio usuário
@@ -46,10 +60,11 @@ Deno.serve(async (req) => {
         .eq("id", uid)
         .maybeSingle();
       if (profileErr || remainingProfile) {
-        console.error("[delete-account] Falha ao excluir dados", {
-          requestId,
-          code: rpcErr.code,
-          message: rpcErr.message,
+        logger.error("app_data_deletion_failed", {
+          rpc_failed: true,
+          verification_failed: Boolean(profileErr),
+          profile_remaining: Boolean(remainingProfile),
+          ...getErrorMetadata(profileErr ?? rpcErr),
         });
         return respond({ error: "Falha ao excluir os dados da conta", requestId }, 500);
       }
@@ -59,25 +74,19 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { error: pushErr } = await admin.from("push_subscriptions").delete().eq("user_id", uid);
     if (pushErr) {
-      console.error("[delete-account] Falha ao remover push subscriptions", {
-        requestId,
-        message: pushErr.message,
-      });
+      logger.error("push_cleanup_failed", getErrorMetadata(pushErr));
       return respond({ error: "Falha temporária ao concluir a exclusão", requestId }, 500);
     }
     const { error: delErr } = await admin.auth.admin.deleteUser(uid);
     if (delErr) {
-      console.error("[delete-account] Falha ao remover usuário do Auth", {
-        requestId,
-        message: delErr.message,
-      });
+      logger.error("auth_deletion_failed", getErrorMetadata(delErr));
       return respond({ error: "Dados removidos; tente novamente para concluir a exclusão do login", requestId }, 500);
     }
 
+    logger.info("account_deleted");
     return respond({ ok: true, requestId });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[delete-account] Erro inesperado", { requestId, message: msg });
+    logger.error("unexpected_error", getErrorMetadata(err));
     return respond({ error: "internal_error", requestId }, 500);
   }
 });
