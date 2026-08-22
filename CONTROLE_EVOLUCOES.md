@@ -4,7 +4,7 @@
 > Atualize sempre que uma correção for aplicada, validada, reprovada ou enviada para QA.
 > Papéis dos chats/agentes e prompts de handoff ficam em `PROTOCOLO_AGENTES.md`.
 
-Última atualização manual: 2026-08-22 (Etapa 8 priorizada; sem feature nova ou deploy)
+Última atualização manual: 2026-08-22 (preview protegido preparado; sem push ou deploy)
 
 ---
 
@@ -26,6 +26,7 @@
 | PWA e acessibilidade | ✅ Fechado no pacote local | Fonte local, ícones reais, app shell offline, foco, modal legal e larguras 390/320 aprovados |
 | Cadeia de dependências | ✅ Fechado | Vite 8.2.2 e transitivas corrigidas; `npm audit` final com 0 vulnerabilidades |
 | Roadmap de produto pós-refresh | ✅ Priorizado | Paridade, oportunidades, rejeições, métricas e etapas registradas em `ROADMAP_PRODUTO_ETAPA8.md` |
+| Preview protegido | 🟡 Preparado | Runbook fail-closed criado; faltam confirmar proteção Vercel, variáveis Preview e executar push/deployment autorizado |
 | Venda aberta | ⏳ Pendente | Requer QA sem P0/P1 + Hotmart token + domínio/Resend |
 
 Veredito atual: **sem P0/P1 funcional conhecido nos fluxos cobertos**, com gates locais verdes e QA vivo Free/cross-family aprovado. O pacote local está em 94% de prontidão de engenharia, mas o release permanece **NO-GO** até preview protegido, smoke do admin proprietário, Premium/Hotmart, dispositivos/CWV e pendências operacionais. Relatório: `RELATORIO_ETAPA7_QA.md`.
@@ -365,6 +366,7 @@ Critério de pronto:
 | 2026-08-16 | Refresh visual Etapa 4D - estatisticas, conta, Premium e LGPD | Validado localmente | Visao familiar, IA, configuracoes, notificacoes, plano, suporte e privacidade migrados para os dois temas. Copia de IA alinhada aos limites 40/200; acoes concorrentes e exclusao por `EXCLUIR` endurecidas. 30 testes PASS; QA autenticado em tres viewports; conta 4D removida e relogin recusado. **Sem push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Refresh visual Etapa 5 - modo crianca acompanhado | Validado localmente | Rotina, premios, conquistas e perfil infantil agora abrem dentro da sessao adulta, sem criar login da crianca. Missoes, resgates e timers reutilizam somente handlers/RPCs autorizados do responsavel; repeticao e gasto exigem confirmacao. 31 testes PASS; QA funcional e visual em tres viewports/dois temas; conta e familia sinteticas removidas por LGPD. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
 | 2026-08-22 | Etapa 8 - roadmap funcional pos-refresh | Priorizado | Inventario confirmou o nucleo comercial e separou paridade, features novas e itens rejeitados. Telemetria minima, modelos de rotina, tendencias, conquistas reais e meta de recompensa lideram a fila. **Nenhuma feature, SQL, coleta, push, deploy ou liberacao.** Ver `ROADMAP_PRODUTO_ETAPA8.md`. |
+| 2026-08-22 | Gate de preview protegido | Preparado | `RUNBOOK_PREVIEW_PROTEGIDO.md` define Vercel Authentication, variaveis publicas, smoke negativo/positivo, headers, integracoes e criterios de parada. `.vercel` foi ignorado. **Nenhum push, deployment ou alteracao de producao.** |
 
 ---
 

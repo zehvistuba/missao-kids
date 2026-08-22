@@ -2,6 +2,8 @@
 
 Status: preparado em 2026-08-13. Nenhuma etapa deste documento prova que o lote foi publicado.
 
+Antes deste runbook, executar e aprovar `RUNBOOK_PREVIEW_PROTEGIDO.md`. Preview aprovado nao autoriza promocao para producao.
+
 ## 1. Gate de entrada
 
 Interrompa antes de publicar se qualquer item estiver ausente:

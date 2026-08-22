@@ -74,7 +74,7 @@ O icone legado de 448 KB permanece publicado por compatibilidade de URL, mas nao
 
 ## 5. Top 10 Final
 
-1. Criar preview protegido do commit aprovado, sem promover para producao.
+1. Executar `RUNBOOK_PREVIEW_PROTEGIDO.md`; a preparacao esta concluida, mas protecao, push e deployment ainda nao foram executados.
 2. Validar CSP/cabecalhos no preview, incluindo Supabase, Google OAuth, DiceBear, PWA e checkout Hotmart.
 3. Executar smoke somente leitura do administrador proprietario na UI renovada.
 4. Executar roteiro Premium controlado: compra, email igual/diferente, reconciliacao, cancelamento e idempotencia.

@@ -307,7 +307,7 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 
 ## 15. Proxima Decisao
 
-Preparar um preview protegido do pacote da Etapa 7, sem promover para producao, e executar os gates externos registrados em `RELATORIO_ETAPA7_QA.md`: dono na UI administrativa, Premium/Hotmart controlado, cabecalhos publicados, dispositivos reais e Core Web Vitals. O aplicativo permanece fechado. O inventario funcional pos-refresh foi concluido na Etapa 8; nenhuma funcao nova sera implementada antes desses gates e do aceite explicito do dono.
+Executar `RUNBOOK_PREVIEW_PROTEGIDO.md` para o pacote da Etapa 7, sem promover para producao, e entao rodar os gates externos registrados em `RELATORIO_ETAPA7_QA.md`: dono na UI administrativa, Premium/Hotmart controlado, cabecalhos publicados, dispositivos reais e Core Web Vitals. O aplicativo permanece fechado. O inventario funcional pos-refresh foi concluido na Etapa 8; nenhuma funcao nova sera implementada antes desses gates e do aceite explicito do dono.
 
 ## 16. Evidencia da Etapa 7
 
