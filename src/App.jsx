@@ -1170,6 +1170,12 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted, onBack }) => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [mode]);
 
+  useEffect(() => {
+    const restoreAuthControls = () => setLoading(false);
+    window.addEventListener("pageshow", restoreAuthControls);
+    return () => window.removeEventListener("pageshow", restoreAuthControls);
+  }, []);
+
   const notify = (msg, type = "success") => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 3500); };
 
   const authErrPT = (msg = "") => {
@@ -1247,11 +1253,19 @@ const AuthScreen = ({ initialMode = "login", onTermsAccepted, onBack }) => {
 
   const handleGoogle = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin }
-    });
-    if (error) { notify(authErrPT(error.message), "error"); setLoading(false); }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) throw error;
+    } catch (err) {
+      const msg = authErrPT(err?.message);
+      setInlineErr(msg);
+      notify(msg, "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const switchMode = (nextMode) => {

@@ -299,6 +299,9 @@ test("auth, consentimento e onboarding preservam contratos no refresh visual", a
   assert.match(auth, /autocomplete="new-password"|autoComplete=\{mode === "signup" \? "new-password"/i);
   assert.match(source, /supabase\.rpc\("accept_terms", \{ p_terms_version: TERMS_VERSION \}\)/);
   assert.match(source, /role="dialog" aria-modal="true" aria-labelledby="ru-legal-title"/);
+  assert.match(auth, /window\.addEventListener\("pageshow", restoreAuthControls\)/);
+  assert.match(auth, /window\.removeEventListener\("pageshow", restoreAuthControls\)/);
+  assert.match(auth, /const handleGoogle = async \(\) => \{[\s\S]*finally \{[\s\S]*setLoading\(false\)/);
 
   assert.match(onboarding, /supabase\.rpc\("create_family", \{ p_family_name: normalizedName \}\)/);
   assert.match(onboarding, /p_display_name: normalizedChildName/);
