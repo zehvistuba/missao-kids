@@ -738,7 +738,7 @@ const Splash = ({ onDone }) => {
   return (
     <div style={{ minHeight: "100vh", background: T.darker, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <div style={{ animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1)", textAlign: "center" }}>
-        <img src="/icon.png" alt="RotinUp" style={{ width: 110, height: 110, marginBottom: 20, borderRadius: 28, filter: `drop-shadow(0 0 24px #9B5DE566)` }} />
+        <img src="/icon-192.png" alt="RotinUp" width="110" height="110" style={{ width: 110, height: 110, marginBottom: 20, borderRadius: 28, filter: `drop-shadow(0 0 24px #9B5DE566)` }} />
         <div style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: 0, fontFamily: "'Nunito', sans-serif" }}>rotin<span style={{ color: T.primary }}>up</span></div>
         <div style={{ color: T.textMuted, fontSize: 13, marginTop: 8, letterSpacing: 2 }}>TRANSFORME A ROTINA EM AVENTURA</div>
       </div>
@@ -819,7 +819,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
         <img className="ru-hero__media" src={heroFamilyImage} alt="Família organizando missões e recompensas da rotina" />
         <header className="ru-hero__header">
           <div className="ru-brand" aria-label="RotinUp">
-            <img src="/icon.png" alt="" />
+            <img src="/icon-192.png" alt="" width="48" height="48" />
             <span>rotin<strong>up</strong></span>
           </div>
           <button type="button" className="ru-button ru-button--quiet" onClick={onLogin}>Entrar</button>
@@ -940,7 +940,7 @@ const LandingPage = ({ onSignup, onLogin }) => {
       </section>
       <footer className="ru-footer">
         <div className="ru-brand" aria-label="RotinUp">
-          <img src="/icon.png" alt="" />
+          <img src="/icon-192.png" alt="" width="48" height="48" />
           <span>rotin<strong>up</strong></span>
         </div>
         <p>Rotinas mais claras, conquistas compartilhadas.</p>
@@ -957,7 +957,7 @@ const FlowHeader = ({ onBack, backLabel = "Voltar" }) => (
       {onBack && <button type="button" className="ru-icon-button" onClick={onBack} aria-label={backLabel}>←</button>}
     </div>
     <div className="ru-flow-brand" aria-label="RotinUp">
-      <img src="/icon.png" alt="" />
+      <img src="/icon-192.png" alt="" width="48" height="48" />
       <span>rotin<strong>up</strong></span>
     </div>
     <div className="ru-flow-header__side" aria-hidden="true" />
@@ -5818,16 +5818,26 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
+    const installedHandler = () => { setInstallPrompt(null); setShowInstall(false); };
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", installedHandler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installedHandler);
+    };
   }, []);
 
   const installApp = async () => {
     if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === "accepted") setShowInstall(false);
-    setInstallPrompt(null);
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+    } catch (error) {
+      captureActionError(error, "pwa", "install_prompt", "app");
+    } finally {
+      setShowInstall(false);
+      setInstallPrompt(null);
+    }
   };
 
   const loadProfile = useCallback(async (uid) => {
@@ -5958,7 +5968,7 @@ export default function App() {
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={installApp} style={{ padding: "9px 16px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${T.primary}, ${T.pink})`, color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>Instalar</button>
-                <button onClick={() => setShowInstall(false)} style={{ padding: "9px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
+                <button onClick={() => setShowInstall(false)} aria-label="Agora não" style={{ padding: "9px 12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>✕</button>
               </div>
             </div>
           )}
@@ -5969,7 +5979,6 @@ export default function App() {
 }
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: 'Nunito', sans-serif; background: #080810; }
   @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }

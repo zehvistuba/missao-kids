@@ -1,8 +1,5 @@
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
-import { CacheFirst } from 'workbox-strategies';
-import { ExpirationPlugin } from 'workbox-expiration';
-import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
 
 // Cache-busting: o SW novo assume o controle IMEDIATAMENTE, sem esperar todas as
@@ -14,27 +11,8 @@ clientsClaim();
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-// Cache Google Fonts
-registerRoute(
-  /^https:\/\/fonts\.googleapis\.com\/.*/i,
-  new CacheFirst({
-    cacheName: 'gfonts-cache',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-    ],
-  })
-);
-registerRoute(
-  /^https:\/\/fonts\.gstatic\.com\/.*/i,
-  new CacheFirst({
-    cacheName: 'gfonts-static-cache',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-    ],
-  })
-);
+// Mantém as rotas da SPA disponíveis após a primeira instalação, inclusive /admin.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 
 // ─── Push Notifications ─────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
@@ -45,8 +23,8 @@ self.addEventListener('push', (event) => {
   const title   = data.title  || 'RotinUp 🚀';
   const options = {
     body:    data.body    || 'Você tem missões esperando por você!',
-    icon:    '/icon.png',
-    badge:   '/icon.png',
+    icon:    '/icon-192.png',
+    badge:   '/icon-192.png',
     tag:     data.tag     || 'rotinup-notification',
     data:    { url: data.url || '/' },
     vibrate: [200, 100, 200, 100, 200],

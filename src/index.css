@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 1000;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2") format("woff2-variations");
+}
+
 * { box-sizing: border-box; }
 
 html, body, #root {
@@ -15,4 +23,20 @@ body {
 #root {
   width: 100%;
   min-height: 100svh;
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #3977a8;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

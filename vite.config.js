@@ -29,7 +29,6 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
-      includeAssets: ['icon.png', 'icon.svg', 'favicon.svg'],
       manifest: {
         name: 'RotinUp',
         short_name: 'RotinUp',
@@ -42,10 +41,22 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: '/icon.png',
+            src: '/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'any',
+          },
+          {
+            src: '/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
           {
             src: '/icon.svg',
@@ -59,6 +70,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        globIgnores: ['icon.png'],
       },
     }),
   ],

@@ -24,6 +24,15 @@ import {
   sanitizeErrorText,
 } from "../src/lib/errorSanitizer.js";
 
+const readPngDimensions = async (url) => {
+  const png = await readFile(url);
+  assert.equal(png.subarray(1, 4).toString("ascii"), "PNG");
+  return {
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20),
+  };
+};
+
 const approvedPayload = {
   id: "evt-approved-1",
   creation_date: 1786500000000,
@@ -696,4 +705,69 @@ test("briefing Lovable preserva contratos e proibe publicacao", async () => {
   assert.match(prompt, /Premium.*10 filhos/s);
   assert.match(prompt, /390x844/);
   assert.match(prompt, /n.o publique, n.o conecte a produ..o e n.o execute migrations/i);
+});
+
+test("PWA usa app shell offline, icones reais e fonte local", async () => {
+  const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const globalCss = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  const serviceWorker = await readFile(new URL("../src/sw.js", import.meta.url), "utf8");
+  const viteConfig = await readFile(new URL("../vite.config.js", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+
+  assert.deepEqual(await readPngDimensions(new URL("../public/icon-192.png", import.meta.url)), { width: 192, height: 192 });
+  assert.deepEqual(await readPngDimensions(new URL("../public/icon-512.png", import.meta.url)), { width: 512, height: 512 });
+  assert.deepEqual(await readPngDimensions(new URL("../public/apple-touch-icon.png", import.meta.url)), { width: 180, height: 180 });
+  assert.match(viteConfig, /src: '\/icon-192\.png'[\s\S]*sizes: '192x192'/);
+  assert.match(viteConfig, /src: '\/icon-512\.png'[\s\S]*sizes: '512x512'/);
+  assert.match(viteConfig, /globIgnores: \['icon\.png'\]/);
+  assert.match(html, /apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png"/);
+  assert.match(serviceWorker, /new NavigationRoute\(createHandlerBoundToURL\('\/index\.html'\)\)/);
+  assert.match(globalCss, /@fontsource-variable\/nunito\/files\/nunito-latin-wght-normal\.woff2/);
+  assert.equal(packageJson.dependencies["@fontsource-variable/nunito"], "^5.3.0");
+  assert.doesNotMatch(app, /fonts\.googleapis\.com/);
+  assert.doesNotMatch(serviceWorker, /fonts\.(?:googleapis|gstatic)\.com/);
+  assert.doesNotMatch(app, /src="\/icon\.png"/);
+  assert.doesNotMatch(serviceWorker, /'\/icon\.png'/);
+  assert.match(app, /window\.addEventListener\("appinstalled", installedHandler\)/);
+  assert.match(app, /finally[\s\S]*setShowInstall\(false\)[\s\S]*setInstallPrompt\(null\)/);
+});
+
+test("deploy declara cabecalhos defensivos sem bloquear Supabase", async () => {
+  const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  const headers = new Map(config.headers[0].headers.map(({ key, value }) => [key, value]));
+  const csp = headers.get("Content-Security-Policy");
+
+  assert.equal(config.headers[0].source, "/(.*)");
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /connect-src 'self' https:\/\/\*\.supabase\.co wss:\/\/\*\.supabase\.co/);
+  assert.match(csp, /img-src 'self' data: blob: https:\/\/api\.dicebear\.com/);
+  assert.equal(headers.get("Cross-Origin-Opener-Policy"), "same-origin-allow-popups");
+  assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(headers.get("X-Frame-Options"), "DENY");
+  assert.ok(headers.has("Permissions-Policy"));
+  assert.ok(headers.has("Referrer-Policy"));
+});
+
+test("fallback global preserva foco visivel e reduz movimento", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+
+  assert.match(css, /:where\(button, a, input, select, textarea, \[tabindex\]\):focus-visible/);
+  assert.match(css, /outline: 3px solid #3977a8/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css, /animation-duration: 0\.01ms !important/);
+  assert.match(css, /transition-duration: 0\.01ms !important/);
+});
+
+test("QA vivo exige opt-in, usa dados sinteticos e garante limpeza LGPD", async () => {
+  const script = await readFile(new URL("../scripts/qa-live-stage7.mjs", import.meta.url), "utf8");
+
+  assert.match(script, /assert\.equal\(process\.env\.RUN_LIVE_QA, "1"/);
+  assert.match(script, /const QA_DOMAIN = "rotinup-qa\.test"/);
+  assert.match(script, /finally \{[\s\S]*cleanQaAccounts\(\)/);
+  assert.match(script, /client\.functions\.invoke\("delete-account"\)/);
+  assert.match(script, /LGPD-cleanup/);
+  assert.doesNotMatch(script, /service_role/i);
 });

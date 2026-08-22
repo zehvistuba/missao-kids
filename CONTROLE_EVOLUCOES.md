@@ -4,7 +4,7 @@
 > Atualize sempre que uma correção for aplicada, validada, reprovada ou enviada para QA.
 > Papéis dos chats/agentes e prompts de handoff ficam em `PROTOCOLO_AGENTES.md`.
 
-Última atualização manual: 2026-08-13 (lote de engenharia pré-venda v4 validado localmente)
+Última atualização manual: 2026-08-22 (Etapa 7 validada localmente e por API viva; sem deploy)
 
 ---
 
@@ -22,10 +22,12 @@
 | QA API black-box — `create_family` | ✅ Provado | Teste API em prod (2026-07-26): RPC cria família, grava `owner_id`/`family_id`/`invite_code`, bloqueia criança e duplicidade. O P0 anterior já havia sido corrigido pelo commit `31e0706` |
 | **Escalada de role no signup** | ✅ Provado (aplicado em produção) | Achado 2026-07-26: `signup` aceitava `role='admin'` → `admin_get_families` vazava 6 famílias + emails. Fix v3.1 aplicado em prod; FASE 2 verde; **prova de runtime por API 10/10 PASS** (signup admin→parent, PATCH bloqueado, falso admin "Acesso negado", `is_platform_admin()=false`). SHA aplicado `7d546fb9…`. Ver §2 |
 | QA UI pública/local | ✅ Parcial aprovado | Landing/auth/Termos em 390x844 e 1440x900: sem overflow, console limpo, consentimento e foco/Esc aprovados |
-| QA Chrome autenticado completo | ⏳ Pendente | Exige contas Free, Premium, co-responsável e admin no ambiente alvo |
+| QA autenticado transversal | 🟡 Parcial forte | Free, criança gerenciada, timers, resgates, LGPD e cross-family passaram por API viva; Premium, co-responsável e admin proprietário seguem pendentes |
+| PWA e acessibilidade | ✅ Fechado no pacote local | Fonte local, ícones reais, app shell offline, foco, modal legal e larguras 390/320 aprovados |
+| Cadeia de dependências | ✅ Fechado | Vite 8.2.2 e transitivas corrigidas; `npm audit` final com 0 vulnerabilidades |
 | Venda aberta | ⏳ Pendente | Requer QA sem P0/P1 + Hotmart token + domínio/Resend |
 
-Veredito atual: **sem P0 conhecido no ambiente vivo**, com gates locais verdes. `create_family` e a escalada de privilégio (auto-admin no signup) estão provados em produção; o hardening adicional de concorrência/ACL de `create_family` está apenas preparado. Falta para o beta pago: smoke manual do admin e QA autenticado completo. Decisão final de GO/NO-GO depende dessas provas e dos deploys do lote local.
+Veredito atual: **sem P0/P1 funcional conhecido nos fluxos cobertos**, com gates locais verdes e QA vivo Free/cross-family aprovado. O pacote local está em 94% de prontidão de engenharia, mas o release permanece **NO-GO** até preview protegido, smoke do admin proprietário, Premium/Hotmart, dispositivos/CWV e pendências operacionais. Relatório: `RELATORIO_ETAPA7_QA.md`.
 
 ---
 
@@ -86,7 +88,7 @@ Veredito atual: **sem P0 conhecido no ambiente vivo**, com gates locais verdes. 
 | P0 | Escalada de role no signup (auto-admin) | ✅ Provado | Aplicado em prod; FASE 2 verde; API 10/10 PASS. Falta só smoke manual do dono no painel |
 | P2 | `get_family_id_by_email` sem gate + defesa-em-profundidade nas admin_* | ✅ Provado (aplicado em prod) | `supabase_hardening_grants.sql` aplicado (SHA `07172e57…`); FASE 2 **9/9 ok=true**; smoke webhook via service_role **PASS** (family_id resolvido); anon sem EXECUTE em todas. `get_family_id_by_email` só `service_role` |
 | P3 | Default privileges amplos (anon/authenticated/service_role em funções novas) | 🟡 Aceito/tech-debt | Toda função nova nasce com EXECUTE p/ as 3 roles; exige hardening individual OU revisar `ALTER DEFAULT PRIVILEGES` (escopo próprio). Não bloqueia |
-| P1 | QA Chrome autenticado completo | ⏳ Pendente | Sem P0/P1 reais nos papéis Free, Premium, co-responsável e admin |
+| P1 | QA autenticado completo | 🟡 Parcial | Free + criança gerenciada + cross-family PASS em 2026-08-22; faltam Premium, co-responsável e admin proprietário |
 | P1 | Triagem final dos achados Chrome | ⏳ Pendente | Separar bug real, falso positivo e risco aceito |
 
 ---
@@ -113,7 +115,7 @@ Pode avançar se:
 - [x] **Escalada de role no signup (auto-admin) corrigida e provada.** (aplicada em prod + API 10/10 PASS 2026-07-26)
 - [ ] QA Chrome UI completo não encontra P0/P1 real.
 - [ ] Pagamento Premium está testado até ponto seguro sem compra real.
-- [ ] Fluxos centrais passam: cadastro, família, filho, missão, aprovação, recompensa, resgate, cronômetro e exclusão.
+- [x] Fluxos centrais passam: cadastro, família, filho, missão gerenciada, recompensa, resgate, cronômetro e exclusão. (API viva 2026-08-22)
 
 Decisão esperada: **GO com ressalvas**.
 

@@ -132,7 +132,7 @@ Status: concluida localmente, validada e sem deploy.
 
 ### Etapa 7 - QA transversal e preparacao de release
 
-Status: pendente.
+Status: concluida no escopo local/API; release nao autorizada e gates externos pendentes.
 
 - Regressao autenticada de adulto, crianca gerenciada e admin.
 - Seguranca cross-family e planos Free/Premium.
@@ -297,4 +297,21 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 
 ## 15. Proxima Decisao
 
-Iniciar a Etapa 7 em nova branch/commit para a regressao transversal autenticada de adulto, crianca gerenciada e admin, seguida dos gates de acessibilidade, PWA, performance, seguranca e preparacao de release. O aplicativo permanece fechado e as funcionalidades extras observadas no Lovable continuam reservadas para inventario e priorizacao somente depois desta etapa.
+Preparar um preview protegido do pacote da Etapa 7, sem promover para producao, e executar os gates externos registrados em `RELATORIO_ETAPA7_QA.md`: dono na UI administrativa, Premium/Hotmart controlado, cabecalhos publicados, dispositivos reais e Core Web Vitals. O aplicativo permanece fechado. A comparacao funcional pos-refresh com o Lovable pode ser iniciada em paralelo apenas como inventario e priorizacao, sem implementar novas funcoes antes desses gates.
+
+## 16. Evidencia da Etapa 7
+
+- Branch: `codex/refresh-visual-etapa-7`, derivada da Etapa 6 aprovada.
+- Seguranca de dependencias: o audit detectou 5 vulnerabilidades altas e 1 baixa no grafo de desenvolvimento; o lockfile foi atualizado para Vite 8.2.2 e transitivas corrigidas; audit final 0.
+- Cabecalhos: CSP, anti-frame, `nosniff`, referrer, COOP e Permissions Policy preparados em `vercel.json`; a resposta viva so podera ser provada depois do deploy controlado.
+- PWA: manifesto passou a apontar para PNGs reais 192x192 e 512x512, Apple 180x180, fonte Nunito local e app-shell offline para rotas da SPA.
+- Performance basica: o icone legado de 448 KB saiu da interface e do precache; o precache caiu de 1.358,63 KiB para 1.285,32 KiB mesmo incorporando fonte e icones corretos.
+- Acessibilidade: fallback global de foco visivel e movimento reduzido; landing/auth/modal legal aprovados em teclado e 390x844/320x700, sem overflow.
+- QA vivo: automacao protegida `scripts/qa-live-stage7.mjs` criou duas familias sinteticas e provou anti-escalada, limites Free, missao gerenciada, estorno unico, timer cumulativo/simultaneo e isolamento cross-family.
+- Limpeza: as 2 contas, familias, criancas, catalogos, logs e timers da rodada foram removidos pelo fluxo oficial `delete-account`.
+- PWA offline: com o servidor local desligado, refresh direto de `/admin` abriu o app shell sem erro de console.
+- Administracao: nao-admin foi barrado na RPC viva; smoke visual do dono ficou bloqueado porque o Chrome nao possuia sessao RotinUp.
+- Premium, dispositivos fisicos e Core Web Vitals permanecem bloqueados por ambiente/operacao e impedem release.
+- Automacao: 36/36 testes, lint estrito, build PWA, `git diff --check` e audit 0.
+- Relatorio integral: `RELATORIO_ETAPA7_QA.md`.
+- Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado.
