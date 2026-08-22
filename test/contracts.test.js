@@ -725,6 +725,7 @@ test("PWA usa app shell offline, icones reais e fonte local", async () => {
   assert.match(viteConfig, /src: '\/icon-512\.png'[\s\S]*sizes: '512x512'/);
   assert.match(viteConfig, /globIgnores: \['icon\.png'\]/);
   assert.match(html, /apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png"/);
+  assert.doesNotMatch(html, /rel="manifest"/);
   assert.match(serviceWorker, /new NavigationRoute\(createHandlerBoundToURL\('\/index\.html'\)\)/);
   assert.match(globalCss, /@fontsource-variable\/nunito\/files\/nunito-latin-wght-normal\.woff2/);
   assert.equal(packageJson.dependencies["@fontsource-variable/nunito"], "^5.3.0");
