@@ -4,7 +4,7 @@
 > Atualize sempre que uma correção for aplicada, validada, reprovada ou enviada para QA.
 > Papéis dos chats/agentes e prompts de handoff ficam em `PROTOCOLO_AGENTES.md`.
 
-Última atualização manual: 2026-08-22 (Etapa 7 validada localmente e por API viva; sem deploy)
+Última atualização manual: 2026-08-22 (Etapa 8 priorizada; sem feature nova ou deploy)
 
 ---
 
@@ -25,6 +25,7 @@
 | QA autenticado transversal | 🟡 Parcial forte | Free, criança gerenciada, timers, resgates, LGPD e cross-family passaram por API viva; Premium, co-responsável e admin proprietário seguem pendentes |
 | PWA e acessibilidade | ✅ Fechado no pacote local | Fonte local, ícones reais, app shell offline, foco, modal legal e larguras 390/320 aprovados |
 | Cadeia de dependências | ✅ Fechado | Vite 8.2.2 e transitivas corrigidas; `npm audit` final com 0 vulnerabilidades |
+| Roadmap de produto pós-refresh | ✅ Priorizado | Paridade, oportunidades, rejeições, métricas e etapas registradas em `ROADMAP_PRODUTO_ETAPA8.md` |
 | Venda aberta | ⏳ Pendente | Requer QA sem P0/P1 + Hotmart token + domínio/Resend |
 
 Veredito atual: **sem P0/P1 funcional conhecido nos fluxos cobertos**, com gates locais verdes e QA vivo Free/cross-family aprovado. O pacote local está em 94% de prontidão de engenharia, mas o release permanece **NO-GO** até preview protegido, smoke do admin proprietário, Premium/Hotmart, dispositivos/CWV e pendências operacionais. Relatório: `RELATORIO_ETAPA7_QA.md`.
@@ -138,7 +139,7 @@ Decisão esperada: **GO**.
 
 Este é o plano de melhoria técnica e de produto para chegar em um RotinUp limpo, confiável e pronto para escala. A ordem importa: primeiro removemos bloqueadores, depois estabilizamos QA, depois limpamos código e só então sofisticamos arquitetura.
 
-### Etapa 0 — Controle, Evidência e Disciplina
+### Engenharia E0 — Controle, Evidência e Disciplina
 
 Objetivo: nunca mais perder contexto nem marcar algo como resolvido sem prova.
 
@@ -153,7 +154,7 @@ Critério de pronto:
 - [ ] Toda nova rodada de QA entra no histórico.
 - [ ] Nenhum deploy importante acontece sem nota neste arquivo.
 
-### Etapa 1 — Bloqueadores de Uso
+### Engenharia E1 — Bloqueadores de Uso
 
 Objetivo: garantir que qualquer usuário novo consiga entrar, criar família e usar o fluxo principal.
 
@@ -169,7 +170,7 @@ Critério de pronto:
 - [ ] Dashboard carrega ou mostra erro com tentar novamente.
 - [ ] Build passa.
 
-### Etapa 2 — Fluxos Centrais de Produto
+### Engenharia E2 — Fluxos Centrais de Produto
 
 Objetivo: garantir que o produto entrega valor sem suporte manual.
 
@@ -184,7 +185,7 @@ Critério de pronto:
 - [ ] Sem duplicação de coins em duplo clique/duas abas.
 - [ ] Cronômetro passa todos os cenários.
 
-### Etapa 3 — Segurança e Privacidade Permanente
+### Engenharia E3 — Segurança e Privacidade Permanente
 
 Objetivo: manter o app seguro mesmo com usuário malicioso.
 
@@ -201,7 +202,7 @@ Critério de pronto:
 - [ ] Exclusão remove dados e Auth.
 - [ ] Consentimento é registrado por versão.
 
-### Etapa 4 — Pagamento e Operação de Receita
+### Engenharia E4 — Pagamento e Operação de Receita
 
 Objetivo: ninguém pagar e ficar sem Premium.
 
@@ -218,7 +219,7 @@ Critério de pronto:
 - [ ] Compra órfã é reconciliável.
 - [ ] Cancelamento/reembolso volta para Free.
 
-### Etapa 5 — UX, Acessibilidade e Confiança
+### Engenharia E5 — UX, Acessibilidade e Confiança
 
 Objetivo: app parecer profissional para adulto, criança e admin.
 
@@ -236,7 +237,7 @@ Critério de pronto:
 - [ ] Exclusão/pagamento têm confirmação clara.
 - [ ] Criança entende o que fazer sem explicação externa.
 
-### Etapa 6 — Limpeza Técnica Básica
+### Engenharia E6 — Limpeza Técnica Básica
 
 Objetivo: reduzir risco de regressão sem reescrever o app.
 
@@ -252,7 +253,7 @@ Critério de pronto:
 - [ ] Lint sem erros críticos.
 - [ ] Erros legados classificados: corrigir agora ou aceitar temporariamente.
 
-### Etapa 7 — Modularização Gradual do Frontend
+### Engenharia E7 — Modularização Gradual do Frontend
 
 Objetivo: sair de `App.jsx` gigante sem quebrar produto.
 
@@ -268,7 +269,7 @@ Critério de pronto:
 - [ ] Nenhuma mudança de comportamento sem QA.
 - [ ] Arquivos ficam menores e fáceis de revisar.
 
-### Etapa 8 — Testes Automatizados
+### Engenharia E8 — Testes Automatizados
 
 Objetivo: evitar regressão antes de cada deploy.
 
@@ -284,7 +285,7 @@ Critério de pronto:
 - [ ] Verificação SQL cobre funções críticas.
 - [ ] Deploy só avança com checks mínimos verdes.
 
-### Etapa 9 — Observabilidade e Suporte
+### Engenharia E9 — Observabilidade e Suporte
 
 Objetivo: descobrir problema antes do usuário reclamar.
 
@@ -300,7 +301,7 @@ Critério de pronto:
 - [ ] Suporte consegue resolver compra não vinculada.
 - [ ] Admin enxerga saúde mínima das famílias.
 
-### Etapa 10 — Escala, Produto e Excelência
+### Engenharia E10 — Escala, Produto e Excelência
 
 Objetivo: preparar venda aberta e crescimento.
 
@@ -363,6 +364,7 @@ Critério de pronto:
 | 2026-08-16 | Residuo sintetico do QA visual 4C | Aberto (operacional) | O primeiro seed interrompido deixou `Familia QA Visual 4C`, `Lia QA`, 3 recompensas e 2 resgates aprovados. Dados ficticios, isolados por RLS e sem PII real; requer purga administrativa posterior. A conta da rodada final foi removida e o relogin falhou como esperado. |
 | 2026-08-16 | Refresh visual Etapa 4D - estatisticas, conta, Premium e LGPD | Validado localmente | Visao familiar, IA, configuracoes, notificacoes, plano, suporte e privacidade migrados para os dois temas. Copia de IA alinhada aos limites 40/200; acoes concorrentes e exclusao por `EXCLUIR` endurecidas. 30 testes PASS; QA autenticado em tres viewports; conta 4D removida e relogin recusado. **Sem push, deploy, SQL ou liberacao.** |
 | 2026-08-16 | Refresh visual Etapa 5 - modo crianca acompanhado | Validado localmente | Rotina, premios, conquistas e perfil infantil agora abrem dentro da sessao adulta, sem criar login da crianca. Missoes, resgates e timers reutilizam somente handlers/RPCs autorizados do responsavel; repeticao e gasto exigem confirmacao. 31 testes PASS; QA funcional e visual em tres viewports/dois temas; conta e familia sinteticas removidas por LGPD. **Sem residuo QA, push, deploy, SQL ou liberacao.** |
+| 2026-08-22 | Etapa 8 - roadmap funcional pos-refresh | Priorizado | Inventario confirmou o nucleo comercial e separou paridade, features novas e itens rejeitados. Telemetria minima, modelos de rotina, tendencias, conquistas reais e meta de recompensa lideram a fila. **Nenhuma feature, SQL, coleta, push, deploy ou liberacao.** Ver `ROADMAP_PRODUTO_ETAPA8.md`. |
 
 ---
 

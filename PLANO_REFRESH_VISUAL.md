@@ -139,6 +139,16 @@ Status: concluida no escopo local/API; release nao autorizada e gates externos p
 - Acessibilidade, dispositivos reais, PWA, performance e recuperacao de falhas.
 - Somente depois dos gates tecnicos, operacionais e juridicos: decisao explicita de release.
 
+### Etapa 8 - Roadmap funcional pos-refresh
+
+Status: inventario e priorizacao concluidos; nenhuma funcionalidade implementada.
+
+- Comparacao funcional consolidada em `ROADMAP_PRODUTO_ETAPA8.md`.
+- Capacidades uteis do modo infantil legado foram separadas de funcoes novas.
+- Ranking entre irmaos, login infantil no MVP e timer local como autoridade foram rejeitados.
+- Telemetria minima, modelos de rotina, tendencia semanal, conquistas reais e meta de recompensa lideram a fila.
+- Implementacao permanece bloqueada ate os gates externos da Etapa 7 e aceite explicito do dono.
+
 ## 5. Gate de Cada Etapa
 
 Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
@@ -297,7 +307,7 @@ Uma etapa so pode ser fechada quando cumprir todos os itens aplicaveis:
 
 ## 15. Proxima Decisao
 
-Preparar um preview protegido do pacote da Etapa 7, sem promover para producao, e executar os gates externos registrados em `RELATORIO_ETAPA7_QA.md`: dono na UI administrativa, Premium/Hotmart controlado, cabecalhos publicados, dispositivos reais e Core Web Vitals. O aplicativo permanece fechado. A comparacao funcional pos-refresh com o Lovable pode ser iniciada em paralelo apenas como inventario e priorizacao, sem implementar novas funcoes antes desses gates.
+Preparar um preview protegido do pacote da Etapa 7, sem promover para producao, e executar os gates externos registrados em `RELATORIO_ETAPA7_QA.md`: dono na UI administrativa, Premium/Hotmart controlado, cabecalhos publicados, dispositivos reais e Core Web Vitals. O aplicativo permanece fechado. O inventario funcional pos-refresh foi concluido na Etapa 8; nenhuma funcao nova sera implementada antes desses gates e do aceite explicito do dono.
 
 ## 16. Evidencia da Etapa 7
 
@@ -315,3 +325,15 @@ Preparar um preview protegido do pacote da Etapa 7, sem promover para producao, 
 - Automacao: 36/36 testes, lint estrito, build PWA, `git diff --check` e audit 0.
 - Relatorio integral: `RELATORIO_ETAPA7_QA.md`.
 - Estado vivo: nenhum push, deploy, SQL ou liberacao foi realizado.
+
+## 17. Evidencia da Etapa 8
+
+- Branch: `codex/roadmap-produto-etapa-8`, derivada da Etapa 7 aprovada localmente.
+- Referencias: briefing Lovable, rotas ja observadas, codigo real, contratos comerciais e relatorio transversal.
+- Inventario: o nucleo do responsavel esta completo; estatisticas, conquistas acompanhadas, preferencias de notificacao e operacao financeira possuem lacunas claras.
+- Paridade: progresso semanal, conquistas reais, resgate em quantidade, Capitao Rotina e missao surpresa foram encontrados no modo infantil legado e classificados individualmente.
+- Produto: 14 oportunidades receberam notas de valor, retencao, receita, evidencia, complexidade e risco.
+- Decisoes: 7 itens para adicionar, 3 para prototipar, 4 para adiar ou rejeitar; nenhum codigo funcional foi alterado.
+- Roadmap: fundacao de medicao, ativacao/paridade, motivacao saudavel, retencao/comunicacao e operacao/escala.
+- Relatorio integral: `ROADMAP_PRODUTO_ETAPA8.md`.
+- Estado vivo: nenhum push, deploy, SQL, coleta de telemetria ou liberacao foi realizado.
